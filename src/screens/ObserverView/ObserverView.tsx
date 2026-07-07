@@ -1,3 +1,12 @@
+import { RevealDashboard } from '@/screens/RevealDashboard/RevealDashboard'
+
 export function ObserverView() {
-  return <div className="p-8"><h1 className="text-2xl font-bold">Observer View</h1></div>
+  return (
+    <div>
+      <div className="border-b border-amber-200 bg-amber-50 px-8 py-2 text-center text-sm text-amber-700">
+        Observer Mode — Read Only
+      </div>
+      <RevealDashboard />
+    </div>
+  )
 }
