@@ -26,9 +26,10 @@ export function AdminConsole() {
 
   const allTeamsSubmitted =
     teams.length > 0 &&
-    teams.every(team =>
-      allocations.filter(a => a.teamId === team.id).every(a => a.submittedAt !== null),
-    )
+    teams.every(team => {
+      const teamAllocs = allocations.filter(a => a.teamId === team.id)
+      return teamAllocs.length > 0 && teamAllocs.every(a => a.submittedAt !== null)
+    })
 
   const handleOpenRound = () => {
     console.log('TODO: PATCH apex_round status → Open')

@@ -131,6 +131,16 @@ describe('AdminConsole', () => {
     expect(screen.queryByText('All Submitted')).not.toBeInTheDocument()
   })
 
+  it('keeps reveal disabled when other teams have no loaded allocations yet', () => {
+    renderAdminConsole({
+      currentRound: { ...mockRound, status: 'Open' },
+      allocations: [buildAllocation('alpha-1', 'team-alpha', 100, '2026-07-07T12:00:00.000Z')],
+    })
+
+    expect(screen.getByRole('button', { name: 'Reveal Results' })).toBeDisabled()
+    expect(screen.queryByText('All Submitted')).not.toBeInTheDocument()
+  })
+
   it('shows the all-submitted badge and enables reveal when every team submitted', () => {
     renderAdminConsole({
       currentRound: { ...mockRound, status: 'Open' },
