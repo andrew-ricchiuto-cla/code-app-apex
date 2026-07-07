@@ -245,4 +245,42 @@ describe('custom data hooks', () => {
     expect(result.current.isLoading).toBe(false)
     expect(result.current.results).toEqual([])
   })
+
+  it('refetches round results for the same round when the refresh key changes', () => {
+    const useRoundResultsWithRefresh = useRoundResults as unknown as (
+      roundId: string | null,
+      refreshKey?: number,
+    ) => ReturnType<typeof useRoundResults>
+
+    const { result, rerender } = renderHook(
+      ({ roundId, refreshKey }) => useRoundResultsWithRefresh(roundId, refreshKey),
+      {
+        initialProps: {
+          roundId: 'round-001' as string | null,
+          refreshKey: 0,
+        },
+      },
+    )
+
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.results).toHaveLength(3)
+
+    act(() => {
+      rerender({ roundId: 'round-001', refreshKey: 1 })
+    })
+
+    expect(result.current.isLoading).toBe(true)
+    expect(result.current.results).toHaveLength(3)
+
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
+
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.results).toHaveLength(3)
+  })
 })

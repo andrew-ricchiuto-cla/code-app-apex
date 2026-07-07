@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import type { TeamRoundResult } from '@/types'
 import { mockTeamRoundResults } from '@/test/mockData'
 
-export function useRoundResults(roundId: string | null) {
+export function useRoundResults(roundId: string | null, refreshKey?: string | number) {
   const [results, setResults] = useState<TeamRoundResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -20,7 +20,7 @@ export function useRoundResults(roundId: string | null) {
       setIsLoading(false)
     }, 100)
     return () => clearTimeout(timer)
-  }, [roundId])
+  }, [refreshKey, roundId])
 
   return { results, isLoading }
 }
