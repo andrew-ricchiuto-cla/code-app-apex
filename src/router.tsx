@@ -1,11 +1,11 @@
-import { createBrowserRouter, redirect } from 'react-router-dom'
+import { createHashRouter, redirect } from 'react-router-dom'
 import { RoleGate } from '@/components/RoleGate'
 import { AdminConsole } from '@/screens/AdminConsole/AdminConsole'
 import { TeamWorkspace } from '@/screens/TeamWorkspace/TeamWorkspace'
 import { RevealDashboard } from '@/screens/RevealDashboard/RevealDashboard'
 import { ObserverView } from '@/screens/ObserverView/ObserverView'
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: '/',
     loader: () => redirect('/reveal'),
