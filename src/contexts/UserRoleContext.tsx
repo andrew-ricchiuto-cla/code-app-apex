@@ -7,6 +7,7 @@ interface UserRoleContextValue {
   currentUser: CurrentUser | null
   isLoading: boolean
   role: AppRole | null
+  devSwitchUser?: (user: CurrentUser) => void
 }
 
 const UserRoleContext = createContext<UserRoleContextValue | null>(null)
@@ -29,8 +30,12 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer)
   }, [])
 
+  const devSwitchUser = import.meta.env.DEV
+    ? (user: CurrentUser) => setCurrentUser(user)
+    : undefined
+
   return (
-    <UserRoleContext.Provider value={{ currentUser, isLoading, role: currentUser?.role ?? null }}>
+    <UserRoleContext.Provider value={{ currentUser, isLoading, role: currentUser?.role ?? null, devSwitchUser }}>
       {children}
     </UserRoleContext.Provider>
   )

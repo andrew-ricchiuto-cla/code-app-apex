@@ -50,7 +50,7 @@ export function RevealDashboard() {
     : []
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
       <header className="border-b px-8 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -123,6 +123,6 @@ export function RevealDashboard() {
           </>
         )}
       </main>
-    </div>
+    </>
   )
 }

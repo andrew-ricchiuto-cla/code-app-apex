@@ -28,7 +28,7 @@ export const mockRound: Round = {
     'and protect delivery capacity.',
   budget: 100,
   weightsConfigId: 'default-weights-v1',
-  status: 'Open',
+  status: 'Revealed',
 }
 
 export const mockCategories: Category[] = [
@@ -244,5 +244,13 @@ export const mockMemberUser: CurrentUser = {
   displayName: 'Bob Smith',
   role: 'Member',
   teamId: 'team-alpha',
+  isCaptain: false,
+}
+
+export const mockObserverUser: CurrentUser = {
+  systemUserId: 'user-observer',
+  displayName: 'Observer Guest',
+  role: 'Observer',
+  teamId: null,
   isCaptain: false,
 }

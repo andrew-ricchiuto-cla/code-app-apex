@@ -24,7 +24,7 @@ describe('mockData fixtures', () => {
     expect(mockRound).toMatchObject({
       id: 'round-001',
       simulationId: 'sim-001',
-      status: 'Open',
+      status: 'Revealed',
     })
 
     expect(mockCategories).toHaveLength(5)
