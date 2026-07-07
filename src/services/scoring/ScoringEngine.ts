@@ -42,12 +42,19 @@ export function scoreRound(input: ScoringInput): ScoringResult {
   }, 0)
   const newHealth = Math.min(100, Math.max(0, previousHealth + totalDelta))
   const delta = newHealth - previousHealth
+  const scaledContributions: CategoryContribution[] =
+    totalDelta !== 0
+      ? contributions.map(contribution => ({
+          ...contribution,
+          weightedImpact: contribution.weightedImpact * (delta / totalDelta),
+        }))
+      : contributions
 
   return {
     newHealth,
     delta,
-    contributions,
-    rationaleText: buildRationale(contributions, previousHealth, Math.round(newHealth)),
+    contributions: scaledContributions,
+    rationaleText: buildRationale(scaledContributions, previousHealth, newHealth),
   }
 }
 
@@ -56,6 +63,8 @@ function buildRationale(
   prev: number,
   next: number,
 ): string {
+  const prevDisplay = Math.round(prev)
+  const nextDisplay = Math.round(next)
   const sorted = [...contributions].sort(
     (left, right) => Math.abs(right.weightedImpact) - Math.abs(left.weightedImpact),
   )
@@ -66,7 +75,9 @@ function buildRationale(
 
   if (positives.length > 0) {
     const names = positives.map(contribution => contribution.name).join(' and ')
-    parts.push(`Investment in ${names} drove System Health from ${prev} → ${next}.`)
+    parts.push(
+      `Investment in ${names} drove System Health from ${prevDisplay} → ${nextDisplay}.`,
+    )
   }
 
   if (negatives.length > 0) {
@@ -75,7 +86,7 @@ function buildRationale(
   }
 
   if (parts.length === 0) {
-    parts.push(`System Health moved from ${prev} → ${next}.`)
+    parts.push(`System Health moved from ${prevDisplay} → ${nextDisplay}.`)
   }
 
   return parts.join(' ')

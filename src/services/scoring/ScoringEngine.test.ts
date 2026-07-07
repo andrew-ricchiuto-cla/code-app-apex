@@ -56,4 +56,31 @@ describe('scoreRound', () => {
     const result = scoreRound(base)
     expect(result.rationaleText).toContain('50')
   })
+
+  it('rounds previous and new health consistently in the rationale display', () => {
+    const result = scoreRound({
+      ...base,
+      previousHealth: 49.6,
+      eventWeights: { catA: 1.0, catB: 0.55 },
+    })
+
+    expect(result.newHealth).toBeCloseTo(66)
+    expect(result.rationaleText).toContain('50 → 66')
+  })
+
+  it('scales contribution impacts to match delta when clamping occurs', () => {
+    const result = scoreRound({ ...base, previousHealth: 95 })
+    const totalImpact = result.contributions.reduce(
+      (sum, contribution) => sum + contribution.weightedImpact,
+      0,
+    )
+    const catA = result.contributions.find(contribution => contribution.categoryId === 'catA')
+    const catB = result.contributions.find(contribution => contribution.categoryId === 'catB')
+
+    expect(result.newHealth).toBe(100)
+    expect(result.delta).toBe(5)
+    expect(totalImpact).toBeCloseTo(result.delta)
+    expect(catA?.weightedImpact).toBeCloseTo(3.75)
+    expect(catB?.weightedImpact).toBeCloseTo(1.25)
+  })
 })
