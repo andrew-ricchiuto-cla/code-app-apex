@@ -27,4 +27,10 @@ describe('WeightsConfigLoader', () => {
   it('throws on invalid JSON shape', () => {
     expect(() => WeightsConfigLoader.fromJson({ bad: 'shape' })).toThrow()
   })
+
+  it('throws when payload is null', () => {
+    expect(() =>
+      WeightsConfigLoader.fromJson({ id: 'x', sourceRef: 'y', payload: null }),
+    ).toThrow()
+  })
 })

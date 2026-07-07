@@ -40,6 +40,13 @@ export class WeightsConfigLoader {
       )
     }
 
+    const p = (json as Record<string, unknown>)['payload']
+    if (typeof p !== 'object' || p === null || Array.isArray(p)) {
+      throw new Error(
+        'Invalid WeightsConfig JSON: payload must be a non-null object',
+      )
+    }
+
     return new WeightsConfigLoader(json as WeightsConfig)
   }
 }
