@@ -9,7 +9,11 @@ import type { WeightsConfig, WeightsPayload } from '@/types'
  * using the round's weightsConfigId, then call WeightsConfigLoader.fromJson().
  */
 export class WeightsConfigLoader {
-  constructor(private readonly config: WeightsConfig) {}
+  private readonly config: WeightsConfig
+
+  constructor(config: WeightsConfig) {
+    this.config = config
+  }
 
   getWeightsForEvent(
     eventKey: string,
