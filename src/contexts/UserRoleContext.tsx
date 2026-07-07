@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { getContext } from '@microsoft/power-apps/app'
 import type { AppRole, CurrentUser } from '@/types'
 import { mockFacilitatorUser } from '@/test/mockData'
 
@@ -17,17 +18,44 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // TODO: Replace with Dataverse SDK calls:
-    //   1. Get current user ID from Power Apps context
-    //   2. Query systemuserroles to resolve ApexFacilitator / ApexPlayer / ApexObserver
-    //   3. Query apex_team_member to find the user's team and captain status
-    //
-    // The resolved CurrentUser drives all role-gating in the app.
-    const timer = setTimeout(() => {
+    let cancelled = false
+
+    async function resolveUser() {
+      try {
+        // Attempt to read the real identity from the Power Apps runtime context.
+        // getContext() resolves in the hosted runtime; it may throw or return
+        // incomplete data when running outside Power Apps (e.g. local dev).
+        const ctx = await getContext()
+        if (cancelled) return
+
+        const sdkName = ctx.user.fullName ?? ctx.user.userPrincipalName ?? null
+
+        if (sdkName) {
+          // TODO: once Dataverse tables are connected, resolve the role by querying
+          //   apex_team_member / systemuserroles using ctx.user.objectId.
+          //   For now, default authenticated users to Facilitator.
+          setCurrentUser({
+            systemUserId: ctx.user.objectId ?? 'sdk-user',
+            displayName: sdkName,
+            role: 'Facilitator',
+            teamId: null,
+            isCaptain: false,
+          })
+          setIsLoading(false)
+          return
+        }
+      } catch {
+        // getContext() throws outside the Power Apps runtime — fall through to mock.
+      }
+
+      if (cancelled) return
+      // Dev / local fallback
       setCurrentUser(mockFacilitatorUser)
       setIsLoading(false)
-    }, 200)
-    return () => clearTimeout(timer)
+    }
+
+    void resolveUser()
+    return () => { cancelled = true }
   }, [])
 
   const devSwitchUser = import.meta.env.DEV

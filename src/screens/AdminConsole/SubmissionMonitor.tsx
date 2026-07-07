@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Allocation, Team } from '@/types'
 
@@ -18,22 +17,32 @@ function getStatus(teamId: string, allocations: Allocation[], budget: number): S
   return total === budget ? 'ready' : 'in-progress'
 }
 
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map(part => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+}
+
 const STATUS_CONFIG: Record<SubmissionStatus, { label: string; className: string }> = {
   'not-started': {
     label: 'Not Started',
-    className: 'bg-gray-100 text-gray-600 border-gray-200',
+    className: 'bg-slate-100 text-slate-600 border-slate-200',
   },
   'in-progress': {
     label: 'In Progress',
-    className: 'bg-blue-100 text-blue-700 border-blue-200',
+    className: 'bg-[#FBC55A] text-[#2E334E] border-[#F4D280]',
   },
   ready: {
     label: 'Ready to Submit',
-    className: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    className: 'bg-[#7DD2D3] text-[#2E334E] border-[#7DD2D3]',
   },
   submitted: {
     label: '✓ Submitted',
-    className: 'bg-green-100 text-green-700 border-green-200',
+    className: 'bg-[#2E334E] text-white border-[#2E334E]',
   },
 }
 
@@ -43,15 +52,12 @@ export function SubmissionMonitor({ teams, allocations, budget }: SubmissionMoni
     teams.every(team => getStatus(team.id, allocations, budget) === 'submitted')
 
   return (
-    <Card>
+    <Card className="border-0 shadow-[0_28px_70px_-42px_rgba(46,51,78,0.35)]">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          Team Submissions
-          {allSubmitted && <Badge className="bg-green-600 text-white">All Submitted</Badge>}
-        </CardTitle>
+        <CardTitle className="text-2xl font-black text-[#2E334E]">Team Submissions</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
+      <CardContent className="space-y-4">
+        <div className="space-y-3">
           {teams.map(team => {
             const status = getStatus(team.id, allocations, budget)
             const { label, className } = STATUS_CONFIG[status]
@@ -59,11 +65,19 @@ export function SubmissionMonitor({ teams, allocations, budget }: SubmissionMoni
             return (
               <div
                 key={team.id}
-                className="flex items-center justify-between rounded-md border p-3"
+                className="flex items-center justify-between gap-4 rounded-[28px] border border-[#D7E3EC] bg-white p-4 shadow-sm"
               >
-                <span className="font-medium">{team.name}</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2E334E] text-sm font-bold text-white">
+                    {getInitials(team.name)}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[#2E334E]">{team.name}</p>
+                    <p className="text-xs text-muted-foreground">Target budget ${budget}M</p>
+                  </div>
+                </div>
                 <span
-                  className={`rounded-full border px-3 py-0.5 text-xs font-medium ${className}`}
+                  className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-[0.2em] ${className}`}
                 >
                   {label}
                 </span>
@@ -71,6 +85,12 @@ export function SubmissionMonitor({ teams, allocations, budget }: SubmissionMoni
             )
           })}
         </div>
+
+        {allSubmitted && (
+          <div className="rounded-[28px] bg-[#2E334E] px-5 py-4 text-center text-sm font-bold uppercase tracking-[0.25em] text-white shadow-lg">
+            All Submitted
+          </div>
+        )}
       </CardContent>
     </Card>
   )

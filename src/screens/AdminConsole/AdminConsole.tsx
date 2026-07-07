@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { useSimulation } from '@/contexts/SimulationContext'
 import { useAllocations } from '@/hooks/useAllocations'
@@ -31,6 +32,11 @@ export function AdminConsole() {
       return teamAllocs.length > 0 && teamAllocs.every(a => a.submittedAt !== null)
     })
 
+  const submittedTeamsCount = teams.filter(team => {
+    const teamAllocs = allocations.filter(a => a.teamId === team.id)
+    return teamAllocs.length > 0 && teamAllocs.every(a => a.submittedAt !== null)
+  }).length
+
   const handleOpenRound = () => {
     console.log('TODO: PATCH apex_round status → Open')
     refresh()
@@ -49,19 +55,36 @@ export function AdminConsole() {
   }
 
   return (
-    <>
-      <header className="border-b px-8 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{simulation.name}</h1>
-            <p className="text-sm text-muted-foreground">Facilitator Console</p>
+    <div className="min-h-screen bg-[#F4F7FB]">
+      <header className="bg-[#2E334E]">
+        <div className="mx-auto max-w-5xl space-y-6 px-8 py-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h1 className="text-3xl font-black text-white">{simulation.name}</h1>
+              <p className="mt-2 text-sm font-semibold uppercase tracking-[0.35em] text-[#7DD2D3]">
+                Facilitator Console
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="rounded-2xl border-white/20 bg-white/10 px-5 text-white hover:bg-white hover:text-[#2E334E]"
+              onClick={refresh}
+            >
+              Refresh
+            </Button>
           </div>
-          <button
-            onClick={refresh}
-            className="text-sm text-muted-foreground underline hover:text-foreground"
-          >
-            Refresh
-          </button>
+
+          <div className="flex flex-wrap gap-3">
+            <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white">
+              Round {currentRound.index}
+            </span>
+            <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white">
+              {submittedTeamsCount}/{teams.length} Teams Submitted
+            </span>
+            <span className="rounded-full bg-[#7DD2D3] px-4 py-2 text-sm font-semibold text-[#2E334E]">
+              {currentRound.status}
+            </span>
+          </div>
         </div>
       </header>
 
@@ -75,6 +98,6 @@ export function AdminConsole() {
         />
         <SubmissionMonitor teams={teams} allocations={allocations} budget={currentRound.budget} />
       </main>
-    </>
+    </div>
   )
 }
