@@ -12,6 +12,7 @@ export function useRoundResults(roundId: string | null) {
       setIsLoading(false)
       return
     }
+    setIsLoading(true)
     // TODO: SDK call — apex_team_round_result where apex_roundid = roundId
     // Parse apex_contributionsjson from JSON string to CategoryContribution[]
     const timer = setTimeout(() => {

@@ -12,6 +12,7 @@ export function useTeams(simulationId: string | null) {
       setIsLoading(false)
       return
     }
+    setIsLoading(true)
     // TODO: SDK call — query apex_team where apex_simulationid = simulationId
     const timer = setTimeout(() => {
       setTeams(mockTeams.filter(t => t.simulationId === simulationId))

@@ -19,6 +19,7 @@ export function useMyTeam(teamId: string | null): UseMyTeamResult {
       setIsLoading(false)
       return
     }
+    setIsLoading(true)
     // TODO: SDK calls:
     //   apex_team where apex_teamid = teamId
     //   apex_team_member where apex_teamid = teamId

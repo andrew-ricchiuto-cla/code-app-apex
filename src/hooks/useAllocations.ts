@@ -27,6 +27,7 @@ export function useAllocations(
       setIsLoading(false)
       return
     }
+    setIsLoading(true)
     // TODO: SDK calls:
     //   apex_category where apex_roundid = roundId
     //   apex_allocation where apex_roundid = roundId AND apex_teamid = teamId
@@ -48,11 +49,14 @@ export function useAllocations(
 
   const submit = useCallback(async () => {
     setIsSubmitting(true)
-    // TODO: SDK call — set apex_submittedat = now() on all allocations for this round+team
-    await new Promise<void>(resolve => setTimeout(resolve, 500))
-    const now = new Date().toISOString()
-    setAllocations(prev => prev.map(a => ({ ...a, submittedAt: now })))
-    setIsSubmitting(false)
+    try {
+      // TODO: SDK call — set apex_submittedat = now() on all allocations for this round+team
+      await new Promise<void>(resolve => setTimeout(resolve, 500))
+      const now = new Date().toISOString()
+      setAllocations(prev => prev.map(a => ({ ...a, submittedAt: now })))
+    } finally {
+      setIsSubmitting(false)
+    }
   }, [])
 
   const isSubmitted =
