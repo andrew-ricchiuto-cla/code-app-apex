@@ -1,0 +1,13 @@
+{
+  "id": "default-weights-v1",
+  "sourceRef": "stub-uniform-weights",
+  "payload": {
+    "default": {
+      "cat-ai": 1.0,
+      "cat-reskill": 1.0,
+      "cat-industries": 1.0,
+      "cat-marketing": 1.0,
+      "cat-ops": 1.0
+    }
+  }
+}
