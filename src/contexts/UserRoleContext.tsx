@@ -58,9 +58,7 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true }
   }, [])
 
-  const devSwitchUser = import.meta.env.DEV
-    ? (user: CurrentUser) => setCurrentUser(user)
-    : undefined
+  const devSwitchUser = (user: CurrentUser) => setCurrentUser(user)
 
   return (
     <UserRoleContext.Provider value={{ currentUser, isLoading, role: currentUser?.role ?? null, devSwitchUser }}>

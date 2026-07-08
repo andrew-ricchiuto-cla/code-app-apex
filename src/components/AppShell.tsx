@@ -106,15 +106,12 @@ export function AppShell() {
             )}
           </div>
 
-          {/* DEV-only role switcher */}
-          {import.meta.env.DEV && devSwitchUser && (
+          {/* Role switcher */}
+          {devSwitchUser && (
             <>
               <div className="h-5 w-px bg-white/15" />
               <div className="flex items-center gap-1.5">
-                <span className="rounded bg-saffron/30 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-saffron">
-                  DEV
-                </span>
-                <select
+                  <select
                   aria-label="DEV role switcher"
                   className="rounded border border-white/20 bg-transparent px-2 py-1 text-xs text-white/70 [&>option]:bg-[#2E334E] cursor-pointer"
                   value={currentUser?.systemUserId ?? ''}
