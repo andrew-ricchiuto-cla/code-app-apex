@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Round, Simulation } from '@/types'
-import { mockRound, mockSimulation } from '@/test/mockData'
+import { mockRound3, mockSimulation } from '@/test/mockData'
 
 interface SimulationContextValue {
   simulation: Simulation | null
@@ -26,7 +26,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     //   2. Query apex_round where apex_roundid = simulation.currentRoundId
     const timer = setTimeout(() => {
       setSimulation(mockSimulation)
-      setCurrentRound(mockRound)
+      setCurrentRound(mockRound3)
       setIsLoading(false)
     }, 200)
     return () => clearTimeout(timer)

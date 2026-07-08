@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { useSimulation } from '@/contexts/SimulationContext'
+import { useAllRoundResults } from '@/hooks/useAllRoundResults'
 import { useRoundResults } from '@/hooks/useRoundResults'
+import { useRounds } from '@/hooks/useRounds'
 import { useTeams } from '@/hooks/useTeams'
 
 import { HealthTrendChart } from './HealthTrendChart'
@@ -22,12 +24,17 @@ export function RevealDashboard() {
   const { simulation, currentRound, isLoading: simLoading, refresh } = useSimulation()
   const [resultsRefreshKey, setResultsRefreshKey] = useState(0)
   const { teams, isLoading: teamsLoading } = useTeams(simulation?.id ?? null)
+  const { rounds, isLoading: roundsLoading } = useRounds(simulation?.id ?? null)
   const { results, isLoading: resultsLoading } = useRoundResults(
     currentRound?.id ?? null,
     `${currentRound?.status ?? 'None'}:${resultsRefreshKey}`,
   )
+  const { results: allResults, isLoading: allResultsLoading } = useAllRoundResults(
+    simulation?.id ?? null,
+  )
 
-  if (simLoading || teamsLoading || resultsLoading) return <LoadingSpinner />
+  if (simLoading || teamsLoading || resultsLoading || roundsLoading || allResultsLoading)
+    return <LoadingSpinner />
 
   const hasResults = currentRound?.status === 'Revealed' && results.length > 0
   const teamLabels = new Map<string, string>()
@@ -44,16 +51,28 @@ export function RevealDashboard() {
     refresh()
   }
 
+  const revealedRounds = rounds
+    .filter(r => r.status === 'Revealed')
+    .sort((a, b) => a.index - b.index)
+
   const trendData: TrendDataPoint[] = hasResults
     ? [
+        // Baseline before round 1
         {
-          roundLabel: `Round ${currentRound?.index ?? 1}`,
+          roundLabel: 'Start',
           ...Object.fromEntries(
-            results.map(r => {
-              return [teamLabels.get(r.teamId) ?? r.teamId, r.newHealth]
-            }),
+            teams.map(t => [teamLabels.get(t.id) ?? t.id, t.systemHealthBaseline]),
           ),
         },
+        // One point per revealed round
+        ...revealedRounds.map(round => ({
+          roundLabel: `Round ${round.index}`,
+          ...Object.fromEntries(
+            allResults
+              .filter(r => r.roundId === round.id)
+              .map(r => [teamLabels.get(r.teamId) ?? r.teamId, r.newHealth]),
+          ),
+        })),
       ]
     : []
 

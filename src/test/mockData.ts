@@ -14,7 +14,7 @@ export const mockSimulation: Simulation = {
   name: 'Apex Simulation 2026',
   createdBy: 'user-facilitator',
   status: 'Active',
-  currentRoundId: 'round-001',
+  currentRoundId: 'round-003',
 }
 
 export const mockRound: Round = {
@@ -254,3 +254,183 @@ export const mockObserverUser: CurrentUser = {
   teamId: null,
   isCaptain: false,
 }
+
+// ─── Round 2 ──────────────────────────────────────────────────────────────────
+
+export const mockRound2: Round = {
+  id: 'round-002',
+  simulationId: 'sim-001',
+  index: 2,
+  eventTitle: 'Digital Talent Arms Race',
+  eventDescription:
+    'A fierce competition for AI-fluent talent has erupted across the industry. ' +
+    'Competitors are offering aggressive packages and remote-first perks. ' +
+    'Decide where to double down to attract and retain the skills your firm needs.',
+  budget: 100,
+  weightsConfigId: 'default-weights-v1',
+  status: 'Revealed',
+}
+
+export const mockCategoriesRound2: Category[] = [
+  { id: 'cat-ai-r2', roundId: 'round-002', name: 'AI Investment', description: 'Automation and AI tooling' },
+  { id: 'cat-reskill-r2', roundId: 'round-002', name: 'Reskilling', description: 'Workforce development programs' },
+  { id: 'cat-talent-r2', roundId: 'round-002', name: 'Talent Acquisition', description: 'Recruiting and sourcing' },
+  { id: 'cat-innovation-r2', roundId: 'round-002', name: 'Innovation Labs', description: 'R&D and prototyping' },
+  { id: 'cat-ops-r2', roundId: 'round-002', name: 'Operations', description: 'Operational efficiency' },
+]
+
+export const mockTeamRoundResultsRound2: TeamRoundResult[] = [
+  {
+    id: 'result-r2-001',
+    roundId: 'round-002',
+    teamId: 'team-alpha',
+    previousHealth: 62,
+    newHealth: 58,
+    delta: -4,
+    contributions: [
+      { categoryId: 'cat-ai-r2', name: 'AI Investment', amount: 40, weightedImpact: -2 },
+      { categoryId: 'cat-reskill-r2', name: 'Reskilling', amount: 15, weightedImpact: 1 },
+      { categoryId: 'cat-talent-r2', name: 'Talent Acquisition', amount: 30, weightedImpact: -1 },
+      { categoryId: 'cat-innovation-r2', name: 'Innovation Labs', amount: 5, weightedImpact: -1 },
+      { categoryId: 'cat-ops-r2', name: 'Operations', amount: 10, weightedImpact: -1 },
+    ],
+    rationale:
+      'Heavy allocation to AI tooling backfired during a talent-first event. ' +
+      'Without adequate reskilling, productivity gains failed to materialize. System Health slipped from 62 → 58.',
+  },
+  {
+    id: 'result-r2-002',
+    roundId: 'round-002',
+    teamId: 'team-beta',
+    previousHealth: 55,
+    newHealth: 67,
+    delta: 12,
+    contributions: [
+      { categoryId: 'cat-talent-r2', name: 'Talent Acquisition', amount: 45, weightedImpact: 9 },
+      { categoryId: 'cat-reskill-r2', name: 'Reskilling', amount: 20, weightedImpact: 2 },
+      { categoryId: 'cat-innovation-r2', name: 'Innovation Labs', amount: 15, weightedImpact: 1 },
+      { categoryId: 'cat-ops-r2', name: 'Operations', amount: 10, weightedImpact: 1 },
+      { categoryId: 'cat-ai-r2', name: 'AI Investment', amount: 10, weightedImpact: -1 },
+    ],
+    rationale:
+      'Aggressive talent acquisition during the arms race paid off decisively. ' +
+      'A surge of skilled hires drove System Health from 55 → 67.',
+  },
+  {
+    id: 'result-r2-003',
+    roundId: 'round-002',
+    teamId: 'team-gamma',
+    previousHealth: 58,
+    newHealth: 65,
+    delta: 7,
+    contributions: [
+      { categoryId: 'cat-ai-r2', name: 'AI Investment', amount: 25, weightedImpact: 3 },
+      { categoryId: 'cat-reskill-r2', name: 'Reskilling', amount: 20, weightedImpact: 2 },
+      { categoryId: 'cat-talent-r2', name: 'Talent Acquisition', amount: 20, weightedImpact: 1 },
+      { categoryId: 'cat-innovation-r2', name: 'Innovation Labs', amount: 20, weightedImpact: 1 },
+      { categoryId: 'cat-ops-r2', name: 'Operations', amount: 15, weightedImpact: 0 },
+    ],
+    rationale:
+      'Balanced investment across talent, AI, and innovation kept Gamma competitive. ' +
+      'System Health rose from 58 → 65.',
+  },
+]
+
+// ─── Round 3 ──────────────────────────────────────────────────────────────────
+
+export const mockRound3: Round = {
+  id: 'round-003',
+  simulationId: 'sim-001',
+  index: 3,
+  eventTitle: 'Market Disruption Response',
+  eventDescription:
+    'A wave of tech-native competitors is undercutting on price and speed. ' +
+    'Your firm must act decisively to differentiate, protect core clients, ' +
+    'and position for the next cycle of growth.',
+  budget: 100,
+  weightsConfigId: 'default-weights-v1',
+  status: 'Revealed',
+}
+
+export const mockCategoriesRound3: Category[] = [
+  { id: 'cat-ai-r3', roundId: 'round-003', name: 'AI Investment', description: 'Automation and AI tooling' },
+  { id: 'cat-reskill-r3', roundId: 'round-003', name: 'Reskilling', description: 'Workforce development programs' },
+  { id: 'cat-compliance-r3', roundId: 'round-003', name: 'Compliance Programs', description: 'Regulatory adaptation' },
+  { id: 'cat-change-r3', roundId: 'round-003', name: 'Change Management', description: 'Transformation leadership' },
+  { id: 'cat-ops-r3', roundId: 'round-003', name: 'Operations', description: 'Operational efficiency' },
+]
+
+export const mockAllocationsRound3: Allocation[] = [
+  { id: 'alloc-a3-1', roundId: 'round-003', teamId: 'team-alpha', categoryId: 'cat-ai-r3', amount: 35, submittedAt: null },
+  { id: 'alloc-a3-2', roundId: 'round-003', teamId: 'team-alpha', categoryId: 'cat-reskill-r3', amount: 25, submittedAt: null },
+  { id: 'alloc-a3-3', roundId: 'round-003', teamId: 'team-alpha', categoryId: 'cat-compliance-r3', amount: 15, submittedAt: null },
+  { id: 'alloc-a3-4', roundId: 'round-003', teamId: 'team-alpha', categoryId: 'cat-change-r3', amount: 15, submittedAt: null },
+  { id: 'alloc-a3-5', roundId: 'round-003', teamId: 'team-alpha', categoryId: 'cat-ops-r3', amount: 10, submittedAt: null },
+]
+
+export const mockTeamRoundResultsRound3: TeamRoundResult[] = [
+  {
+    id: 'result-r3-001',
+    roundId: 'round-003',
+    teamId: 'team-alpha',
+    previousHealth: 58,
+    newHealth: 72,
+    delta: 14,
+    contributions: [
+      { categoryId: 'cat-ai-r3', name: 'AI Investment', amount: 35, weightedImpact: 7 },
+      { categoryId: 'cat-reskill-r3', name: 'Reskilling', amount: 25, weightedImpact: 5 },
+      { categoryId: 'cat-compliance-r3', name: 'Compliance Programs', amount: 15, weightedImpact: 1 },
+      { categoryId: 'cat-change-r3', name: 'Change Management', amount: 15, weightedImpact: 1 },
+      { categoryId: 'cat-ops-r3', name: 'Operations', amount: 10, weightedImpact: 0 },
+    ],
+    rationale:
+      'Pivoting to AI-led differentiation and targeted reskilling proved decisive. ' +
+      'System Health surged from 58 → 72, the round\'s largest single gain.',
+  },
+  {
+    id: 'result-r3-002',
+    roundId: 'round-003',
+    teamId: 'team-beta',
+    previousHealth: 67,
+    newHealth: 74,
+    delta: 7,
+    contributions: [
+      { categoryId: 'cat-ai-r3', name: 'AI Investment', amount: 20, weightedImpact: 4 },
+      { categoryId: 'cat-reskill-r3', name: 'Reskilling', amount: 20, weightedImpact: 3 },
+      { categoryId: 'cat-compliance-r3', name: 'Compliance Programs', amount: 25, weightedImpact: 2 },
+      { categoryId: 'cat-change-r3', name: 'Change Management', amount: 20, weightedImpact: 1 },
+      { categoryId: 'cat-ops-r3', name: 'Operations', amount: 15, weightedImpact: -3 },
+    ],
+    rationale:
+      'Consistent AI and reskilling investment maintained momentum through disruption. ' +
+      'System Health advanced from 67 → 74.',
+  },
+  {
+    id: 'result-r3-003',
+    roundId: 'round-003',
+    teamId: 'team-gamma',
+    previousHealth: 65,
+    newHealth: 68,
+    delta: 3,
+    contributions: [
+      { categoryId: 'cat-reskill-r3', name: 'Reskilling', amount: 30, weightedImpact: 4 },
+      { categoryId: 'cat-ai-r3', name: 'AI Investment', amount: 20, weightedImpact: 4 },
+      { categoryId: 'cat-compliance-r3', name: 'Compliance Programs', amount: 20, weightedImpact: -2 },
+      { categoryId: 'cat-change-r3', name: 'Change Management', amount: 15, weightedImpact: -2 },
+      { categoryId: 'cat-ops-r3', name: 'Operations', amount: 15, weightedImpact: -1 },
+    ],
+    rationale:
+      'Defensive allocation toward compliance and change management protected margins ' +
+      'but limited upside. System Health edged from 65 → 68.',
+  },
+]
+
+// ─── Aggregates ───────────────────────────────────────────────────────────────
+
+export const mockAllRounds: Round[] = [mockRound, mockRound2, mockRound3]
+
+export const mockAllTeamRoundResults: TeamRoundResult[] = [
+  ...mockTeamRoundResults,
+  ...mockTeamRoundResultsRound2,
+  ...mockTeamRoundResultsRound3,
+]

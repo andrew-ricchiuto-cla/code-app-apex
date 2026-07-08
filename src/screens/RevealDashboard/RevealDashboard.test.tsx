@@ -4,16 +4,27 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Round, Simulation, Team, TeamRoundResult } from '@/types'
-import { mockRound, mockSimulation, mockTeamRoundResults, mockTeams } from '@/test/mockData'
+import {
+  mockAllRounds,
+  mockAllTeamRoundResults,
+  mockRound,
+  mockSimulation,
+  mockTeamRoundResults,
+  mockTeams,
+} from '@/test/mockData'
 
 const {
   mockUseSimulation,
   mockUseTeams,
   mockUseRoundResults,
+  mockUseRounds,
+  mockUseAllRoundResults,
 } = vi.hoisted(() => ({
   mockUseSimulation: vi.fn(),
   mockUseTeams: vi.fn(),
   mockUseRoundResults: vi.fn(),
+  mockUseRounds: vi.fn(),
+  mockUseAllRoundResults: vi.fn(),
 }))
 
 vi.mock('@/contexts/SimulationContext', () => ({
@@ -26,6 +37,14 @@ vi.mock('@/hooks/useTeams', () => ({
 
 vi.mock('@/hooks/useRoundResults', () => ({
   useRoundResults: mockUseRoundResults,
+}))
+
+vi.mock('@/hooks/useRounds', () => ({
+  useRounds: mockUseRounds,
+}))
+
+vi.mock('@/hooks/useAllRoundResults', () => ({
+  useAllRoundResults: mockUseAllRoundResults,
 }))
 
 vi.mock('recharts', () => {
@@ -59,6 +78,10 @@ function renderRevealDashboard({
   teamsLoading = false,
   results = mockTeamRoundResults,
   resultsLoading = false,
+  rounds = mockAllRounds,
+  roundsLoading = false,
+  allResults = mockAllTeamRoundResults,
+  allResultsLoading = false,
   refresh = vi.fn(),
 }: {
   simulation?: Simulation | null
@@ -68,6 +91,10 @@ function renderRevealDashboard({
   teamsLoading?: boolean
   results?: TeamRoundResult[]
   resultsLoading?: boolean
+  rounds?: Round[]
+  roundsLoading?: boolean
+  allResults?: TeamRoundResult[]
+  allResultsLoading?: boolean
   refresh?: () => void
 } = {}) {
   mockUseSimulation.mockReturnValue({
@@ -83,6 +110,14 @@ function renderRevealDashboard({
   mockUseRoundResults.mockReturnValue({
     results,
     isLoading: resultsLoading,
+  })
+  mockUseRounds.mockReturnValue({
+    rounds,
+    isLoading: roundsLoading,
+  })
+  mockUseAllRoundResults.mockReturnValue({
+    results: allResults,
+    isLoading: allResultsLoading,
   })
 
   return { refresh, user: userEvent.setup(), ...render(<RevealDashboard />) }

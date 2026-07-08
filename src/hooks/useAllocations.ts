@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 
 import type { Allocation, Category } from '@/types'
-import { mockAllocations, mockCategories } from '@/test/mockData'
+import { mockAllocations, mockAllocationsRound3, mockCategories, mockCategoriesRound2, mockCategoriesRound3 } from '@/test/mockData'
+
+const ALL_CATEGORIES = [...mockCategories, ...mockCategoriesRound2, ...mockCategoriesRound3]
+const ALL_ALLOCATIONS = [...mockAllocations, ...mockAllocationsRound3]
 
 interface UseAllocationsResult {
   allocations: Allocation[]
@@ -32,9 +35,9 @@ export function useAllocations(
     //   apex_category where apex_roundid = roundId
     //   apex_allocation where apex_roundid = roundId AND apex_teamid = teamId
     const timer = setTimeout(() => {
-      setCategories(mockCategories.filter(c => c.roundId === roundId))
+      setCategories(ALL_CATEGORIES.filter(c => c.roundId === roundId))
       setAllocations(
-        mockAllocations.filter(a => a.roundId === roundId && a.teamId === teamId),
+        ALL_ALLOCATIONS.filter(a => a.roundId === roundId && a.teamId === teamId),
       )
       setIsLoading(false)
     }, 100)
