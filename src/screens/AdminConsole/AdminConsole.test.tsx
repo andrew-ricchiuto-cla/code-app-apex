@@ -8,11 +8,19 @@ import { mockAllocations, mockRound, mockSimulation, mockTeams } from '@/test/mo
 const {
   mockUseSimulation,
   mockUseTeams,
-  mockUseAllocations,
+  mockUseRoundAllocations,
+  mockUseRounds,
+  mockOpenRound,
+  mockForceAdvanceRound,
+  mockRevealRound,
 } = vi.hoisted(() => ({
   mockUseSimulation: vi.fn(),
   mockUseTeams: vi.fn(),
-  mockUseAllocations: vi.fn(),
+  mockUseRoundAllocations: vi.fn(),
+  mockUseRounds: vi.fn(),
+  mockOpenRound: vi.fn(),
+  mockForceAdvanceRound: vi.fn(),
+  mockRevealRound: vi.fn(),
 }))
 
 vi.mock('@/contexts/SimulationContext', () => ({
@@ -23,8 +31,22 @@ vi.mock('@/hooks/useTeams', () => ({
   useTeams: mockUseTeams,
 }))
 
-vi.mock('@/hooks/useAllocations', () => ({
-  useAllocations: mockUseAllocations,
+vi.mock('@/hooks/useRoundAllocations', () => ({
+  useRoundAllocations: mockUseRoundAllocations,
+}))
+
+vi.mock('@/hooks/useRounds', () => ({
+  useRounds: mockUseRounds,
+}))
+
+vi.mock('@/services/simulation/RoundLifecycle', () => ({
+  openRound: mockOpenRound,
+  forceAdvanceRound: mockForceAdvanceRound,
+  revealRound: mockRevealRound,
+}))
+
+vi.mock('@/services/simulation/DataverseRoundLifecycle', () => ({
+  dataverseRoundLifecycle: { kind: 'test-dependencies' },
 }))
 
 import { AdminConsole } from './AdminConsole'
@@ -72,9 +94,11 @@ function renderAdminConsole({
     teams,
     isLoading: teamsLoading,
   })
-  mockUseAllocations.mockReturnValue({
+  mockUseRoundAllocations.mockReturnValue({
     allocations,
+    isLoading: false,
   })
+  mockUseRounds.mockReturnValue({ rounds: [mockRound], isLoading: false })
 
   return { refresh, user: userEvent.setup(), ...render(<AdminConsole />) }
 }
@@ -82,6 +106,9 @@ function renderAdminConsole({
 describe('AdminConsole', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockOpenRound.mockResolvedValue(undefined)
+    mockForceAdvanceRound.mockResolvedValue(undefined)
+    mockRevealRound.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -169,5 +196,50 @@ describe('AdminConsole', () => {
 
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens a pending round through the lifecycle service and refreshes', async () => {
+    const refresh = vi.fn()
+    const { user } = renderAdminConsole({
+      currentRound: { ...mockRound, status: 'Pending' },
+      refresh,
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Open Round' }))
+
+    expect(mockOpenRound).toHaveBeenCalledWith(
+      mockRound.id,
+      expect.objectContaining({ kind: 'test-dependencies' }),
+    )
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows a locked round to be revealed', async () => {
+    const refresh = vi.fn()
+    const lockedRound = { ...mockRound, status: 'Locked' as const }
+    mockUseRounds.mockReturnValue({ rounds: [lockedRound], isLoading: false })
+    const { user } = renderAdminConsole({ currentRound: lockedRound, refresh })
+
+    await user.click(screen.getByRole('button', { name: 'Reveal Results' }))
+
+    expect(mockRevealRound).toHaveBeenCalledWith(
+      expect.objectContaining({ round: lockedRound, teams: mockTeams }),
+      expect.objectContaining({ kind: 'test-dependencies' }),
+    )
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows lifecycle errors and does not refresh', async () => {
+    const refresh = vi.fn()
+    mockOpenRound.mockRejectedValue(new Error('Dataverse update failed'))
+    const { user } = renderAdminConsole({
+      currentRound: { ...mockRound, status: 'Pending' },
+      refresh,
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Open Round' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Dataverse update failed')
+    expect(refresh).not.toHaveBeenCalled()
   })
 })

@@ -8,6 +8,7 @@ interface RoundManagerProps {
   onOpenRound: () => void
   onForceAdvance: () => void
   onRevealResults: () => void
+  disabled?: boolean
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -23,6 +24,7 @@ export function RoundManager({
   onOpenRound,
   onForceAdvance,
   onRevealResults,
+  disabled = false,
 }: RoundManagerProps) {
   return (
     <Card className="overflow-hidden border-0 shadow-[0_28px_70px_-42px_rgba(46,51,78,0.35)]">
@@ -67,6 +69,7 @@ export function RoundManager({
               size="lg"
               className="h-12 rounded-2xl bg-[#2E334E] px-6 text-white hover:bg-[#252940]"
               onClick={onOpenRound}
+              disabled={disabled}
             >
               Open Round
             </Button>
@@ -77,7 +80,7 @@ export function RoundManager({
                 size="lg"
                 className="h-12 rounded-2xl bg-[#2E334E] px-6 text-white hover:bg-[#252940]"
                 onClick={onRevealResults}
-                disabled={!allTeamsSubmitted}
+                disabled={disabled || !allTeamsSubmitted}
               >
                 Reveal Results
               </Button>
@@ -86,10 +89,21 @@ export function RoundManager({
                 size="lg"
                 className="h-12 rounded-2xl border-[#2E334E] px-6 text-[#2E334E] hover:bg-[#2E334E] hover:text-white"
                 onClick={onForceAdvance}
+                disabled={disabled}
               >
                 Force Advance
               </Button>
             </>
+          )}
+          {round.status === 'Locked' && (
+            <Button
+              size="lg"
+              className="h-12 rounded-2xl bg-[#2E334E] px-6 text-white hover:bg-[#252940]"
+              onClick={onRevealResults}
+              disabled={disabled}
+            >
+              Reveal Results
+            </Button>
           )}
           {round.status === 'Revealed' && (
             <p className="rounded-2xl bg-[#F7FAFC] px-4 py-3 text-sm text-muted-foreground">

@@ -86,7 +86,7 @@ export function useAllocations(
           Mw_allocationsService.update(allocation.id, {
             mw_amount: allocation.amount.toString(),
             mw_submittedat: now,
-          }),
+          }).then(requireData),
         ),
       )
       setAllocations(prev => prev.map(a => ({ ...a, submittedAt: now })))

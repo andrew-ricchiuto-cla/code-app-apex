@@ -41,6 +41,7 @@ import { useAllocations } from './useAllocations'
 import { useAllRoundResults } from './useAllRoundResults'
 import { useMyTeam } from './useMyTeam'
 import { useRoundResults } from './useRoundResults'
+import { useRoundAllocations } from './useRoundAllocations'
 import { useRounds } from './useRounds'
 import { useTeams } from './useTeams'
 
@@ -212,6 +213,38 @@ describe('Dataverse data hooks', () => {
     ])
   })
 
+  it('loads all team allocations for the admin submission monitor', async () => {
+    serviceMocks.allocationsGetAll.mockResolvedValue(
+      success([
+        {
+          mw_allocationid: 'allocation-1',
+          _mw_roundid_value: 'round-guid',
+          _mw_teamid_value: 'team-1',
+          _mw_categoryid_value: 'category-guid',
+          mw_amount: '100',
+        },
+        {
+          mw_allocationid: 'allocation-2',
+          _mw_roundid_value: 'round-guid',
+          _mw_teamid_value: 'team-2',
+          _mw_categoryid_value: 'category-guid',
+          mw_amount: '100',
+        },
+      ]),
+    )
+
+    const { result } = renderHook(() => useRoundAllocations('round-guid'))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.allocations.map(allocation => allocation.teamId)).toEqual([
+      'team-1',
+      'team-2',
+    ])
+    expect(serviceMocks.allocationsGetAll).toHaveBeenCalledWith({
+      filter: '_mw_roundid_value eq round-guid',
+    })
+  })
+
   it('loads results for every revealed round in a simulation', async () => {
     serviceMocks.roundsGetAll.mockResolvedValue(
       success([
@@ -242,4 +275,3 @@ describe('Dataverse data hooks', () => {
     ])
   })
 })
-

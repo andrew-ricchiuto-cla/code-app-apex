@@ -1,21 +1,33 @@
+import { useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { useSimulation } from '@/contexts/SimulationContext'
-import { useAllocations } from '@/hooks/useAllocations'
+import { useRoundAllocations } from '@/hooks/useRoundAllocations'
+import { useRounds } from '@/hooks/useRounds'
 import { useTeams } from '@/hooks/useTeams'
+import { dataverseRoundLifecycle } from '@/services/simulation/DataverseRoundLifecycle'
+import {
+  forceAdvanceRound,
+  openRound,
+  revealRound,
+} from '@/services/simulation/RoundLifecycle'
 
 import { RoundManager } from './RoundManager'
 import { SubmissionMonitor } from './SubmissionMonitor'
 
 export function AdminConsole() {
+  const [isActioning, setIsActioning] = useState(false)
+  const [actionError, setActionError] = useState<Error | null>(null)
   const { simulation, currentRound, isLoading: simLoading, refresh } = useSimulation()
   const { teams, isLoading: teamsLoading } = useTeams(simulation?.id ?? null)
-  // For the stub, load allocations keyed to the first team — replace with a
-  // multi-team query once the SDK is wired.
-  const firstTeamId = teams[0]?.id ?? null
-  const { allocations } = useAllocations(currentRound?.id ?? null, firstTeamId)
+  const { rounds, isLoading: roundsLoading } = useRounds(simulation?.id ?? null)
+  const { allocations, isLoading: allocationsLoading } = useRoundAllocations(
+    currentRound?.id ?? null,
+  )
 
-  if (simLoading || teamsLoading) return <LoadingSpinner message="Loading simulation…" />
+  if (simLoading || teamsLoading || roundsLoading || allocationsLoading)
+    return <LoadingSpinner message="Loading simulation…" />
 
   if (!simulation || !currentRound) {
     return (
@@ -37,22 +49,32 @@ export function AdminConsole() {
     return teamAllocs.length > 0 && teamAllocs.every(a => a.submittedAt !== null)
   }).length
 
-  const handleOpenRound = () => {
-    console.log('TODO: PATCH apex_round status → Open')
-    refresh()
+  const runAction = async (action: () => Promise<void>) => {
+    setIsActioning(true)
+    setActionError(null)
+    try {
+      await action()
+      refresh()
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause : new Error(String(cause)))
+    } finally {
+      setIsActioning(false)
+    }
   }
 
-  const handleForceAdvance = () => {
-    console.log('TODO: Submit remaining unsubmitted teams, then advance')
-    refresh()
-  }
+  const handleOpenRound = () =>
+    runAction(() => openRound(currentRound.id, dataverseRoundLifecycle))
 
-  const handleRevealResults = () => {
-    console.log(
-      'TODO: Run scoring engine for each team, write apex_team_round_result, PATCH round status → Revealed',
+  const handleForceAdvance = () =>
+    runAction(() => forceAdvanceRound(currentRound.id, dataverseRoundLifecycle))
+
+  const handleRevealResults = () =>
+    runAction(() =>
+      revealRound(
+        { round: currentRound, rounds, teams },
+        dataverseRoundLifecycle,
+      ),
     )
-    refresh()
-  }
 
   return (
     <div className="min-h-screen bg-[#F4F7FB]">
@@ -68,7 +90,8 @@ export function AdminConsole() {
             <Button
               variant="outline"
               className="rounded-2xl border-white/20 bg-white/10 px-5 text-white hover:bg-white hover:text-[#2E334E]"
-              onClick={refresh}
+            onClick={refresh}
+              disabled={isActioning}
             >
               Refresh
             </Button>
@@ -89,12 +112,21 @@ export function AdminConsole() {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-6 p-8">
+        {actionError && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800"
+          >
+            {actionError.message}
+          </div>
+        )}
         <RoundManager
           round={currentRound}
           allTeamsSubmitted={allTeamsSubmitted}
           onOpenRound={handleOpenRound}
           onForceAdvance={handleForceAdvance}
           onRevealResults={handleRevealResults}
+          disabled={isActioning}
         />
         <SubmissionMonitor teams={teams} allocations={allocations} budget={currentRound.budget} />
       </main>
