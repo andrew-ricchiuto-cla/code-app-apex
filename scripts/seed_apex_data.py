@@ -1,0 +1,548 @@
+"""Idempotently seed the Apex Simulation demo directly into Dataverse."""
+
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+sys.path.insert(0, os.path.dirname(__file__))
+
+from auth import get_credential, load_env
+from PowerPlatform.Dataverse.client import DataverseClient
+
+
+SIMULATION_NAME = "Apex Simulation 2026"
+SUBMITTED_AT = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc).isoformat()
+
+WEIGHTS = {
+    "high-attrition": {
+        "ai-investment": 0.4,
+        "reskilling": 1.4,
+        "industries": 0.2,
+        "marketing": -0.5,
+        "operations": -0.2,
+    },
+    "digital-talent-arms-race": {
+        "ai-investment": -0.4,
+        "reskilling": 0.8,
+        "talent-acquisition": 1.5,
+        "innovation-labs": 0.6,
+        "operations": 0.1,
+    },
+    "market-disruption": {
+        "ai-investment": 1.4,
+        "reskilling": 1.0,
+        "compliance-programs": -0.2,
+        "change-management": 0.5,
+        "operations": -0.3,
+    },
+    "default": {
+        "ai-investment": 1.0,
+        "reskilling": 1.0,
+        "industries": 1.0,
+        "marketing": 1.0,
+        "operations": 1.0,
+    },
+}
+
+ROUNDS = [
+    {
+        "index": 1,
+        "key": "high-attrition",
+        "title": "High Attrition Crisis",
+        "description": (
+            "The firm is experiencing a 25% annual attrition rate driven by burnout "
+            "and competitive offers. Allocate the budget to stabilize the workforce "
+            "and protect delivery capacity."
+        ),
+        "status": "Revealed",
+        "categories": [
+            ("ai-investment", "AI Investment", "Automation and AI tooling"),
+            ("reskilling", "Reskilling", "Workforce development programs"),
+            ("industries", "Industries", "Industry vertical focus"),
+            ("marketing", "Marketing", "Brand and demand generation"),
+            ("operations", "Operations", "Operational efficiency"),
+        ],
+    },
+    {
+        "index": 2,
+        "key": "digital-talent-arms-race",
+        "title": "Digital Talent Arms Race",
+        "description": (
+            "A fierce competition for AI-fluent talent has erupted across the industry. "
+            "Competitors are offering aggressive packages and remote-first perks. Decide "
+            "where to double down to attract and retain the skills the firm needs."
+        ),
+        "status": "Revealed",
+        "categories": [
+            ("ai-investment", "AI Investment", "Automation and AI tooling"),
+            ("reskilling", "Reskilling", "Workforce development programs"),
+            ("talent-acquisition", "Talent Acquisition", "Recruiting and sourcing"),
+            ("innovation-labs", "Innovation Labs", "Research and prototyping"),
+            ("operations", "Operations", "Operational efficiency"),
+        ],
+    },
+    {
+        "index": 3,
+        "key": "market-disruption",
+        "title": "Market Disruption Response",
+        "description": (
+            "A wave of tech-native competitors is undercutting on price and speed. The "
+            "firm must act decisively to differentiate, protect core clients, and position "
+            "for the next cycle of growth."
+        ),
+        "status": "Open",
+        "categories": [
+            ("ai-investment", "AI Investment", "Automation and AI tooling"),
+            ("reskilling", "Reskilling", "Workforce development programs"),
+            ("compliance-programs", "Compliance Programs", "Regulatory adaptation"),
+            ("change-management", "Change Management", "Transformation leadership"),
+            ("operations", "Operations", "Operational efficiency"),
+        ],
+    },
+]
+
+TEAMS = ["Team Alpha", "Team Beta", "Team Gamma"]
+MEMBERS = [
+    ("user-captain-a", "Alice Chen", "Team Alpha", True),
+    ("user-member-a1", "Bob Smith", "Team Alpha", False),
+    ("user-captain-b", "Carlos Rivera", "Team Beta", True),
+    ("user-member-b1", "Diana Park", "Team Beta", False),
+    ("user-captain-c", "Ethan Brooks", "Team Gamma", True),
+]
+
+ALLOCATIONS = {
+    (1, "Team Alpha"): [20, 40, 20, 10, 10],
+    (1, "Team Beta"): [50, 10, 10, 20, 10],
+    (1, "Team Gamma"): [30, 30, 20, 10, 10],
+    (2, "Team Alpha"): [40, 15, 30, 5, 10],
+    (2, "Team Beta"): [10, 20, 45, 15, 10],
+    (2, "Team Gamma"): [25, 20, 20, 20, 15],
+    (3, "Team Alpha"): [35, 25, 15, 15, 10],
+    (3, "Team Beta"): [20, 20, 25, 20, 15],
+    (3, "Team Gamma"): [20, 30, 20, 15, 15],
+}
+
+
+def fetch_records(client, table, select):
+    return [dict(record) for record in client.records.list(table, select=select)]
+
+
+def sync_records(client, table, id_column, select, desired, existing_key):
+    existing = fetch_records(client, table, [id_column, *select])
+    by_key = {existing_key(record): record for record in existing}
+    missing = []
+    created = 0
+    updated = 0
+
+    for key, payload in desired:
+        record = by_key.get(key)
+        if record is None:
+            missing.append(payload)
+        else:
+            client.records.update(table, record[id_column], payload)
+            updated += 1
+
+    if missing:
+        if len(missing) == 1:
+            client.records.create(table, missing[0])
+        else:
+            client.records.create(table, missing)
+        created = len(missing)
+
+    print(f"  {table}: {created} created, {updated} updated", flush=True)
+    return fetch_records(client, table, [id_column, *select])
+
+
+def bind(entity_set, record_id):
+    return f"/{entity_set}({record_id})"
+
+
+def score_result(previous_health, round_data, categories, amounts):
+    contributions = []
+    for category, amount in zip(categories, amounts):
+        weight = WEIGHTS[round_data["key"]][category["key"]]
+        impact = amount / 100 * weight * 20
+        contributions.append(
+            {
+                "categoryId": category["id"],
+                "name": category["name"],
+                "amount": amount,
+                "weightedImpact": impact,
+            }
+        )
+    delta = sum(item["weightedImpact"] for item in contributions)
+    new_health = max(0, min(100, previous_health + delta))
+    strongest = max(contributions, key=lambda item: abs(item["weightedImpact"]))
+    rationale = (
+        f"{strongest['name']} had the largest effect this round. "
+        f"System Health moved from {previous_health:.1f} to {new_health:.1f}."
+    )
+    return new_health, new_health - previous_health, contributions, rationale
+
+
+def main():
+    load_env()
+    base_url = os.environ["DATAVERSE_URL"]
+    print(f"Seeding Apex demo data into {base_url}", flush=True)
+
+    with DataverseClient(base_url=base_url, credential=get_credential()) as client:
+        weights_records = sync_records(
+            client,
+            "mw_weightsconfig",
+            "mw_weightsconfigid",
+            ["mw_weightsconfig_name", "mw_sourceref", "mw_payload"],
+            [
+                (
+                    "Apex Default Weights v1",
+                    {
+                        "mw_weightsconfig_name": "Apex Default Weights v1",
+                        "mw_sourceref": "assumption-v1-2026-07-22",
+                        "mw_payload": json.dumps(WEIGHTS, separators=(",", ":")),
+                    },
+                )
+            ],
+            lambda record: record.get("mw_weightsconfig_name"),
+        )
+        weights_id = next(
+            record["mw_weightsconfigid"]
+            for record in weights_records
+            if record.get("mw_weightsconfig_name") == "Apex Default Weights v1"
+        )
+
+        simulations = sync_records(
+            client,
+            "mw_simulation",
+            "mw_simulationid",
+            ["mw_simulation_name", "mw_status", "mw_createdbyref"],
+            [
+                (
+                    SIMULATION_NAME,
+                    {
+                        "mw_simulation_name": SIMULATION_NAME,
+                        "mw_status": "Active",
+                        "mw_createdbyref": "apex-seed-v1",
+                    },
+                )
+            ],
+            lambda record: record.get("mw_simulation_name"),
+        )
+        simulation_id = next(
+            record["mw_simulationid"]
+            for record in simulations
+            if record.get("mw_simulation_name") == SIMULATION_NAME
+        )
+
+        round_desired = []
+        for round_data in ROUNDS:
+            round_desired.append(
+                (
+                    (simulation_id, round_data["index"]),
+                    {
+                        "mw_round_name": f"Apex 2026 - Round {round_data['index']}",
+                        "mw_index": round_data["index"],
+                        "mw_eventkey": round_data["key"],
+                        "mw_eventtitle": round_data["title"],
+                        "mw_eventdescription": round_data["description"],
+                        "mw_budget": 100,
+                        "mw_status": round_data["status"],
+                        "mw_weightsconfigref": "assumption-v1-2026-07-22",
+                        "mw_SimulationId@odata.bind": bind("mw_simulations", simulation_id),
+                        "mw_WeightsConfigId@odata.bind": bind(
+                            "mw_weightsconfigs", weights_id
+                        ),
+                    },
+                )
+            )
+        round_records = sync_records(
+            client,
+            "mw_round",
+            "mw_roundid",
+            [
+                "mw_round_name",
+                "mw_index",
+                "mw_eventkey",
+                "_mw_simulationid_value",
+            ],
+            round_desired,
+            lambda record: (
+                record.get("_mw_simulationid_value"),
+                int(record.get("mw_index") or 0),
+            ),
+        )
+        round_ids = {
+            int(record["mw_index"]): record["mw_roundid"]
+            for record in round_records
+            if record.get("_mw_simulationid_value") == simulation_id
+        }
+
+        client.records.update(
+            "mw_simulation",
+            simulation_id,
+            {"mw_CurrentRoundId@odata.bind": bind("mw_rounds", round_ids[3])},
+        )
+
+        team_records = sync_records(
+            client,
+            "mw_team",
+            "mw_teamid",
+            ["mw_team_name", "_mw_simulationid_value"],
+            [
+                (
+                    (simulation_id, team_name),
+                    {
+                        "mw_team_name": team_name,
+                        "mw_systemhealthbaseline": 50,
+                        "mw_SimulationId@odata.bind": bind(
+                            "mw_simulations", simulation_id
+                        ),
+                    },
+                )
+                for team_name in TEAMS
+            ],
+            lambda record: (
+                record.get("_mw_simulationid_value"),
+                record.get("mw_team_name"),
+            ),
+        )
+        team_ids = {
+            record["mw_team_name"]: record["mw_teamid"]
+            for record in team_records
+            if record.get("_mw_simulationid_value") == simulation_id
+        }
+
+        category_desired = []
+        for round_data in ROUNDS:
+            round_id = round_ids[round_data["index"]]
+            for category_key, name, description in round_data["categories"]:
+                category_desired.append(
+                    (
+                        (round_id, category_key),
+                        {
+                            "mw_category_name": name,
+                            "mw_key": category_key,
+                            "mw_description": description,
+                            "mw_RoundId@odata.bind": bind("mw_rounds", round_id),
+                        },
+                    )
+                )
+        category_records = sync_records(
+            client,
+            "mw_category",
+            "mw_categoryid",
+            ["mw_category_name", "mw_key", "_mw_roundid_value"],
+            category_desired,
+            lambda record: (
+                record.get("_mw_roundid_value"),
+                record.get("mw_key"),
+            ),
+        )
+        category_map = {
+            (record["_mw_roundid_value"], record["mw_key"]): {
+                "id": record["mw_categoryid"],
+                "key": record["mw_key"],
+                "name": record["mw_category_name"],
+            }
+            for record in category_records
+            if record.get("_mw_roundid_value") in round_ids.values()
+        }
+
+        sync_records(
+            client,
+            "mw_teammember",
+            "mw_teammemberid",
+            ["mw_systemuserid", "_mw_teamid_value"],
+            [
+                (
+                    (team_ids[team_name], system_user_id),
+                    {
+                        "mw_teammember_name": display_name,
+                        "mw_systemuserid": system_user_id,
+                        "mw_iscaptain": is_captain,
+                        "mw_TeamId@odata.bind": bind("mw_teams", team_ids[team_name]),
+                    },
+                )
+                for system_user_id, display_name, team_name, is_captain in MEMBERS
+            ],
+            lambda record: (
+                record.get("_mw_teamid_value"),
+                record.get("mw_systemuserid"),
+            ),
+        )
+
+        allocation_desired = []
+        for round_data in ROUNDS:
+            index = round_data["index"]
+            round_id = round_ids[index]
+            for team_name in TEAMS:
+                team_id = team_ids[team_name]
+                amounts = ALLOCATIONS[(index, team_name)]
+                for category_tuple, amount in zip(round_data["categories"], amounts):
+                    category_key = category_tuple[0]
+                    category_id = category_map[(round_id, category_key)]["id"]
+                    payload = {
+                        "mw_allocation_name": (
+                            f"Apex R{index} - {team_name} - {category_key}"
+                        ),
+                        "mw_amount": amount,
+                        "mw_RoundId@odata.bind": bind("mw_rounds", round_id),
+                        "mw_TeamId@odata.bind": bind("mw_teams", team_id),
+                        "mw_CategoryId@odata.bind": bind(
+                            "mw_categories", category_id
+                        ),
+                    }
+                    if index < 3:
+                        payload["mw_submittedat"] = SUBMITTED_AT
+                    allocation_desired.append(
+                        ((round_id, team_id, category_id), payload)
+                    )
+        sync_records(
+            client,
+            "mw_allocation",
+            "mw_allocationid",
+            [
+                "_mw_roundid_value",
+                "_mw_teamid_value",
+                "_mw_categoryid_value",
+            ],
+            allocation_desired,
+            lambda record: (
+                record.get("_mw_roundid_value"),
+                record.get("_mw_teamid_value"),
+                record.get("_mw_categoryid_value"),
+            ),
+        )
+
+        result_desired = []
+        previous_health = {team_name: 50.0 for team_name in TEAMS}
+        for round_data in ROUNDS[:2]:
+            index = round_data["index"]
+            round_id = round_ids[index]
+            categories = [
+                category_map[(round_id, category_tuple[0])]
+                for category_tuple in round_data["categories"]
+            ]
+            for team_name in TEAMS:
+                team_id = team_ids[team_name]
+                new_health, delta, contributions, rationale = score_result(
+                    previous_health[team_name],
+                    round_data,
+                    categories,
+                    ALLOCATIONS[(index, team_name)],
+                )
+                result_desired.append(
+                    (
+                        (round_id, team_id),
+                        {
+                            "mw_teamroundresult_name": f"Apex R{index} - {team_name}",
+                            "mw_previoushealth": previous_health[team_name],
+                            "mw_newhealth": new_health,
+                            "mw_delta": delta,
+                            "mw_contributionsjson": json.dumps(
+                                contributions, separators=(",", ":")
+                            ),
+                            "mw_rationale": rationale,
+                            "mw_RoundId@odata.bind": bind("mw_rounds", round_id),
+                            "mw_TeamId@odata.bind": bind("mw_teams", team_id),
+                        },
+                    )
+                )
+                previous_health[team_name] = new_health
+        sync_records(
+            client,
+            "mw_teamroundresult",
+            "mw_teamroundresultid",
+            ["_mw_roundid_value", "_mw_teamid_value"],
+            result_desired,
+            lambda record: (
+                record.get("_mw_roundid_value"),
+                record.get("_mw_teamid_value"),
+            ),
+        )
+
+        expected = {
+            "mw_simulation": 1,
+            "mw_round": 3,
+            "mw_category": 15,
+            "mw_team": 3,
+            "mw_teammember": 5,
+            "mw_allocation": 45,
+            "mw_teamroundresult": 6,
+            "mw_weightsconfig": 1,
+        }
+        actual = {
+            "mw_simulation": sum(
+                1
+                for record in fetch_records(
+                    client, "mw_simulation", ["mw_simulationid", "mw_simulation_name"]
+                )
+                if record.get("mw_simulation_name") == SIMULATION_NAME
+            ),
+            "mw_round": sum(
+                1
+                for record in fetch_records(
+                    client, "mw_round", ["mw_roundid", "_mw_simulationid_value"]
+                )
+                if record.get("_mw_simulationid_value") == simulation_id
+            ),
+            "mw_category": sum(
+                1
+                for record in fetch_records(
+                    client, "mw_category", ["mw_categoryid", "_mw_roundid_value"]
+                )
+                if record.get("_mw_roundid_value") in round_ids.values()
+            ),
+            "mw_team": sum(
+                1
+                for record in fetch_records(
+                    client, "mw_team", ["mw_teamid", "_mw_simulationid_value"]
+                )
+                if record.get("_mw_simulationid_value") == simulation_id
+            ),
+            "mw_teammember": sum(
+                1
+                for record in fetch_records(
+                    client, "mw_teammember", ["mw_teammemberid", "_mw_teamid_value"]
+                )
+                if record.get("_mw_teamid_value") in team_ids.values()
+            ),
+            "mw_allocation": sum(
+                1
+                for record in fetch_records(
+                    client, "mw_allocation", ["mw_allocationid", "_mw_roundid_value"]
+                )
+                if record.get("_mw_roundid_value") in round_ids.values()
+            ),
+            "mw_teamroundresult": sum(
+                1
+                for record in fetch_records(
+                    client,
+                    "mw_teamroundresult",
+                    ["mw_teamroundresultid", "_mw_roundid_value"],
+                )
+                if record.get("_mw_roundid_value") in round_ids.values()
+            ),
+            "mw_weightsconfig": sum(
+                1
+                for record in weights_records
+                if record.get("mw_weightsconfig_name") == "Apex Default Weights v1"
+            ),
+        }
+        failures = []
+        for table, expected_count in expected.items():
+            actual_count = actual[table]
+            status = "OK" if actual_count == expected_count else "MISMATCH"
+            print(
+                f"  verify {table}: {status} ({actual_count}/{expected_count})",
+                flush=True,
+            )
+            if actual_count != expected_count:
+                failures.append(table)
+        if failures:
+            raise RuntimeError(f"Seed verification failed: {', '.join(failures)}")
+
+        print("Apex Dataverse seed complete and verified.", flush=True)
+
+
+if __name__ == "__main__":
+    main()
