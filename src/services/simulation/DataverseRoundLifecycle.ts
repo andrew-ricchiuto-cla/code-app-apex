@@ -41,7 +41,18 @@ function resultFields(result: ResultWrite) {
 
 export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
   async updateRound(roundId, changes) {
-    requireData(await Mw_roundsService.update(roundId, { mw_status: changes.status }))
+    const fields: Record<string, string> = {}
+    if (changes.status !== undefined) fields.mw_status = changes.status
+    if (changes.configSetId !== undefined) {
+      if (!changes.configSetId) {
+        throw new Error('A Config Set ID is required for round assignment.')
+      }
+      const configSetId = normalizeDataverseGuid(changes.configSetId)
+      fields['mw_ConfigSetId@odata.bind'] = `/mw_configsets(${configSetId})`
+    }
+    requireData(
+      await Mw_roundsService.update(normalizeDataverseGuid(roundId), fields),
+    )
   },
 
   async listAllocations(roundId) {
@@ -88,7 +99,7 @@ export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
     if (created.success) return
 
     // The alternate key on (round, team) rejects a concurrent duplicate create.
-    // Resolve the winner and update it so repeated/concurrent reveals remain idempotent.
+    // Resolve the winner only to confirm first-writer success. Never overwrite it.
     const existing = requireData(
       await Mw_teamroundresultsService.getAll({
         filter:
@@ -98,12 +109,6 @@ export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
       }),
     )[0]
     if (!existing) requireData(created)
-    requireData(
-      await Mw_teamroundresultsService.update(
-        existing!.mw_teamroundresultid,
-        fields,
-      ),
-    )
   },
 
   async updateResult(resultId, result) {
@@ -122,6 +127,14 @@ export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
       throw new ConfigurationSourceUnavailableError(cause)
     }
     return mapConfigSet(rawConfigSet)
+  },
+
+  async listConfigSets() {
+    return requireData(
+      await Mw_configsetsService.getAll({
+        orderBy: ['mw_configset_name asc', 'mw_version asc'],
+      }),
+    ).map(mapConfigSet)
   },
 
   async listWeights(configSetId) {

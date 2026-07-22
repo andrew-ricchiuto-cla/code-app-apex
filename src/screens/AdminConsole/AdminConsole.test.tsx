@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Allocation, Round, Simulation, Team } from '@/types'
+import type { Allocation, ConfigSet, Round, Simulation, Team } from '@/types'
 import { mockAllocations, mockRound, mockSimulation, mockTeams } from '@/test/mockData'
 
 const {
@@ -13,6 +13,8 @@ const {
   mockOpenRound,
   mockForceAdvanceRound,
   mockRevealRound,
+  mockAssignRoundConfiguration,
+  mockListConfigSets,
 } = vi.hoisted(() => ({
   mockUseSimulation: vi.fn(),
   mockUseTeams: vi.fn(),
@@ -21,6 +23,8 @@ const {
   mockOpenRound: vi.fn(),
   mockForceAdvanceRound: vi.fn(),
   mockRevealRound: vi.fn(),
+  mockAssignRoundConfiguration: vi.fn(),
+  mockListConfigSets: vi.fn(),
 }))
 
 vi.mock('@/contexts/SimulationContext', () => ({
@@ -43,13 +47,33 @@ vi.mock('@/services/simulation/RoundLifecycle', () => ({
   openRound: mockOpenRound,
   forceAdvanceRound: mockForceAdvanceRound,
   revealRound: mockRevealRound,
+  assignRoundConfiguration: mockAssignRoundConfiguration,
 }))
 
 vi.mock('@/services/simulation/DataverseRoundLifecycle', () => ({
-  dataverseRoundLifecycle: { kind: 'test-dependencies' },
+  dataverseRoundLifecycle: {
+    kind: 'test-dependencies',
+    listConfigSets: mockListConfigSets,
+  },
 }))
 
 import { AdminConsole } from './AdminConsole'
+
+const publishedConfig: ConfigSet = {
+  id: 'baseline-config-v1',
+  name: 'Apex Baseline',
+  version: '1.0',
+  status: 'Published',
+  systemHealthBaseline: 50,
+  publishedAt: '2026-07-22T00:00:00Z',
+}
+
+const availableConfigSets: ConfigSet[] = [
+  publishedConfig,
+  { ...publishedConfig, id: 'published-v2', name: 'Future Baseline', version: '2.0' },
+  { ...publishedConfig, id: 'draft-v3', version: '3.0', status: 'Draft', publishedAt: null },
+  { ...publishedConfig, id: 'retired-v0', version: '0.9', status: 'Retired' },
+]
 
 function buildAllocation(
   id: string,
@@ -109,6 +133,8 @@ describe('AdminConsole', () => {
     mockOpenRound.mockResolvedValue(undefined)
     mockForceAdvanceRound.mockResolvedValue(undefined)
     mockRevealRound.mockResolvedValue(undefined)
+    mockAssignRoundConfiguration.mockResolvedValue(undefined)
+    mockListConfigSets.mockResolvedValue(availableConfigSets)
   })
 
   afterEach(() => {
@@ -149,7 +175,7 @@ describe('AdminConsole', () => {
 
     expect(screen.getByText('Facilitator Console')).toBeInTheDocument()
     expect(screen.getByText('Round 1: High Attrition Crisis')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Reveal Results' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Reveal Results' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Force Advance' })).toBeInTheDocument()
     expect(screen.getByText('Team Submissions')).toBeInTheDocument()
     expect(screen.getByText('Ready to Submit')).toBeInTheDocument()
@@ -158,17 +184,17 @@ describe('AdminConsole', () => {
     expect(screen.queryByText('All Submitted')).not.toBeInTheDocument()
   })
 
-  it('keeps reveal disabled when other teams have no loaded allocations yet', () => {
+  it('keeps reveal unavailable while the round remains open', () => {
     renderAdminConsole({
       currentRound: { ...mockRound, status: 'Open' },
       allocations: [buildAllocation('alpha-1', 'team-alpha', 100, '2026-07-07T12:00:00.000Z')],
     })
 
-    expect(screen.getByRole('button', { name: 'Reveal Results' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Reveal Results' })).not.toBeInTheDocument()
     expect(screen.queryByText('All Submitted')).not.toBeInTheDocument()
   })
 
-  it('shows the all-submitted badge and enables reveal when every team submitted', () => {
+  it('shows the all-submitted badge but keeps reveal locked until the round is Locked', () => {
     renderAdminConsole({
       currentRound: { ...mockRound, status: 'Open' },
       allocations: [
@@ -179,7 +205,8 @@ describe('AdminConsole', () => {
     })
 
     expect(screen.getByText('All Submitted')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Reveal Results' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Reveal Results' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Force Advance' })).toBeEnabled()
   })
 
   it('shows only the open-round action for pending rounds and refreshes on demand', async () => {
@@ -211,7 +238,8 @@ describe('AdminConsole', () => {
     await user.click(screen.getByRole('button', { name: 'Open Round' }))
 
     expect(mockOpenRound).toHaveBeenCalledWith(
-      mockRound.id,
+      expect.objectContaining({ id: mockRound.id, status: 'Pending' }),
+      publishedConfig,
       expect.objectContaining({ kind: 'test-dependencies' }),
     )
     expect(refresh).toHaveBeenCalledTimes(1)
@@ -243,6 +271,66 @@ describe('AdminConsole', () => {
     await user.click(screen.getByRole('button', { name: 'Open Round' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Dataverse update failed')
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('offers only Published Config Sets for a pending round and persists selection', async () => {
+    const refresh = vi.fn()
+    const { user } = renderAdminConsole({
+      currentRound: { ...mockRound, status: 'Pending' },
+      refresh,
+    })
+
+    const selector = await screen.findByRole('combobox', { name: 'Round configuration' })
+    expect(screen.getByRole('option', { name: 'Apex Baseline v1.0' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Future Baseline v2.0' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /v3\.0/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /v0\.9/ })).not.toBeInTheDocument()
+
+    await user.selectOptions(selector, 'published-v2')
+
+    expect(mockAssignRoundConfiguration).toHaveBeenCalledWith(
+      mockRound.id,
+      'published-v2',
+      'Pending',
+      expect.objectContaining({ kind: 'test-dependencies' }),
+    )
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['Open', 'Locked', 'Revealed'] as const)(
+    'locks configuration selection and shows the assigned version when the round is %s',
+    async status => {
+      renderAdminConsole({ currentRound: { ...mockRound, status } })
+
+      expect(await screen.findByText('Apex Baseline v1.0')).toBeInTheDocument()
+      expect(screen.getByText('Published')).toBeInTheDocument()
+      expect(screen.queryByRole('combobox', { name: 'Round configuration' })).not.toBeInTheDocument()
+    },
+  )
+
+  it('shows configuration load failures as an accessible error', async () => {
+    mockListConfigSets.mockRejectedValue(new Error('Config Sets unavailable'))
+
+    renderAdminConsole({ currentRound: { ...mockRound, status: 'Pending' } })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Config Sets unavailable')
+  })
+
+  it('shows assignment failures and does not refresh', async () => {
+    const refresh = vi.fn()
+    mockAssignRoundConfiguration.mockRejectedValue(new Error('Assignment conflicted'))
+    const { user } = renderAdminConsole({
+      currentRound: { ...mockRound, status: 'Pending' },
+      refresh,
+    })
+
+    await user.selectOptions(
+      await screen.findByRole('combobox', { name: 'Round configuration' }),
+      'published-v2',
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Assignment conflicted')
     expect(refresh).not.toHaveBeenCalled()
   })
 })

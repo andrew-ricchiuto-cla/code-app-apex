@@ -17,6 +17,7 @@ import {
 } from '@/services/configuration/ConfigurationLoader'
 
 import {
+  assignRoundConfiguration,
   forceAdvanceRound,
   openRound,
   revealRound,
@@ -41,7 +42,7 @@ const round2: Round = {
   ...round1,
   id: 'round-2',
   index: 2,
-  status: 'Open',
+  status: 'Locked',
 }
 
 const teams: Team[] = [
@@ -118,6 +119,7 @@ function buildDependencies(): RoundLifecycleDependencies {
     getConfigSet: vi.fn().mockResolvedValue(configSet),
     listWeights: vi.fn().mockResolvedValue(weights),
     listHealthBands: vi.fn().mockResolvedValue(bands),
+    listConfigSets: vi.fn().mockResolvedValue([configSet]),
   }
 }
 
@@ -128,11 +130,80 @@ describe('round lifecycle', () => {
     dependencies = buildDependencies()
   })
 
-  it('opens a pending round', async () => {
-    await openRound('round-2', dependencies)
+  it('opens a pending round with its matching published configuration', async () => {
+    const pendingRound = { ...round2, status: 'Pending' as const }
+
+    await openRound(pendingRound, configSet, dependencies)
 
     expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', { status: 'Open' })
   })
+
+  it.each([
+    ['no', null],
+    ['a Draft', { ...configSet, status: 'Draft' as const }],
+    ['a Retired', { ...configSet, status: 'Retired' as const }],
+  ])('rejects opening a round with %s configuration', async (_label, candidate) => {
+    await expect(
+      openRound({ ...round2, status: 'Pending' }, candidate, dependencies),
+    ).rejects.toThrow(/published configuration/i)
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('rejects opening a round with a different configuration than the assigned one', async () => {
+    await expect(
+      openRound(
+        { ...round2, status: 'Pending', configSetId: 'assigned-config' },
+        configSet,
+        dependencies,
+      ),
+    ).rejects.toThrow(/does not match/i)
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('re-reads the assigned configuration and rejects it when no longer Published', async () => {
+    vi.mocked(dependencies.getConfigSet).mockResolvedValue({
+      ...configSet,
+      status: 'Retired',
+    })
+
+    await expect(
+      openRound({ ...round2, status: 'Pending' }, configSet, dependencies),
+    ).rejects.toThrow(/published configuration/i)
+    expect(dependencies.getConfigSet).toHaveBeenCalledWith(configSet.id)
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('assigns only a published configuration to a pending round', async () => {
+    await assignRoundConfiguration('round-2', configSet.id, 'Pending', dependencies)
+
+    expect(dependencies.getConfigSet).toHaveBeenCalledWith(configSet.id)
+    expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', {
+      configSetId: configSet.id,
+    })
+  })
+
+  it.each(['Open', 'Locked', 'Revealed'] as const)(
+    'rejects configuration assignment when a round is %s',
+    async status => {
+      await expect(
+        assignRoundConfiguration('round-2', configSet.id, status, dependencies),
+      ).rejects.toThrow(/pending/i)
+      expect(dependencies.getConfigSet).not.toHaveBeenCalled()
+      expect(dependencies.updateRound).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['Draft', 'Retired'] as const)(
+    'rejects assigning a %s configuration',
+    async status => {
+      vi.mocked(dependencies.getConfigSet).mockResolvedValue({ ...configSet, status })
+
+      await expect(
+        assignRoundConfiguration('round-2', configSet.id, 'Pending', dependencies),
+      ).rejects.toThrow(/published configuration/i)
+      expect(dependencies.updateRound).not.toHaveBeenCalled()
+    },
+  )
 
   it('force-submits remaining allocations and locks the round', async () => {
     await forceAdvanceRound('round-2', dependencies, '2026-07-22T15:00:00Z')
@@ -184,7 +255,7 @@ describe('round lifecycle', () => {
     ])
 
     await revealRound(
-      { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+      { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
       dependencies,
     )
 
@@ -200,7 +271,7 @@ describe('round lifecycle', () => {
     vi.mocked(dependencies.listResults).mockResolvedValue([])
 
     const outcome = await revealRound(
-      { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+      { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
       dependencies,
     )
 
@@ -223,7 +294,7 @@ describe('round lifecycle', () => {
 
     await expect(
       revealRound(
-        { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+        { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
         dependencies,
       ),
     ).rejects.toThrow('Invalid config set status: Broken.')
@@ -237,7 +308,7 @@ describe('round lifecycle', () => {
     vi.mocked(dependencies.listResults).mockResolvedValue([])
 
     await revealRound(
-      { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+      { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
       dependencies,
     )
 
@@ -251,7 +322,7 @@ describe('round lifecycle', () => {
 
     await expect(
       revealRound(
-        { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+        { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
         dependencies,
       ),
     ).rejects.toThrow('Missing weight for high-attrition/reskilling.')
@@ -290,7 +361,7 @@ describe('round lifecycle', () => {
     )
   })
 
-  it('updates existing current-round results so reveal is idempotent', async () => {
+  it('keeps an existing current-round result and creates only missing results', async () => {
     const existing: TeamRoundResult = {
       ...previousResult,
       id: 'current-result',
@@ -302,14 +373,40 @@ describe('round lifecycle', () => {
     )
 
     await revealRound(
-      { round: round2, rounds: [round1, round2], teams: [teams[0]!] },
+      { round: round2, rounds: [round1, round2], teams },
       dependencies,
     )
 
-    expect(dependencies.updateResult).toHaveBeenCalledWith(
-      'current-result',
-      expect.objectContaining({ roundId: 'round-2', teamId: 'team-1' }),
+    expect(dependencies.updateResult).not.toHaveBeenCalled()
+    expect(dependencies.createResult).toHaveBeenCalledTimes(1)
+    expect(dependencies.createResult).toHaveBeenCalledWith(
+      expect.objectContaining({ roundId: 'round-2', teamId: 'team-2' }),
     )
+  })
+
+  it.each(['Pending', 'Open', 'Revealed'] as const)(
+    'rejects reveal when the round is %s without reading or overwriting results',
+    async status => {
+      await expect(
+        revealRound(
+          { round: { ...round2, status }, rounds: [round1, round2], teams },
+          dependencies,
+        ),
+      ).rejects.toThrow(/locked/i)
+      expect(dependencies.listResults).not.toHaveBeenCalled()
+      expect(dependencies.createResult).not.toHaveBeenCalled()
+      expect(dependencies.updateResult).not.toHaveBeenCalled()
+      expect(dependencies.updateRound).not.toHaveBeenCalled()
+    },
+  )
+
+  it('rejects reveal when the locked round has no assigned configuration', async () => {
+    await expect(
+      revealRound(
+        { round: { ...round2, configSetId: null }, rounds: [round1, round2], teams },
+        dependencies,
+      ),
+    ).rejects.toThrow(/published configuration/i)
     expect(dependencies.createResult).not.toHaveBeenCalled()
   })
 })

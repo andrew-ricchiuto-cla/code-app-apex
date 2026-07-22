@@ -28,7 +28,10 @@ export interface RevealRoundResult {
 }
 
 export interface RoundLifecycleDependencies {
-  updateRound: (roundId: string, changes: Pick<Round, 'status'>) => Promise<void>
+  updateRound: (
+    roundId: string,
+    changes: Partial<Pick<Round, 'status' | 'configSetId'>>,
+  ) => Promise<void>
   listAllocations: (roundId: string) => Promise<Allocation[]>
   updateAllocation: (allocationId: string, changes: AllocationWrite) => Promise<void>
   listCategories: (roundId: string) => Promise<Category[]>
@@ -38,6 +41,7 @@ export interface RoundLifecycleDependencies {
   getConfigSet: (configSetId: string | null) => Promise<ConfigSet | null>
   listWeights: (configSetId: string) => Promise<WeightRow[]>
   listHealthBands: (configSetId: string) => Promise<HealthBand[]>
+  listConfigSets: () => Promise<ConfigSet[]>
 }
 
 export async function loadRoundConfiguration(
@@ -75,11 +79,50 @@ export async function loadRoundConfiguration(
   return new ConfigurationLoader(configSet, weights, bands)
 }
 
-export async function openRound(
+function requirePublishedConfigSet(configSet: ConfigSet | null): ConfigSet {
+  if (!configSet || configSet.status !== 'Published') {
+    throw new Error('A Published configuration is required for this round.')
+  }
+  return configSet
+}
+
+export async function assignRoundConfiguration(
   roundId: string,
+  configSetId: string,
+  roundStatus: Round['status'],
   dependencies: RoundLifecycleDependencies,
 ): Promise<void> {
-  await dependencies.updateRound(roundId, { status: 'Open' })
+  if (roundStatus !== 'Pending') {
+    throw new Error('Configuration can be assigned only while the round is Pending.')
+  }
+  const configSet = requirePublishedConfigSet(
+    await dependencies.getConfigSet(configSetId),
+  )
+  if (configSet.id !== configSetId) {
+    throw new Error('The selected configuration does not match the requested Config Set.')
+  }
+  await dependencies.updateRound(roundId, { configSetId })
+}
+
+export async function openRound(
+  round: Round,
+  selectedConfigSet: ConfigSet | null,
+  dependencies: RoundLifecycleDependencies,
+): Promise<void> {
+  if (round.status !== 'Pending') {
+    throw new Error('Only a Pending round can be opened.')
+  }
+  const selected = requirePublishedConfigSet(selectedConfigSet)
+  if (!round.configSetId || selected.id !== round.configSetId) {
+    throw new Error('The selected configuration does not match the round assignment.')
+  }
+  const persisted = requirePublishedConfigSet(
+    await dependencies.getConfigSet(round.configSetId),
+  )
+  if (persisted.id !== round.configSetId) {
+    throw new Error('The persisted configuration does not match the round assignment.')
+  }
+  await dependencies.updateRound(round.id, { status: 'Open' })
 }
 
 export async function forceAdvanceRound(
@@ -137,6 +180,12 @@ export async function revealRound(
   dependencies: RoundLifecycleDependencies,
 ): Promise<RevealRoundResult> {
   const { round, rounds, teams } = input
+  if (round.status !== 'Locked') {
+    throw new Error('Results can be revealed only when the round is Locked.')
+  }
+  if (!round.configSetId) {
+    throw new Error('A Published configuration must be assigned before reveal.')
+  }
   const previousRound = [...rounds]
     .filter(candidate => candidate.index < round.index && candidate.status === 'Revealed')
     .sort((left, right) => right.index - left.index)[0]
@@ -149,6 +198,13 @@ export async function revealRound(
       previousRound ? dependencies.listResults(previousRound.id) : Promise.resolve([]),
       loadRoundConfiguration(round.configSetId, dependencies),
     ])
+
+  if (!configuration.isFallback) {
+    const persistedConfigSet = requirePublishedConfigSet(configuration.configSet)
+    if (persistedConfigSet.id !== round.configSetId) {
+      throw new Error('The loaded configuration does not match the round assignment.')
+    }
+  }
 
   const eventWeights = configuration.getWeightsForCategories(round.eventKey, categories)
   validateAllocationCategoryIntegrity(allocations, categories, eventWeights, round.id)
@@ -187,9 +243,7 @@ export async function revealRound(
         rationale: scored.rationaleText,
       }
       const existing = currentByTeam.get(team.id)
-      if (existing) {
-        await dependencies.updateResult(existing.id, write)
-      } else {
+      if (!existing) {
         await dependencies.createResult(write)
       }
     }),
@@ -197,8 +251,9 @@ export async function revealRound(
 
   await dependencies.updateRound(round.id, { status: 'Revealed' })
 
-  // Task 6 must lock the round's Config Set and reveal transition. The current
-  // dependency exposes neither an atomic transaction nor a conditional round
-  // update, so this layer cannot safely arbitrate competing reveal snapshots.
+  // These SDK calls are not one Dataverse transaction. The alternate result key
+  // provides first-writer result semantics across clients, and a retry while the
+  // round is still Locked fills only missing teams. Conditional (ETag) arbitration
+  // of the final round-status write is not available through this generated client.
   return { configuration }
 }

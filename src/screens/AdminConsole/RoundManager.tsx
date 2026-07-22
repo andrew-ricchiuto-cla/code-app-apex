@@ -1,13 +1,15 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { Round } from '@/types'
+import type { ConfigSet, Round } from '@/types'
 
 interface RoundManagerProps {
   round: Round
-  allTeamsSubmitted: boolean
   onOpenRound: () => void
   onForceAdvance: () => void
   onRevealResults: () => void
+  configSets: ConfigSet[]
+  selectedConfigSet: ConfigSet | null
+  onConfigurationChange: (configSetId: string) => void
   disabled?: boolean
 }
 
@@ -20,12 +22,18 @@ const STATUS_BADGE: Record<string, string> = {
 
 export function RoundManager({
   round,
-  allTeamsSubmitted,
   onOpenRound,
   onForceAdvance,
   onRevealResults,
+  configSets,
+  selectedConfigSet,
+  onConfigurationChange,
   disabled = false,
 }: RoundManagerProps) {
+  const publishedConfigSets = configSets.filter(
+    configSet => configSet.status === 'Published',
+  )
+
   return (
     <Card className="overflow-hidden border-0 shadow-[0_28px_70px_-42px_rgba(46,51,78,0.35)]">
       <CardHeader className="border-l-4 border-[#2E334E] bg-white">
@@ -63,37 +71,74 @@ export function RoundManager({
           </div>
         </div>
 
+        <div className="rounded-[28px] border border-[#D7E3EC] bg-white p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-muted-foreground">
+            Scoring Configuration
+          </p>
+          {round.status === 'Pending' ? (
+            <div className="mt-3 space-y-2">
+              <label
+                htmlFor="round-configuration"
+                className="block text-sm font-semibold text-[#2E334E]"
+              >
+                Round configuration
+              </label>
+              <select
+                id="round-configuration"
+                value={selectedConfigSet?.id ?? ''}
+                onChange={event => onConfigurationChange(event.target.value)}
+                disabled={disabled}
+                className="h-11 w-full rounded-xl border border-[#D7E3EC] bg-white px-3 text-sm text-[#2E334E]"
+              >
+                <option value="">Select a Published Config Set</option>
+                {publishedConfigSets.map(configSet => (
+                  <option key={configSet.id} value={configSet.id}>
+                    {configSet.name} v{configSet.version}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Only Published Config Sets can be assigned. Assignment locks when the round opens.
+              </p>
+            </div>
+          ) : selectedConfigSet ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="font-semibold text-[#2E334E]">
+                {selectedConfigSet.name} v{selectedConfigSet.version}
+              </span>
+              <span className="rounded-full bg-[#E2E868] px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#2E334E]">
+                {selectedConfigSet.status}
+              </span>
+              <span className="text-xs text-muted-foreground">Locked to this round</span>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm font-medium text-red-700">
+              No configuration is assigned to this round.
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-3">
           {round.status === 'Pending' && (
             <Button
               size="lg"
               className="h-12 rounded-2xl bg-[#2E334E] px-6 text-white hover:bg-[#252940]"
               onClick={onOpenRound}
-              disabled={disabled}
+              disabled={disabled || !selectedConfigSet}
             >
               Open Round
             </Button>
           )}
           {round.status === 'Open' && (
-            <>
-              <Button
-                size="lg"
-                className="h-12 rounded-2xl bg-[#2E334E] px-6 text-white hover:bg-[#252940]"
-                onClick={onRevealResults}
-                disabled={disabled || !allTeamsSubmitted}
-              >
-                Reveal Results
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="h-12 rounded-2xl border-[#2E334E] px-6 text-[#2E334E] hover:bg-[#2E334E] hover:text-white"
-                onClick={onForceAdvance}
-                disabled={disabled}
-              >
-                Force Advance
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="lg"
+              className="h-12 rounded-2xl border-[#2E334E] px-6 text-[#2E334E] hover:bg-[#2E334E] hover:text-white"
+              onClick={onForceAdvance}
+              disabled={disabled}
+            >
+              Force Advance
+            </Button>
           )}
           {round.status === 'Locked' && (
             <Button

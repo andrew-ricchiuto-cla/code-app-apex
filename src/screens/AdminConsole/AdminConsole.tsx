@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
@@ -11,7 +11,9 @@ import {
   forceAdvanceRound,
   openRound,
   revealRound,
+  assignRoundConfiguration,
 } from '@/services/simulation/RoundLifecycle'
+import type { ConfigSet } from '@/types'
 
 import { RoundManager } from './RoundManager'
 import { SubmissionMonitor } from './SubmissionMonitor'
@@ -19,6 +21,8 @@ import { SubmissionMonitor } from './SubmissionMonitor'
 export function AdminConsole() {
   const [isActioning, setIsActioning] = useState(false)
   const [actionError, setActionError] = useState<Error | null>(null)
+  const [configSets, setConfigSets] = useState<ConfigSet[]>([])
+  const [configSetsError, setConfigSetsError] = useState<Error | null>(null)
   const [dataRefreshKey, setDataRefreshKey] = useState(0)
   const { simulation, currentRound, isLoading: simLoading, refresh } = useSimulation()
   const { teams, isLoading: teamsLoading } = useTeams(
@@ -33,6 +37,23 @@ export function AdminConsole() {
     currentRound?.id ?? null,
     dataRefreshKey,
   )
+
+  useEffect(() => {
+    let cancelled = false
+    setConfigSetsError(null)
+    void dataverseRoundLifecycle
+      .listConfigSets()
+      .then(loaded => {
+        if (!cancelled) setConfigSets(loaded)
+      })
+      .catch(cause => {
+        if (cancelled) return
+        setConfigSetsError(cause instanceof Error ? cause : new Error(String(cause)))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [dataRefreshKey])
 
   const refreshAll = () => {
     setDataRefreshKey(key => key + 1)
@@ -49,13 +70,6 @@ export function AdminConsole() {
       </div>
     )
   }
-
-  const allTeamsSubmitted =
-    teams.length > 0 &&
-    teams.every(team => {
-      const teamAllocs = allocations.filter(a => a.teamId === team.id)
-      return teamAllocs.length > 0 && teamAllocs.every(a => a.submittedAt !== null)
-    })
 
   const submittedTeamsCount = teams.filter(team => {
     const teamAllocs = allocations.filter(a => a.teamId === team.id)
@@ -75,8 +89,25 @@ export function AdminConsole() {
     }
   }
 
+  const selectedConfigSet =
+    configSets.find(configSet => configSet.id === currentRound.configSetId) ?? null
+
   const handleOpenRound = () =>
-    runAction(() => openRound(currentRound.id, dataverseRoundLifecycle))
+    runAction(() =>
+      openRound(currentRound, selectedConfigSet, dataverseRoundLifecycle),
+    )
+
+  const handleConfigurationChange = (configSetId: string) => {
+    if (!configSetId) return
+    void runAction(() =>
+      assignRoundConfiguration(
+        currentRound.id,
+        configSetId,
+        currentRound.status,
+        dataverseRoundLifecycle,
+      ),
+    )
+  }
 
   const handleForceAdvance = () =>
     runAction(() => forceAdvanceRound(currentRound.id, dataverseRoundLifecycle))
@@ -133,12 +164,22 @@ export function AdminConsole() {
             {actionError.message}
           </div>
         )}
+        {configSetsError && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800"
+          >
+            {configSetsError.message}
+          </div>
+        )}
         <RoundManager
           round={currentRound}
-          allTeamsSubmitted={allTeamsSubmitted}
           onOpenRound={handleOpenRound}
           onForceAdvance={handleForceAdvance}
           onRevealResults={handleRevealResults}
+          configSets={configSets}
+          selectedConfigSet={selectedConfigSet}
+          onConfigurationChange={handleConfigurationChange}
           disabled={isActioning}
         />
         <SubmissionMonitor teams={teams} allocations={allocations} budget={currentRound.budget} />

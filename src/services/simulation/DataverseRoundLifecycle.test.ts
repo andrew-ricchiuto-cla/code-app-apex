@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const serviceMocks = vi.hoisted(() => ({
   results: { create: vi.fn(), getAll: vi.fn(), update: vi.fn() },
-  configSets: { get: vi.fn() },
+  configSets: { get: vi.fn(), getAll: vi.fn() },
+  rounds: { update: vi.fn() },
   weights: { getAll: vi.fn() },
   healthBands: { getAll: vi.fn() },
 }))
@@ -17,7 +18,7 @@ vi.mock('@/generated/services/Mw_categoriesService', () => ({
   Mw_categoriesService: {},
 }))
 vi.mock('@/generated/services/Mw_roundsService', () => ({
-  Mw_roundsService: {},
+  Mw_roundsService: serviceMocks.rounds,
 }))
 vi.mock('@/generated/services/Mw_configsetsService', () => ({
   Mw_configsetsService: serviceMocks.configSets,
@@ -48,7 +49,7 @@ describe('DataverseRoundLifecycle', () => {
     serviceMocks.results.update.mockResolvedValue({ success: true, data: {} })
   })
 
-  it('resolves an alternate-key create race by updating the existing result', async () => {
+  it('accepts the alternate-key winner without overwriting it after a create race', async () => {
     serviceMocks.results.create.mockResolvedValue({
       success: false,
       error: new Error('Duplicate alternate key'),
@@ -65,9 +66,23 @@ describe('DataverseRoundLifecycle', () => {
         '_mw_roundid_value eq round-guid and _mw_teamid_value eq team-guid',
       top: 1,
     })
-    expect(serviceMocks.results.update).toHaveBeenCalledWith(
-      'existing-result-guid',
-      expect.objectContaining({ mw_newhealth: '60', mw_delta: '10' }),
+    expect(serviceMocks.results.update).not.toHaveBeenCalled()
+  })
+
+  it('binds a normalized Config Set lookup with exact generated casing', async () => {
+    serviceMocks.rounds.update.mockResolvedValue({ success: true, data: {} })
+
+    await dataverseRoundLifecycle.updateRound(
+      '{AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA}',
+      { configSetId: '{BBBBBBBB-BBBB-4BBB-8BBB-BBBBBBBBBBBB}' },
+    )
+
+    expect(serviceMocks.rounds.update).toHaveBeenCalledWith(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      {
+        'mw_ConfigSetId@odata.bind':
+          '/mw_configsets(bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb)',
+      },
     )
   })
 
