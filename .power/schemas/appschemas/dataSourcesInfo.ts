@@ -19,6 +19,20 @@ export const dataSourcesInfo = {
     "dataSourceType": "Dataverse",
     "apis": {}
   },
+  "mw_configsets": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "mw_configsetid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
+  "mw_healthbands": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "mw_healthbandid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
   "mw_rounds": {
     "tableId": "",
     "version": "",
@@ -51,6 +65,13 @@ export const dataSourcesInfo = {
     "tableId": "",
     "version": "",
     "primaryKey": "mw_teamid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
+  "mw_weights": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "mw_weightid",
     "dataSourceType": "Dataverse",
     "apis": {}
   },

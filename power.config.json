@@ -20,11 +20,6 @@
           "logicalName": "mw_simulation",
           "isHidden": false
         },
-        "rounds": {
-          "entitySetName": "mw_rounds",
-          "logicalName": "mw_round",
-          "isHidden": false
-        },
         "categorys": {
           "entitySetName": "mw_categories",
           "logicalName": "mw_category",
@@ -53,6 +48,26 @@
         "weightsconfigs": {
           "entitySetName": "mw_weightsconfigs",
           "logicalName": "mw_weightsconfig",
+          "isHidden": false
+        },
+        "configsets": {
+          "entitySetName": "mw_configsets",
+          "logicalName": "mw_configset",
+          "isHidden": false
+        },
+        "weights": {
+          "entitySetName": "mw_weights",
+          "logicalName": "mw_weight",
+          "isHidden": false
+        },
+        "healthbands": {
+          "entitySetName": "mw_healthbands",
+          "logicalName": "mw_healthband",
+          "isHidden": false
+        },
+        "rounds": {
+          "entitySetName": "mw_rounds",
+          "logicalName": "mw_round",
           "isHidden": false
         }
       },

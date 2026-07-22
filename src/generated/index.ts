@@ -7,19 +7,25 @@
 export * as CommonModels from './models/CommonModels';
 export * as Mw_allocationsModel from './models/Mw_allocationsModel';
 export * as Mw_categoriesModel from './models/Mw_categoriesModel';
+export * as Mw_configsetsModel from './models/Mw_configsetsModel';
+export * as Mw_healthbandsModel from './models/Mw_healthbandsModel';
 export * as Mw_roundsModel from './models/Mw_roundsModel';
 export * as Mw_simulationsModel from './models/Mw_simulationsModel';
 export * as Mw_teammembersModel from './models/Mw_teammembersModel';
 export * as Mw_teamroundresultsModel from './models/Mw_teamroundresultsModel';
 export * as Mw_teamsModel from './models/Mw_teamsModel';
 export * as Mw_weightsconfigsModel from './models/Mw_weightsconfigsModel';
+export * as Mw_weightsModel from './models/Mw_weightsModel';
 
 // Services
 export * from './services/Mw_allocationsService';
 export * from './services/Mw_categoriesService';
+export * from './services/Mw_configsetsService';
+export * from './services/Mw_healthbandsService';
 export * from './services/Mw_roundsService';
 export * from './services/Mw_simulationsService';
 export * from './services/Mw_teammembersService';
 export * from './services/Mw_teamroundresultsService';
 export * from './services/Mw_teamsService';
 export * from './services/Mw_weightsconfigsService';
+export * from './services/Mw_weightsService';

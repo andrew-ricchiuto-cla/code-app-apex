@@ -148,6 +148,22 @@
           "x-ms-dataverse-type": "DecimalType",
           "x-ms-schema-name": "mw_Budget"
         },
+        "mw_configsetid": {
+          "type": "string",
+          "title": "Config Set",
+          "x-ms-dataverse-attribute": "mw_configsetid",
+          "x-ms-dataverse-type": "LookupType",
+          "x-ms-schema-name": "mw_ConfigSetId"
+        },
+        "mw_configsetidname": {
+          "type": "string",
+          "title": "mw_configsetidname",
+          "x-ms-dataverse-attribute": "mw_configsetidname",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "mw_ConfigSetIdName",
+          "x-ms-read-only": true,
+          "maxLength": 850
+        },
         "mw_eventdescription": {
           "type": "string",
           "title": "EventDescription",

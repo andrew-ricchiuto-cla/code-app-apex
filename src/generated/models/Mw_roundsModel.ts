@@ -16,6 +16,7 @@ export type Mw_roundsstatuscode = keyof typeof Mw_roundsstatuscode;
 export interface Mw_roundsBase {
   importsequencenumber?: string;
   mw_budget?: string;
+  "mw_ConfigSetId@odata.bind"?: string;
   mw_eventdescription?: string;
   mw_eventkey?: string;
   mw_eventtitle?: string;
@@ -46,6 +47,7 @@ export interface Mw_rounds extends Mw_roundsBase {
   modifiedon?: string;
   modifiedonbehalfbyname?: string;
   modifiedonbehalfbyyominame: string;
+  mw_configsetidname?: string;
   mw_simulationidname?: string;
   mw_weightsconfigidname?: string;
   owneridname: string;
@@ -62,6 +64,8 @@ export interface Mw_rounds extends Mw_roundsBase {
   _modifiedby_value?: string;
   modifiedonbehalfby?: object;
   _modifiedonbehalfby_value?: string;
+  mw_configsetid?: object;
+  _mw_configsetid_value?: string;
   mw_simulationid?: object;
   _mw_simulationid_value?: string;
   mw_weightsconfigid?: object;
