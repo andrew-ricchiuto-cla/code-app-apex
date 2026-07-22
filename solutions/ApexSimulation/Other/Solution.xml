@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.26063.166" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OrganizationVersion="9.2.26063.166" OrganizationSchemaType="Standard" CRMServerServiceabilityVersion="9.2.26063.00166">
+  <SolutionManifest>
+    <UniqueName>ApexSimulation</UniqueName>
+    <LocalizedNames>
+      <LocalizedName description="Apex Simulation" languagecode="1033" />
+    </LocalizedNames>
+    <Descriptions>
+      <Description description="Apex leadership simulation game — facilitated team budget allocation" languagecode="1033" />
+    </Descriptions>
+    <Version>1.0.0.0</Version>
+    <Managed>0</Managed>
+    <Publisher>
+      <UniqueName>ModernWorkplace</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="Modern Workplace" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions>
+        <Description description="CLA Modern Workplace team publisher" languagecode="1033" />
+      </Descriptions>
+      <EMailAddress xsi:nil="true"></EMailAddress>
+      <SupportingWebsiteUrl xsi:nil="true"></SupportingWebsiteUrl>
+      <CustomizationPrefix>mw</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>10000</CustomizationOptionValuePrefix>
+      <Addresses>
+        <Address>
+          <AddressNumber>1</AddressNumber>
+          <AddressTypeCode>1</AddressTypeCode>
+          <City xsi:nil="true"></City>
+          <County xsi:nil="true"></County>
+          <Country xsi:nil="true"></Country>
+          <Fax xsi:nil="true"></Fax>
+          <FreightTermsCode xsi:nil="true"></FreightTermsCode>
+          <ImportSequenceNumber xsi:nil="true"></ImportSequenceNumber>
+          <Latitude xsi:nil="true"></Latitude>
+          <Line1 xsi:nil="true"></Line1>
+          <Line2 xsi:nil="true"></Line2>
+          <Line3 xsi:nil="true"></Line3>
+          <Longitude xsi:nil="true"></Longitude>
+          <Name xsi:nil="true"></Name>
+          <PostalCode xsi:nil="true"></PostalCode>
+          <PostOfficeBox xsi:nil="true"></PostOfficeBox>
+          <PrimaryContactName xsi:nil="true"></PrimaryContactName>
+          <ShippingMethodCode>1</ShippingMethodCode>
+          <StateOrProvince xsi:nil="true"></StateOrProvince>
+          <Telephone1 xsi:nil="true"></Telephone1>
+          <Telephone2 xsi:nil="true"></Telephone2>
+          <Telephone3 xsi:nil="true"></Telephone3>
+          <TimeZoneRuleVersionNumber xsi:nil="true"></TimeZoneRuleVersionNumber>
+          <UPSZone xsi:nil="true"></UPSZone>
+          <UTCOffset xsi:nil="true"></UTCOffset>
+          <UTCConversionTimeZoneCode xsi:nil="true"></UTCConversionTimeZoneCode>
+        </Address>
+        <Address>
+          <AddressNumber>2</AddressNumber>
+          <AddressTypeCode>1</AddressTypeCode>
+          <City xsi:nil="true"></City>
+          <County xsi:nil="true"></County>
+          <Country xsi:nil="true"></Country>
+          <Fax xsi:nil="true"></Fax>
+          <FreightTermsCode xsi:nil="true"></FreightTermsCode>
+          <ImportSequenceNumber xsi:nil="true"></ImportSequenceNumber>
+          <Latitude xsi:nil="true"></Latitude>
+          <Line1 xsi:nil="true"></Line1>
+          <Line2 xsi:nil="true"></Line2>
+          <Line3 xsi:nil="true"></Line3>
+          <Longitude xsi:nil="true"></Longitude>
+          <Name xsi:nil="true"></Name>
+          <PostalCode xsi:nil="true"></PostalCode>
+          <PostOfficeBox xsi:nil="true"></PostOfficeBox>
+          <PrimaryContactName xsi:nil="true"></PrimaryContactName>
+          <ShippingMethodCode>1</ShippingMethodCode>
+          <StateOrProvince xsi:nil="true"></StateOrProvince>
+          <Telephone1 xsi:nil="true"></Telephone1>
+          <Telephone2 xsi:nil="true"></Telephone2>
+          <Telephone3 xsi:nil="true"></Telephone3>
+          <TimeZoneRuleVersionNumber xsi:nil="true"></TimeZoneRuleVersionNumber>
+          <UPSZone xsi:nil="true"></UPSZone>
+          <UTCOffset xsi:nil="true"></UTCOffset>
+          <UTCConversionTimeZoneCode xsi:nil="true"></UTCConversionTimeZoneCode>
+        </Address>
+      </Addresses>
+    </Publisher>
+    <RootComponents>
+      <RootComponent type="1" schemaName="mw_allocation" behavior="1" />
+      <RootComponent type="1" schemaName="mw_category" behavior="1" />
+      <RootComponent type="1" schemaName="mw_round" behavior="1" />
+      <RootComponent type="1" schemaName="mw_simulation" behavior="0" />
+      <RootComponent type="1" schemaName="mw_team" behavior="1" />
+      <RootComponent type="1" schemaName="mw_teammember" behavior="1" />
+      <RootComponent type="1" schemaName="mw_teamroundresult" behavior="1" />
+      <RootComponent type="1" schemaName="mw_weightsconfig" behavior="0" />
+    </RootComponents>
+    <MissingDependencies>
+      <MissingDependency>
+        <Required type="1" schemaName="mw_allocation" displayName="Allocation" solution="Active" />
+        <Dependent type="1" schemaName="mw_allocation" displayName="Allocation" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="1" schemaName="mw_category" displayName="Category" solution="Active" />
+        <Dependent type="1" schemaName="mw_category" displayName="Category" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="1" schemaName="mw_round" displayName="Round" solution="Active" />
+        <Dependent type="1" schemaName="mw_round" displayName="Round" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="1" schemaName="mw_team" displayName="Team" solution="Active" />
+        <Dependent type="1" schemaName="mw_team" displayName="Team" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="1" schemaName="mw_teammember" displayName="Team Member" solution="Active" />
+        <Dependent type="1" schemaName="mw_teammember" displayName="Team Member" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="1" schemaName="mw_teamroundresult" displayName="Team Round Result" solution="Active" />
+        <Dependent type="1" schemaName="mw_teamroundresult" displayName="Team Round Result" />
+      </MissingDependency>
+    </MissingDependencies>
+  </SolutionManifest>
+</ImportExportXml>

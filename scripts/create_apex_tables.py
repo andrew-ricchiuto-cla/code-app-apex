@@ -47,6 +47,7 @@ ensure_table("mw_Simulation", {
 
 ensure_table("mw_Round", {
     "mw_Index":            "int",
+    "mw_EventKey":         "string",
     "mw_EventTitle":       "string",
     "mw_EventDescription": "string",
     "mw_Budget":           "decimal",
@@ -55,6 +56,7 @@ ensure_table("mw_Round", {
 }, "Round", primary_column="mw_Round_Name")
 
 ensure_table("mw_Category", {
+    "mw_Key":         "string",
     "mw_Description": "string",
 }, "Category", primary_column="mw_Category_Name")
 
@@ -140,6 +142,9 @@ ensure_lookup("mw_teamroundresult", "mw_TeamId",       "mw_team",           "Tea
 time.sleep(3)
 # Round -> WeightsConfig
 ensure_lookup("mw_round",           "mw_WeightsConfigId", "mw_weightsconfig", "Weights Config")
+time.sleep(3)
+# Simulation -> current Round
+ensure_lookup("mw_simulation",      "mw_CurrentRoundId", "mw_round", "Current Round")
 
 print()
 print("Schema creation complete!")

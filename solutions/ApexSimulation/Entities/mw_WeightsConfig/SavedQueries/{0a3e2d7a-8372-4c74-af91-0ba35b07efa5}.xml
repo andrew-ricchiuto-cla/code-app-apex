@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<savedqueries xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <savedquery>
+    <IsCustomizable>1</IsCustomizable>
+    <CanBeDeleted>0</CanBeDeleted>
+    <isquickfindquery>0</isquickfindquery>
+    <isprivate>0</isprivate>
+    <isdefault>1</isdefault>
+    <savedqueryid>{0a3e2d7a-8372-4c74-af91-0ba35b07efa5}</savedqueryid>
+    <layoutxml>
+      <grid name="mw_weightsconfigs" jump="mw_weightsconfig_name" select="1" icon="1" preview="1">
+        <row name="mw_weightsconfig" id="mw_weightsconfigid">
+          <cell name="mw_weightsconfig_name" width="300" />
+          <cell name="createdon" width="125" />
+        </row>
+      </grid>
+    </layoutxml>
+    <querytype>2</querytype>
+    <fetchxml>
+      <fetch version="1.0" mapping="logical">
+        <entity name="mw_weightsconfig">
+          <attribute name="mw_weightsconfigid" />
+          <attribute name="mw_weightsconfig_name" />
+          <attribute name="createdon" />
+          <order attribute="mw_weightsconfig_name" descending="false" />
+          <filter type="and">
+            <condition attribute="statecode" operator="eq" value="0" />
+          </filter>
+        </entity>
+      </fetch>
+    </fetchxml>
+    <IntroducedVersion>1.0</IntroducedVersion>
+    <LocalizedNames>
+      <LocalizedName description="Weights Config Associated View" languagecode="1033" />
+    </LocalizedNames>
+  </savedquery>
+</savedqueries>
