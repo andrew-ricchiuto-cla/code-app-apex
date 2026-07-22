@@ -36,8 +36,10 @@ npm run test:coverage     # coverage report
 ```bash
 npm run build             # TypeScript compile + Vite bundle → dist/
 pac auth select --name apex
-pac code push -s ApexSimulation
+pac code push -s "Apex Simulation"
 ```
+
+PAC CLI 1.52.1 expects the solution friendly name for `code push` in this environment; the solution unique name remains `ApexSimulation`.
 
 ---
 
