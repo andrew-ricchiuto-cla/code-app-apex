@@ -18,6 +18,7 @@ export interface Round {
   id: string
   simulationId: string
   index: number
+  eventKey: string
   eventTitle: string
   eventDescription: string
   budget: number
@@ -30,6 +31,7 @@ export interface Round {
 export interface Category {
   id: string
   roundId: string
+  key: string
   name: string
   description: string
 }

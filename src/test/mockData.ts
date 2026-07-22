@@ -21,6 +21,7 @@ export const mockRound: Round = {
   id: 'round-001',
   simulationId: 'sim-001',
   index: 1,
+  eventKey: 'high-attrition',
   eventTitle: 'High Attrition Crisis',
   eventDescription:
     'The firm is experiencing a 25% annual attrition rate driven by burnout ' +
@@ -35,30 +36,35 @@ export const mockCategories: Category[] = [
   {
     id: 'cat-ai',
     roundId: 'round-001',
+    key: 'ai-investment',
     name: 'AI Investment',
     description: 'Automation and AI tooling',
   },
   {
     id: 'cat-reskill',
     roundId: 'round-001',
+    key: 'reskilling',
     name: 'Reskilling',
     description: 'Workforce development programs',
   },
   {
     id: 'cat-industries',
     roundId: 'round-001',
+    key: 'industries',
     name: 'Industries',
     description: 'Industry vertical focus',
   },
   {
     id: 'cat-marketing',
     roundId: 'round-001',
+    key: 'marketing',
     name: 'Marketing',
     description: 'Brand and demand generation',
   },
   {
     id: 'cat-ops',
     roundId: 'round-001',
+    key: 'operations',
     name: 'Operations',
     description: 'Operational efficiency',
   },
@@ -261,6 +267,7 @@ export const mockRound2: Round = {
   id: 'round-002',
   simulationId: 'sim-001',
   index: 2,
+  eventKey: 'digital-talent-arms-race',
   eventTitle: 'Digital Talent Arms Race',
   eventDescription:
     'A fierce competition for AI-fluent talent has erupted across the industry. ' +
@@ -272,11 +279,11 @@ export const mockRound2: Round = {
 }
 
 export const mockCategoriesRound2: Category[] = [
-  { id: 'cat-ai-r2', roundId: 'round-002', name: 'AI Investment', description: 'Automation and AI tooling' },
-  { id: 'cat-reskill-r2', roundId: 'round-002', name: 'Reskilling', description: 'Workforce development programs' },
-  { id: 'cat-talent-r2', roundId: 'round-002', name: 'Talent Acquisition', description: 'Recruiting and sourcing' },
-  { id: 'cat-innovation-r2', roundId: 'round-002', name: 'Innovation Labs', description: 'R&D and prototyping' },
-  { id: 'cat-ops-r2', roundId: 'round-002', name: 'Operations', description: 'Operational efficiency' },
+  { id: 'cat-ai-r2', roundId: 'round-002', key: 'ai-investment', name: 'AI Investment', description: 'Automation and AI tooling' },
+  { id: 'cat-reskill-r2', roundId: 'round-002', key: 'reskilling', name: 'Reskilling', description: 'Workforce development programs' },
+  { id: 'cat-talent-r2', roundId: 'round-002', key: 'talent-acquisition', name: 'Talent Acquisition', description: 'Recruiting and sourcing' },
+  { id: 'cat-innovation-r2', roundId: 'round-002', key: 'innovation-labs', name: 'Innovation Labs', description: 'R&D and prototyping' },
+  { id: 'cat-ops-r2', roundId: 'round-002', key: 'operations', name: 'Operations', description: 'Operational efficiency' },
 ]
 
 export const mockTeamRoundResultsRound2: TeamRoundResult[] = [
@@ -342,6 +349,7 @@ export const mockRound3: Round = {
   id: 'round-003',
   simulationId: 'sim-001',
   index: 3,
+  eventKey: 'market-disruption',
   eventTitle: 'Market Disruption Response',
   eventDescription:
     'A wave of tech-native competitors is undercutting on price and speed. ' +
@@ -353,11 +361,11 @@ export const mockRound3: Round = {
 }
 
 export const mockCategoriesRound3: Category[] = [
-  { id: 'cat-ai-r3', roundId: 'round-003', name: 'AI Investment', description: 'Automation and AI tooling' },
-  { id: 'cat-reskill-r3', roundId: 'round-003', name: 'Reskilling', description: 'Workforce development programs' },
-  { id: 'cat-compliance-r3', roundId: 'round-003', name: 'Compliance Programs', description: 'Regulatory adaptation' },
-  { id: 'cat-change-r3', roundId: 'round-003', name: 'Change Management', description: 'Transformation leadership' },
-  { id: 'cat-ops-r3', roundId: 'round-003', name: 'Operations', description: 'Operational efficiency' },
+  { id: 'cat-ai-r3', roundId: 'round-003', key: 'ai-investment', name: 'AI Investment', description: 'Automation and AI tooling' },
+  { id: 'cat-reskill-r3', roundId: 'round-003', key: 'reskilling', name: 'Reskilling', description: 'Workforce development programs' },
+  { id: 'cat-compliance-r3', roundId: 'round-003', key: 'compliance-programs', name: 'Compliance Programs', description: 'Regulatory adaptation' },
+  { id: 'cat-change-r3', roundId: 'round-003', key: 'change-management', name: 'Change Management', description: 'Transformation leadership' },
+  { id: 'cat-ops-r3', roundId: 'round-003', key: 'operations', name: 'Operations', description: 'Operational efficiency' },
 ]
 
 export const mockAllocationsRound3: Allocation[] = [
