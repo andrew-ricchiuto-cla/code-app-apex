@@ -2,7 +2,7 @@
 Create the Apex Simulation Dataverse schema:
   Publisher: Modern Workplace (prefix: mw)  -- already created
   Solution:  ApexSimulation                 -- already created
-  8 tables + columns + lookup relationships
+  11 tables + columns + lookup relationships
 """
 import sys
 import os
@@ -87,6 +87,26 @@ ensure_table("mw_WeightsConfig", {
     "mw_Payload":   "string",
 }, "Weights Config", primary_column="mw_WeightsConfig_Name")
 
+ensure_table("mw_ConfigSet", {
+    "mw_Version":              "string",
+    "mw_Status":               "string",
+    "mw_SystemHealthBaseline": "decimal",
+    "mw_PublishedAt":          "datetime",
+}, "Config Set", primary_column="mw_ConfigSet_Name")
+
+ensure_table("mw_Weight", {
+    "mw_EventKey":    "string",
+    "mw_CategoryKey": "string",
+    "mw_Value":       "decimal",
+}, "Weight", primary_column="mw_Weight_Name")
+
+ensure_table("mw_HealthBand", {
+    "mw_Label":        "string",
+    "mw_MinScore":     "decimal",
+    "mw_Color":        "string",
+    "mw_DisplayOrder": "int",
+}, "Health Band", primary_column="mw_HealthBand_Name")
+
 print("Phase 1 complete. Waiting 20s for metadata propagation...")
 time.sleep(20)
 
@@ -145,6 +165,15 @@ ensure_lookup("mw_round",           "mw_WeightsConfigId", "mw_weightsconfig", "W
 time.sleep(3)
 # Simulation -> current Round
 ensure_lookup("mw_simulation",      "mw_CurrentRoundId", "mw_round", "Current Round")
+time.sleep(3)
+# Weight -> Config Set
+ensure_lookup("mw_weight",          "mw_ConfigSetId", "mw_configset", "Config Set")
+time.sleep(3)
+# Health Band -> Config Set
+ensure_lookup("mw_healthband",      "mw_ConfigSetId", "mw_configset", "Config Set")
+time.sleep(3)
+# Round -> Config Set
+ensure_lookup("mw_round",           "mw_ConfigSetId", "mw_configset", "Config Set")
 
 print()
 print("Schema creation complete!")

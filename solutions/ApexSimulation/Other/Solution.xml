@@ -84,11 +84,14 @@
     <RootComponents>
       <RootComponent type="1" schemaName="mw_allocation" behavior="1" />
       <RootComponent type="1" schemaName="mw_category" behavior="1" />
+      <RootComponent type="1" schemaName="mw_configset" behavior="1" />
+      <RootComponent type="1" schemaName="mw_healthband" behavior="1" />
       <RootComponent type="1" schemaName="mw_round" behavior="1" />
       <RootComponent type="1" schemaName="mw_simulation" behavior="0" />
       <RootComponent type="1" schemaName="mw_team" behavior="1" />
       <RootComponent type="1" schemaName="mw_teammember" behavior="1" />
       <RootComponent type="1" schemaName="mw_teamroundresult" behavior="1" />
+      <RootComponent type="1" schemaName="mw_weight" behavior="1" />
       <RootComponent type="1" schemaName="mw_weightsconfig" behavior="0" />
     </RootComponents>
     <MissingDependencies>
@@ -99,6 +102,14 @@
       <MissingDependency>
         <Required type="1" schemaName="mw_category" displayName="Category" solution="Active" />
         <Dependent type="1" schemaName="mw_category" displayName="Category" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="1" schemaName="mw_configset" displayName="Config Set" solution="Active" />
+        <Dependent type="1" schemaName="mw_configset" displayName="Config Set" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="1" schemaName="mw_healthband" displayName="Health Band" solution="Active" />
+        <Dependent type="1" schemaName="mw_healthband" displayName="Health Band" />
       </MissingDependency>
       <MissingDependency>
         <Required type="1" schemaName="mw_round" displayName="Round" solution="Active" />
@@ -115,6 +126,10 @@
       <MissingDependency>
         <Required type="1" schemaName="mw_teamroundresult" displayName="Team Round Result" solution="Active" />
         <Dependent type="1" schemaName="mw_teamroundresult" displayName="Team Round Result" />
+      </MissingDependency>
+      <MissingDependency>
+        <Required type="1" schemaName="mw_weight" displayName="Weight" solution="Active" />
+        <Dependent type="1" schemaName="mw_weight" displayName="Weight" />
       </MissingDependency>
     </MissingDependencies>
   </SolutionManifest>

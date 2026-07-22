@@ -7,6 +7,9 @@
   <EntityRelationship Name="lk_mw_weightsconfig_createdby" />
   <EntityRelationship Name="lk_mw_weightsconfig_modifiedby" />
   <EntityRelationship Name="mw_category_mw_allocation_mw_CategoryId" />
+  <EntityRelationship Name="mw_configset_mw_healthband_mw_ConfigSetId" />
+  <EntityRelationship Name="mw_configset_mw_round_mw_ConfigSetId" />
+  <EntityRelationship Name="mw_configset_mw_weight_mw_ConfigSetId" />
   <EntityRelationship Name="mw_round_mw_allocation_mw_RoundId" />
   <EntityRelationship Name="mw_round_mw_category_mw_RoundId" />
   <EntityRelationship Name="mw_round_mw_simulation_mw_CurrentRoundId" />
