@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getSystemHealthBand } from '@/lib/systemHealth'
+import { getHealthBandClassName, getSystemHealthBand } from '@/lib/systemHealth'
 import type { Team, TeamRoundResult } from '@/types'
 
 const TEAM_COLORS = ['#7DD2D3', '#FBC55A', '#E2E868', '#EE5340', '#8B9DC3'] as const
@@ -68,7 +68,7 @@ export function TeamResultCard({ team, result, displayName, teamIndex }: TeamRes
               System Health
             </p>
             <span
-              className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.18em] ${healthBand.badgeClassName}`}
+              className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.18em] ${getHealthBandClassName(healthBand.color)}`}
             >
               {healthBand.label}
             </span>

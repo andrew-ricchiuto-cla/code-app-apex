@@ -24,6 +24,7 @@ const round1: Round = {
   eventTitle: 'High Attrition',
   eventDescription: '',
   budget: 100,
+  configSetId: 'config-set-1',
   weightsConfigId: 'weights-1',
   status: 'Revealed',
 }
@@ -164,4 +165,3 @@ describe('round lifecycle', () => {
     expect(dependencies.createResult).not.toHaveBeenCalled()
   })
 })
-

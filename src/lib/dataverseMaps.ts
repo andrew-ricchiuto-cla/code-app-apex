@@ -1,15 +1,22 @@
 import type { Mw_allocations } from '@/generated/models/Mw_allocationsModel'
 import type { Mw_categories } from '@/generated/models/Mw_categoriesModel'
+import type { Mw_configsets } from '@/generated/models/Mw_configsetsModel'
+import type { Mw_healthbands } from '@/generated/models/Mw_healthbandsModel'
 import type { Mw_rounds } from '@/generated/models/Mw_roundsModel'
 import type { Mw_simulations } from '@/generated/models/Mw_simulationsModel'
 import type { Mw_teammembers } from '@/generated/models/Mw_teammembersModel'
 import type { Mw_teamroundresults } from '@/generated/models/Mw_teamroundresultsModel'
 import type { Mw_teams } from '@/generated/models/Mw_teamsModel'
 import type { Mw_weightsconfigs } from '@/generated/models/Mw_weightsconfigsModel'
+import type { Mw_weights } from '@/generated/models/Mw_weightsModel'
 import type {
   Allocation,
   Category,
   CategoryContribution,
+  ConfigSet,
+  ConfigSetStatus,
+  HealthBand,
+  HealthBandColor,
   Round,
   Simulation,
   Team,
@@ -17,6 +24,7 @@ import type {
   TeamRoundResult,
   WeightsConfig,
   WeightsPayload,
+  WeightRow,
 } from '@/types'
 
 function numberValue(value: string | undefined): number {
@@ -46,6 +54,14 @@ function parseWeights(value: string | undefined): WeightsPayload {
   }
 }
 
+function configSetStatus(value: string | undefined): ConfigSetStatus {
+  return value === 'Published' || value === 'Retired' ? value : 'Draft'
+}
+
+function healthBandColor(value: string | undefined): HealthBandColor {
+  return value === 'Yellow' || value === 'Green' ? value : 'Red'
+}
+
 export function mapSimulation(raw: Mw_simulations): Simulation {
   return {
     id: raw.mw_simulationid,
@@ -65,8 +81,41 @@ export function mapRound(raw: Mw_rounds): Round {
     eventTitle: raw.mw_eventtitle ?? '',
     eventDescription: raw.mw_eventdescription ?? '',
     budget: numberValue(raw.mw_budget),
+    configSetId: raw._mw_configsetid_value ?? null,
     weightsConfigId: raw._mw_weightsconfigid_value ?? null,
     status: (raw.mw_status ?? 'Pending') as Round['status'],
+  }
+}
+
+export function mapConfigSet(raw: Mw_configsets): ConfigSet {
+  return {
+    id: raw.mw_configsetid,
+    name: raw.mw_configset_name ?? '',
+    version: raw.mw_version ?? '',
+    status: configSetStatus(raw.mw_status),
+    systemHealthBaseline: numberValue(raw.mw_systemhealthbaseline),
+    publishedAt: raw.mw_publishedat ?? null,
+  }
+}
+
+export function mapWeightRow(raw: Mw_weights): WeightRow {
+  return {
+    id: raw.mw_weightid,
+    configSetId: raw._mw_configsetid_value ?? '',
+    eventKey: raw.mw_eventkey ?? '',
+    categoryKey: raw.mw_categorykey ?? '',
+    value: numberValue(raw.mw_value),
+  }
+}
+
+export function mapHealthBand(raw: Mw_healthbands): HealthBand {
+  return {
+    id: raw.mw_healthbandid,
+    configSetId: raw._mw_configsetid_value ?? '',
+    label: healthBandColor(raw.mw_label),
+    minScore: numberValue(raw.mw_minscore),
+    color: healthBandColor(raw.mw_color),
+    displayOrder: numberValue(raw.mw_displayorder),
   }
 }
 
@@ -130,4 +179,3 @@ export function mapWeightsConfig(raw: Mw_weightsconfigs): WeightsConfig {
     payload: parseWeights(raw.mw_payload),
   }
 }
-

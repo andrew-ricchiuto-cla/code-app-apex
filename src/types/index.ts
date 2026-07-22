@@ -22,6 +22,7 @@ export interface Round {
   eventTitle: string
   eventDescription: string
   budget: number
+  configSetId: string | null
   weightsConfigId: string | null
   status: RoundStatus
 }
@@ -85,6 +86,38 @@ export interface TeamRoundResult {
   delta: number
   contributions: CategoryContribution[]
   rationale: string
+}
+
+// ─── Versioned configuration ────────────────────────────────────────────────
+
+export type ConfigSetStatus = 'Draft' | 'Published' | 'Retired'
+
+export interface ConfigSet {
+  id: string
+  name: string
+  version: string
+  status: ConfigSetStatus
+  systemHealthBaseline: number
+  publishedAt: string | null
+}
+
+export interface WeightRow {
+  id: string
+  configSetId: string
+  eventKey: string
+  categoryKey: string
+  value: number
+}
+
+export type HealthBandColor = 'Red' | 'Yellow' | 'Green'
+
+export interface HealthBand {
+  id: string
+  configSetId: string
+  label: HealthBandColor
+  minScore: number
+  color: HealthBandColor
+  displayOrder: number
 }
 
 // ─── Weights Config ───────────────────────────────────────────────────────────

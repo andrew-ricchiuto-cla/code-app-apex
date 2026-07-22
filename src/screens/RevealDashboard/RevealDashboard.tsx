@@ -8,7 +8,11 @@ import { useAllRoundResults } from '@/hooks/useAllRoundResults'
 import { useRoundResults } from '@/hooks/useRoundResults'
 import { useRounds } from '@/hooks/useRounds'
 import { useTeams } from '@/hooks/useTeams'
-import { getOverallSystemHealth, getSystemHealthBand } from '@/lib/systemHealth'
+import {
+  getHealthBandClassName,
+  getOverallSystemHealth,
+  getSystemHealthBand,
+} from '@/lib/systemHealth'
 
 import { HealthTrendChart } from './HealthTrendChart'
 import { TeamResultCard } from './TeamResultCard'
@@ -150,7 +154,7 @@ export function RevealDashboard() {
                   </span>
                   <span
                     data-testid="overall-health-band"
-                    className={`rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.2em] ${overallBand.badgeClassName}`}
+                    className={`rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.2em] ${getHealthBandClassName(overallBand.color)}`}
                   >
                     {overallBand.label}
                   </span>

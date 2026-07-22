@@ -28,6 +28,7 @@ export const mockRound: Round = {
     'and competitive offers. Allocate your budget to stabilize the workforce ' +
     'and protect delivery capacity.',
   budget: 100,
+  configSetId: 'baseline-config-v1',
   weightsConfigId: 'default-weights-v1',
   status: 'Revealed',
 }
@@ -274,6 +275,7 @@ export const mockRound2: Round = {
     'Competitors are offering aggressive packages and remote-first perks. ' +
     'Decide where to double down to attract and retain the skills your firm needs.',
   budget: 100,
+  configSetId: 'baseline-config-v1',
   weightsConfigId: 'default-weights-v1',
   status: 'Revealed',
 }
@@ -356,6 +358,7 @@ export const mockRound3: Round = {
     'Your firm must act decisively to differentiate, protect core clients, ' +
     'and position for the next cycle of growth.',
   budget: 100,
+  configSetId: 'baseline-config-v1',
   weightsConfigId: 'default-weights-v1',
   status: 'Revealed',
 }
