@@ -34,7 +34,8 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
       try {
         const simulations = requireData(
           await Mw_simulationsService.getAll({
-            filter: "mw_status eq 'Active'",
+            filter:
+              "mw_status eq 'Active' and mw_createdbyref eq 'apex-seed-v1'",
             orderBy: ['modifiedon desc'],
             top: 1,
           }),

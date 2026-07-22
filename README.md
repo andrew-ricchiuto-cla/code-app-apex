@@ -125,8 +125,10 @@ python scripts/reconcile_apex_schema.py
 pac code add-data-source -a dataverse -t mw_simulation -env "<environment-url>"
 
 # Seed or refresh the scoped Apex demo records, roster a facilitator, and verify counts
-python scripts/seed_apex_data.py --facilitator-email "facilitator@example.com"
+python scripts/seed_apex_data.py --facilitator-email "facilitator@example.com" --captain "captain.alpha@example.com=Team Alpha" --captain "captain.beta@example.com=Team Beta"
 ```
+
+Repeat `--captain "EMAIL=TEAM"` for each real player who should captain a seeded team. The script resolves each Dataverse user to their Entra object ID and safely updates the roster on reruns. The application selects the Active simulation marked `mw_createdbyref = apex-seed-v1`.
 
 The generated sources are registered in `power.config.json`. Application code consumes them through domain mappers and hooks, while round state changes and scoring writes are coordinated by `src/services/simulation/DataverseRoundLifecycle.ts`.
 

@@ -63,7 +63,12 @@ describe('SimulationProvider', () => {
       budget: 100,
     })
     expect(serviceMocks.simulationsGetAll).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: ['modifiedon desc'], top: 1 }),
+      expect.objectContaining({
+        filter:
+          "mw_status eq 'Active' and mw_createdbyref eq 'apex-seed-v1'",
+        orderBy: ['modifiedon desc'],
+        top: 1,
+      }),
     )
   })
 })

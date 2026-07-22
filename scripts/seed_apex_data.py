@@ -159,6 +159,22 @@ def bind(entity_set, record_id):
     return f"/{entity_set}({record_id})"
 
 
+def resolve_enabled_user(client, email):
+    escaped_email = email.replace("'", "''")
+    users = client.records.list(
+        "systemuser",
+        filter=f"internalemailaddress eq '{escaped_email}' and isdisabled eq false",
+        select=["systemuserid", "azureactivedirectoryobjectid", "fullname"],
+        top=1,
+    )
+    if not users or not users[0].get("azureactivedirectoryobjectid"):
+        raise RuntimeError(f"No enabled Dataverse user found for {email}")
+    return (
+        str(users[0]["azureactivedirectoryobjectid"]),
+        users[0].get("fullname") or email,
+    )
+
+
 def score_result(previous_health, round_data, categories, amounts):
     contributions = []
     for category, amount in zip(categories, amounts):
@@ -188,6 +204,16 @@ def parse_args():
         "--facilitator-email",
         default=os.environ.get("APEX_FACILITATOR_EMAIL"),
         help="Dataverse user email to roster as the facilitator.",
+    )
+    parser.add_argument(
+        "--captain",
+        action="append",
+        default=[],
+        metavar="EMAIL=TEAM",
+        help=(
+            "Roster a real Dataverse user as captain of a seeded team. "
+            "Repeat for multiple teams."
+        ),
     )
     return parser.parse_args()
 
@@ -361,32 +387,32 @@ def main():
 
         members = list(MEMBERS)
         if args.facilitator_email:
-            escaped_email = args.facilitator_email.replace("'", "''")
-            users = client.records.list(
-                "systemuser",
-                filter=(
-                    f"internalemailaddress eq '{escaped_email}' "
-                    "and isdisabled eq false"
-                ),
-                select=[
-                    "systemuserid",
-                    "azureactivedirectoryobjectid",
-                    "fullname",
-                ],
-                top=1,
+            user_id, display_name = resolve_enabled_user(
+                client, args.facilitator_email
             )
-            if not users or not users[0].get("azureactivedirectoryobjectid"):
-                raise RuntimeError(
-                    f"No enabled Dataverse user found for {args.facilitator_email}"
-                )
             members.append(
                 (
-                    str(users[0]["azureactivedirectoryobjectid"]),
-                    users[0].get("fullname") or args.facilitator_email,
+                    user_id,
+                    display_name,
                     None,
                     False,
                 )
             )
+
+        for captain_spec in args.captain:
+            if "=" not in captain_spec:
+                raise ValueError(
+                    f"Invalid --captain value '{captain_spec}'; use EMAIL=TEAM"
+                )
+            email, team_name = (part.strip() for part in captain_spec.split("=", 1))
+            if team_name not in team_ids:
+                raise ValueError(
+                    f"Unknown captain team '{team_name}'; choose {', '.join(TEAMS)}"
+                )
+            if args.facilitator_email and email.lower() == args.facilitator_email.lower():
+                raise ValueError("A user cannot be rostered as facilitator and captain")
+            user_id, display_name = resolve_enabled_user(client, email)
+            members.append((user_id, display_name, team_name, True))
 
         member_desired = []
         for system_user_id, display_name, team_name, is_captain in members:
