@@ -1,286 +1,245 @@
-import { renderHook, act } from '@testing-library/react'
-import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const serviceMocks = vi.hoisted(() => ({
+  allocationsGetAll: vi.fn(),
+  allocationsUpdate: vi.fn(),
+  categoriesGetAll: vi.fn(),
+  roundsGetAll: vi.fn(),
+  teamResultsGetAll: vi.fn(),
+  teamsGet: vi.fn(),
+  teamsGetAll: vi.fn(),
+  teamMembersGetAll: vi.fn(),
+}))
+
+vi.mock('@/generated/services/Mw_allocationsService', () => ({
+  Mw_allocationsService: {
+    getAll: serviceMocks.allocationsGetAll,
+    update: serviceMocks.allocationsUpdate,
+  },
+}))
+vi.mock('@/generated/services/Mw_categoriesService', () => ({
+  Mw_categoriesService: { getAll: serviceMocks.categoriesGetAll },
+}))
+vi.mock('@/generated/services/Mw_roundsService', () => ({
+  Mw_roundsService: { getAll: serviceMocks.roundsGetAll },
+}))
+vi.mock('@/generated/services/Mw_teamroundresultsService', () => ({
+  Mw_teamroundresultsService: { getAll: serviceMocks.teamResultsGetAll },
+}))
+vi.mock('@/generated/services/Mw_teamsService', () => ({
+  Mw_teamsService: {
+    get: serviceMocks.teamsGet,
+    getAll: serviceMocks.teamsGetAll,
+  },
+}))
+vi.mock('@/generated/services/Mw_teammembersService', () => ({
+  Mw_teammembersService: { getAll: serviceMocks.teamMembersGetAll },
+}))
 
 import { useAllocations } from './useAllocations'
+import { useAllRoundResults } from './useAllRoundResults'
 import { useMyTeam } from './useMyTeam'
 import { useRoundResults } from './useRoundResults'
+import { useRounds } from './useRounds'
 import { useTeams } from './useTeams'
 
-describe('custom data hooks', () => {
+function success<T>(data: T) {
+  return { success: true, data }
+}
+
+describe('Dataverse data hooks', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
+    vi.clearAllMocks()
+    serviceMocks.allocationsGetAll.mockResolvedValue(success([]))
+    serviceMocks.allocationsUpdate.mockResolvedValue(success({}))
+    serviceMocks.categoriesGetAll.mockResolvedValue(success([]))
+    serviceMocks.roundsGetAll.mockResolvedValue(success([]))
+    serviceMocks.teamResultsGetAll.mockResolvedValue(success([]))
+    serviceMocks.teamsGet.mockResolvedValue(success(null))
+    serviceMocks.teamsGetAll.mockResolvedValue(success([]))
+    serviceMocks.teamMembersGetAll.mockResolvedValue(success([]))
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
+  it('loads and maps teams for a simulation', async () => {
+    serviceMocks.teamsGetAll.mockResolvedValue(
+      success([
+        {
+          mw_teamid: 'team-guid',
+          _mw_simulationid_value: 'simulation-guid',
+          mw_team_name: 'Team Alpha',
+          mw_systemhealthbaseline: '50',
+        },
+      ]),
+    )
+
+    const { result } = renderHook(() => useTeams('simulation-guid'))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.teams).toEqual([
+      {
+        id: 'team-guid',
+        simulationId: 'simulation-guid',
+        name: 'Team Alpha',
+        systemHealthBaseline: 50,
+      },
+    ])
+    expect(serviceMocks.teamsGetAll).toHaveBeenCalledWith(
+      expect.objectContaining({ filter: expect.stringContaining('simulation-guid') }),
+    )
   })
 
-  it('loads teams for a simulation', () => {
-    const { result } = renderHook(() => useTeams('sim-001'))
+  it('loads a team and its members', async () => {
+    serviceMocks.teamsGet.mockResolvedValue(
+      success({
+        mw_teamid: 'team-guid',
+        _mw_simulationid_value: 'simulation-guid',
+        mw_team_name: 'Team Alpha',
+        mw_systemhealthbaseline: '50',
+      }),
+    )
+    serviceMocks.teamMembersGetAll.mockResolvedValue(
+      success([
+        {
+          mw_teammemberid: 'member-guid',
+          _mw_teamid_value: 'team-guid',
+          mw_systemuserid: 'user-guid',
+          mw_teammember_name: 'Alice Chen',
+          mw_iscaptain: 1,
+        },
+      ]),
+    )
 
-    expect(result.current.isLoading).toBe(true)
-    expect(result.current.teams).toEqual([])
+    const { result } = renderHook(() => useMyTeam('team-guid'))
 
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.teams.map(team => team.id)).toEqual([
-      'team-alpha',
-      'team-beta',
-      'team-gamma',
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.team?.name).toBe('Team Alpha')
+    expect(result.current.members).toEqual([
+      expect.objectContaining({ id: 'member-guid', isCaptain: true }),
     ])
   })
 
-  it('sets loading while refetching teams for a new simulation', () => {
-    const { result, rerender } = renderHook(
-      ({ simulationId }) => useTeams(simulationId),
-      { initialProps: { simulationId: 'sim-001' as string | null } },
+  it('loads rounds in simulation order', async () => {
+    serviceMocks.roundsGetAll.mockResolvedValue(
+      success([
+        {
+          mw_roundid: 'round-guid',
+          _mw_simulationid_value: 'simulation-guid',
+          mw_index: '1',
+          mw_eventkey: 'high-attrition',
+          mw_eventtitle: 'High Attrition',
+          mw_budget: '100',
+          mw_status: 'Open',
+        },
+      ]),
     )
 
-    act(() => {
-      vi.advanceTimersByTime(100)
+    const { result } = renderHook(() => useRounds('simulation-guid'))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.rounds[0]).toMatchObject({
+      id: 'round-guid',
+      index: 1,
+      eventKey: 'high-attrition',
+      budget: 100,
     })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.teams).toHaveLength(3)
-
-    act(() => {
-      rerender({ simulationId: 'sim-999' })
-    })
-
-    expect(result.current.isLoading).toBe(true)
-    expect(result.current.teams).toHaveLength(3)
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.teams).toEqual([])
+    expect(serviceMocks.roundsGetAll).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: ['mw_index asc'] }),
+    )
   })
 
-  it('loads a team and its members', () => {
-    const { result } = renderHook(() => useMyTeam('team-alpha'))
-
-    expect(result.current.isLoading).toBe(true)
-    expect(result.current.team).toBeNull()
-    expect(result.current.members).toEqual([])
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.team?.name).toBe('Team Alpha')
-    expect(result.current.members.map(member => member.id)).toEqual(['tm-001', 'tm-002'])
-  })
-
-  it('sets loading while refetching a new team', () => {
-    const { result, rerender } = renderHook(
-      ({ teamId }) => useMyTeam(teamId),
-      { initialProps: { teamId: 'team-alpha' as string | null } },
+  it('loads, updates, and submits allocations through Dataverse', async () => {
+    serviceMocks.categoriesGetAll.mockResolvedValue(
+      success([
+        {
+          mw_categoryid: 'category-guid',
+          _mw_roundid_value: 'round-guid',
+          mw_key: 'reskilling',
+          mw_category_name: 'Reskilling',
+        },
+      ]),
+    )
+    serviceMocks.allocationsGetAll.mockResolvedValue(
+      success([
+        {
+          mw_allocationid: 'allocation-guid',
+          _mw_roundid_value: 'round-guid',
+          _mw_teamid_value: 'team-guid',
+          _mw_categoryid_value: 'category-guid',
+          mw_amount: '100',
+        },
+      ]),
     )
 
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
+    const { result } = renderHook(() => useAllocations('round-guid', 'team-guid'))
 
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.team?.id).toBe('team-alpha')
-    expect(result.current.members).toHaveLength(2)
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.categories[0]?.key).toBe('reskilling')
+    expect(result.current.allocations[0]?.amount).toBe(100)
 
-    act(() => {
-      rerender({ teamId: 'team-missing' })
-    })
+    act(() => result.current.updateAmount('category-guid', 90))
+    expect(result.current.allocations[0]?.amount).toBe(90)
 
-    expect(result.current.isLoading).toBe(true)
-    expect(result.current.team?.id).toBe('team-alpha')
-    expect(result.current.members).toHaveLength(2)
+    await act(async () => result.current.submit())
 
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.team).toBeNull()
-    expect(result.current.members).toEqual([])
-  })
-
-  it('loads, updates, and submits allocations', async () => {
-    const { result } = renderHook(() => useAllocations('round-001', 'team-alpha'))
-
-    expect(result.current.isLoading).toBe(true)
-    expect(result.current.allocations).toEqual([])
-    expect(result.current.categories).toEqual([])
-    expect(result.current.isSubmitted).toBe(false)
-    expect(result.current.isSubmitting).toBe(false)
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.categories).toHaveLength(5)
-    expect(result.current.allocations).toHaveLength(5)
-
-    act(() => {
-      result.current.updateAmount('cat-ai', 25)
-    })
-
-    expect(result.current.allocations.find(allocation => allocation.categoryId === 'cat-ai')?.amount).toBe(25)
-
-    let submitPromise: Promise<void> | undefined
-
-    act(() => {
-      submitPromise = result.current.submit()
-    })
-
-    expect(result.current.isSubmitting).toBe(true)
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(500)
-      await submitPromise
-    })
-
-    expect(result.current.isSubmitting).toBe(false)
+    expect(serviceMocks.allocationsUpdate).toHaveBeenCalledWith(
+      'allocation-guid',
+      expect.objectContaining({ mw_amount: '90', mw_submittedat: expect.any(String) }),
+    )
     expect(result.current.isSubmitted).toBe(true)
-    expect(result.current.allocations.every(allocation => allocation.submittedAt !== null)).toBe(true)
   })
 
-  it('clears submitting state when submit fails', async () => {
-    const { result } = renderHook(() => useAllocations('round-001', 'team-alpha'))
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    vi.spyOn(globalThis, 'setTimeout').mockImplementationOnce(() => {
-      throw new Error('submit failed')
-    })
-
-    await act(async () => {
-      await expect(result.current.submit()).rejects.toThrow('submit failed')
-    })
-
-    expect(result.current.isSubmitting).toBe(false)
-  })
-
-  it('sets loading while refetching allocations for a new round', () => {
-    const { result, rerender } = renderHook(
-      ({ roundId, teamId }) => useAllocations(roundId, teamId),
-      {
-        initialProps: {
-          roundId: 'round-001' as string | null,
-          teamId: 'team-alpha' as string | null,
+  it('loads mapped results for one round', async () => {
+    serviceMocks.teamResultsGetAll.mockResolvedValue(
+      success([
+        {
+          mw_teamroundresultid: 'result-guid',
+          _mw_roundid_value: 'round-guid',
+          _mw_teamid_value: 'team-guid',
+          mw_previoushealth: '50',
+          mw_newhealth: '60',
+          mw_delta: '10',
+          mw_contributionsjson: '[]',
         },
-      },
+      ]),
     )
 
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
+    const { result } = renderHook(() => useRoundResults('round-guid'))
 
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.categories).toHaveLength(5)
-    expect(result.current.allocations).toHaveLength(5)
-
-    act(() => {
-      rerender({ roundId: 'round-999', teamId: 'team-alpha' })
-    })
-
-    expect(result.current.isLoading).toBe(true)
-    expect(result.current.categories).toHaveLength(5)
-    expect(result.current.allocations).toHaveLength(5)
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.categories).toEqual([])
-    expect(result.current.allocations).toEqual([])
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.results).toEqual([
+      expect.objectContaining({ id: 'result-guid', newHealth: 60 }),
+    ])
   })
 
-  it('loads round results for a round', () => {
-    const { result } = renderHook(() => useRoundResults('round-001'))
-
-    expect(result.current.isLoading).toBe(true)
-    expect(result.current.results).toEqual([])
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.results).toHaveLength(3)
-    expect(result.current.results[0]?.contributions).toHaveLength(5)
-  })
-
-  it('sets loading while refetching round results for a new round', () => {
-    const { result, rerender } = renderHook(
-      ({ roundId }) => useRoundResults(roundId),
-      { initialProps: { roundId: 'round-001' as string | null } },
-    )
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.results).toHaveLength(3)
-
-    act(() => {
-      rerender({ roundId: 'round-999' })
-    })
-
-    expect(result.current.isLoading).toBe(true)
-    expect(result.current.results).toHaveLength(3)
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.results).toEqual([])
-  })
-
-  it('refetches round results for the same round when the refresh key changes', () => {
-    const useRoundResultsWithRefresh = useRoundResults as unknown as (
-      roundId: string | null,
-      refreshKey?: number,
-    ) => ReturnType<typeof useRoundResults>
-
-    const { result, rerender } = renderHook(
-      ({ roundId, refreshKey }) => useRoundResultsWithRefresh(roundId, refreshKey),
-      {
-        initialProps: {
-          roundId: 'round-001' as string | null,
-          refreshKey: 0,
+  it('loads results for every revealed round in a simulation', async () => {
+    serviceMocks.roundsGetAll.mockResolvedValue(
+      success([
+        {
+          mw_roundid: 'round-guid',
+          _mw_simulationid_value: 'simulation-guid',
+          mw_index: '1',
+          mw_status: 'Revealed',
         },
-      },
+      ]),
+    )
+    serviceMocks.teamResultsGetAll.mockResolvedValue(
+      success([
+        {
+          mw_teamroundresultid: 'result-guid',
+          _mw_roundid_value: 'round-guid',
+          _mw_teamid_value: 'team-guid',
+          mw_newhealth: '60',
+        },
+      ]),
     )
 
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
+    const { result } = renderHook(() => useAllRoundResults('simulation-guid'))
 
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.results).toHaveLength(3)
-
-    act(() => {
-      rerender({ roundId: 'round-001', refreshKey: 1 })
-    })
-
-    expect(result.current.isLoading).toBe(true)
-    expect(result.current.results).toHaveLength(3)
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.results).toHaveLength(3)
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.results).toEqual([
+      expect.objectContaining({ id: 'result-guid', roundId: 'round-guid' }),
+    ])
   })
 })
+

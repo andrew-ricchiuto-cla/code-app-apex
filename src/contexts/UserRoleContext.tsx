@@ -2,6 +2,9 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { getContext } from '@microsoft/power-apps/app'
 import type { AppRole, CurrentUser } from '@/types'
+import { Mw_teammembersService } from '@/generated/services/Mw_teammembersService'
+import { mapTeamMember } from '@/lib/dataverseMaps'
+import { requireData } from '@/lib/powerAppsData'
 import { mockFacilitatorUser } from '@/test/mockData'
 
 interface UserRoleContextValue {
@@ -29,17 +32,24 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
         if (cancelled) return
 
         const sdkName = ctx.user.fullName ?? ctx.user.userPrincipalName ?? null
+        const systemUserId = ctx.user.objectId ?? 'sdk-user'
 
         if (sdkName) {
-          // TODO: once Dataverse tables are connected, resolve the role by querying
-          //   apex_team_member / systemuserroles using ctx.user.objectId.
-          //   For now, default authenticated users to Facilitator.
+          const escapedUserId = systemUserId.replaceAll("'", "''")
+          const memberships = requireData(
+            await Mw_teammembersService.getAll({
+              filter: `mw_systemuserid eq '${escapedUserId}'`,
+              top: 1,
+            }),
+          ).map(mapTeamMember)
+          const membership = memberships[0]
+          if (cancelled) return
           setCurrentUser({
-            systemUserId: ctx.user.objectId ?? 'sdk-user',
+            systemUserId,
             displayName: sdkName,
-            role: 'Facilitator',
-            teamId: null,
-            isCaptain: false,
+            role: membership ? (membership.isCaptain ? 'Captain' : 'Member') : 'Facilitator',
+            teamId: membership?.teamId ?? null,
+            isCaptain: membership?.isCaptain ?? false,
           })
           setIsLoading(false)
           return

@@ -1,12 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Round, Simulation } from '@/types'
+import { Mw_roundsService } from '@/generated/services/Mw_roundsService'
+import { Mw_simulationsService } from '@/generated/services/Mw_simulationsService'
+import { mapRound, mapSimulation } from '@/lib/dataverseMaps'
+import { requireData } from '@/lib/powerAppsData'
 import { mockRound3, mockSimulation } from '@/test/mockData'
 
 interface SimulationContextValue {
   simulation: Simulation | null
   currentRound: Round | null
   isLoading: boolean
+  error: Error | null
   /** Call to re-fetch simulation and current round state from Dataverse */
   refresh: () => void
 }
@@ -17,25 +22,53 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [simulation, setSimulation] = useState<Simulation | null>(null)
   const [currentRound, setCurrentRound] = useState<Round | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
     setIsLoading(true)
-    // TODO: Replace with SDK calls:
-    //   1. Query apex_simulation where apex_status = 'Active', ordered by createdon desc, top 1
-    //   2. Query apex_round where apex_roundid = simulation.currentRoundId
-    const timer = setTimeout(() => {
-      setSimulation(mockSimulation)
-      setCurrentRound(mockRound3)
-      setIsLoading(false)
-    }, 200)
-    return () => clearTimeout(timer)
+    setError(null)
+    let cancelled = false
+
+    async function loadSimulation() {
+      try {
+        const simulations = requireData(
+          await Mw_simulationsService.getAll({
+            filter: "mw_status eq 'Active'",
+            orderBy: ['createdon desc'],
+            top: 1,
+          }),
+        )
+        const active = simulations[0] ? mapSimulation(simulations[0]) : null
+        const round = active?.currentRoundId
+          ? mapRound(requireData(await Mw_roundsService.get(active.currentRoundId)))
+          : null
+        if (!cancelled) {
+          setSimulation(active)
+          setCurrentRound(round)
+        }
+      } catch (cause) {
+        if (cancelled) return
+        setError(cause instanceof Error ? cause : new Error(String(cause)))
+        if (import.meta.env.DEV) {
+          setSimulation(mockSimulation)
+          setCurrentRound(mockRound3)
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    void loadSimulation()
+    return () => {
+      cancelled = true
+    }
   }, [tick])
 
   const refresh = useCallback(() => setTick((t) => t + 1), [])
 
   return (
-    <SimulationContext.Provider value={{ simulation, currentRound, isLoading, refresh }}>
+    <SimulationContext.Provider value={{ simulation, currentRound, isLoading, error, refresh }}>
       {children}
     </SimulationContext.Provider>
   )

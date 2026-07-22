@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 
 import type { Team } from '@/types'
+import { Mw_teamsService } from '@/generated/services/Mw_teamsService'
+import { mapTeam } from '@/lib/dataverseMaps'
+import { requireData } from '@/lib/powerAppsData'
 import { mockTeams } from '@/test/mockData'
 
 export function useTeams(simulationId: string | null) {
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
     if (!simulationId) {
@@ -13,13 +17,30 @@ export function useTeams(simulationId: string | null) {
       return
     }
     setIsLoading(true)
-    // TODO: SDK call — query apex_team where apex_simulationid = simulationId
-    const timer = setTimeout(() => {
-      setTeams(mockTeams.filter(t => t.simulationId === simulationId))
-      setIsLoading(false)
-    }, 100)
-    return () => clearTimeout(timer)
+    setError(null)
+    let cancelled = false
+    void Mw_teamsService.getAll({
+      filter: `_mw_simulationid_value eq ${simulationId}`,
+      orderBy: ['mw_team_name asc'],
+    })
+      .then(result => {
+        if (!cancelled) setTeams(requireData(result).map(mapTeam))
+      })
+      .catch(cause => {
+        if (cancelled) return
+        const nextError = cause instanceof Error ? cause : new Error(String(cause))
+        setError(nextError)
+        if (import.meta.env.DEV) {
+          setTeams(mockTeams.filter(team => team.simulationId === simulationId))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [simulationId])
 
-  return { teams, isLoading }
+  return { teams, isLoading, error }
 }
