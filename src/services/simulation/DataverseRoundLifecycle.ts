@@ -62,13 +62,31 @@ export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
   },
 
   async createResult(result) {
+    const fields = resultFields(result)
+    const created = await Mw_teamroundresultsService.create({
+      ...fields,
+      mw_teamroundresult_name: `${result.roundId}:${result.teamId}`,
+      'mw_RoundId@odata.bind': `/mw_rounds(${result.roundId})`,
+      'mw_TeamId@odata.bind': `/mw_teams(${result.teamId})`,
+    } as never)
+    if (created.success) return
+
+    // The alternate key on (round, team) rejects a concurrent duplicate create.
+    // Resolve the winner and update it so repeated/concurrent reveals remain idempotent.
+    const existing = requireData(
+      await Mw_teamroundresultsService.getAll({
+        filter:
+          `_mw_roundid_value eq ${result.roundId} and ` +
+          `_mw_teamid_value eq ${result.teamId}`,
+        top: 1,
+      }),
+    )[0]
+    if (!existing) requireData(created)
     requireData(
-      await Mw_teamroundresultsService.create({
-        ...resultFields(result),
-        mw_teamroundresult_name: `${result.roundId}:${result.teamId}`,
-        'mw_RoundId@odata.bind': `/mw_rounds(${result.roundId})`,
-        'mw_TeamId@odata.bind': `/mw_teams(${result.teamId})`,
-      } as never),
+      await Mw_teamroundresultsService.update(
+        existing!.mw_teamroundresultid,
+        fields,
+      ),
     )
   },
 
@@ -83,4 +101,3 @@ export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
     return mapWeightsConfig(requireData(await Mw_weightsconfigsService.get(weightsConfigId)))
   },
 }
-

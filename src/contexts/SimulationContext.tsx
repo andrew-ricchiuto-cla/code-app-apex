@@ -35,7 +35,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         const simulations = requireData(
           await Mw_simulationsService.getAll({
             filter: "mw_status eq 'Active'",
-            orderBy: ['createdon desc'],
+            orderBy: ['modifiedon desc'],
             top: 1,
           }),
         )

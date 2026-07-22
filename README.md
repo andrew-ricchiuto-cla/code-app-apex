@@ -111,6 +111,8 @@ Create three Dataverse security roles and assign them to users before publishing
 - **ApexPlayer** — read on simulation/round/category/team; write own allocations
 - **ApexObserver** — read-only on all tables
 
+The UI role roster uses `mw_teammember.mw_systemuserid` with the hosted user's Entra object ID. Records with a team resolve to Captain/Member, a record without a team resolves to Facilitator, and unrostered users fail closed as Observer. The mock role switcher is development-only.
+
 ---
 
 ## Dataverse setup
@@ -122,8 +124,8 @@ python scripts/reconcile_apex_schema.py
 # Add a native Dataverse data source; repeat for all eight table names above
 pac code add-data-source -a dataverse -t mw_simulation -env "<environment-url>"
 
-# Seed or refresh the scoped Apex demo records and verify counts
-python scripts/seed_apex_data.py
+# Seed or refresh the scoped Apex demo records, roster a facilitator, and verify counts
+python scripts/seed_apex_data.py --facilitator-email "facilitator@example.com"
 ```
 
 The generated sources are registered in `power.config.json`. Application code consumes them through domain mappers and hooks, while round state changes and scoring writes are coordinated by `src/services/simulation/DataverseRoundLifecycle.ts`.
@@ -212,7 +214,7 @@ Post-simulation export is not part of the current build. Add a reporting service
 ## Remaining Product Decisions
 
 1. **Final scoring model** — Replace the baseline weights/formula when the approved model is available.
-2. **Identity governance** — Assign the three Dataverse security roles and decide whether facilitator/observer UI roles should be read from security-role membership rather than the current build-time facilitator fallback for non-team users.
+2. **Identity governance** — Assign the three Dataverse security roles and maintain the `mw_teammember` UI role roster for facilitators and players.
 3. **Budget policy** — The current validation requires exact spend. Confirm whether underspend should be allowed.
 4. **System Health at 0/100** — Scores currently clamp and play continues. Confirm any elimination or freeze rule.
 5. **Real-time refresh** — The current build refreshes on navigation/actions and via the dashboard button. Add polling or push only if live spectator updates are required.

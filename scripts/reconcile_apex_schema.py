@@ -185,6 +185,60 @@ def ensure_string_length(table, column, max_length=4000):
     )
 
 
+def ensure_result_key():
+    key_name = "mw_TeamRoundResult_RoundTeam_Key"
+    keys = client.tables.get_alternate_keys("mw_teamroundresult")
+    key = next((item for item in keys if item.schema_name == key_name), None)
+    if key is None:
+        key = client.tables.create_alternate_key(
+            "mw_teamroundresult",
+            key_name,
+            ["mw_roundid", "mw_teamid"],
+            display_name="Round and Team",
+        )
+        print(f"  CREATED alternate key: {key_name}")
+    else:
+        print(f"  SKIP (exists): {key_name} ({key.status})")
+
+    try:
+        web_api(
+            "POST",
+            "AddSolutionComponent",
+            {
+                "ComponentId": key.metadata_id,
+                "ComponentType": 14,
+                "SolutionUniqueName": SOLUTION,
+                "AddRequiredComponents": False,
+                "DoNotIncludeSubcomponents": True,
+            },
+        )
+        print(f"  INCLUDED alternate key: {key_name}")
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        if "already" in detail.lower() and "solution" in detail.lower():
+            print(f"  SKIP (already included): {key_name}")
+        else:
+            raise
+
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline:
+        current = next(
+            (
+                item
+                for item in client.tables.get_alternate_keys("mw_teamroundresult")
+                if item.schema_name == key_name
+            ),
+            None,
+        )
+        if current and current.status == "Active":
+            print(f"  ACTIVE alternate key: {key_name}")
+            return
+        if current and current.status == "Failed":
+            raise RuntimeError(f"Alternate key index failed: {key_name}")
+        time.sleep(3)
+    raise TimeoutError(f"Timed out waiting for alternate key: {key_name}")
+
+
 def main():
     print("Verifying Apex tables...")
     for table in EXPECTED_TABLES:
@@ -201,6 +255,10 @@ def main():
 
     print("Adding current-round lookup...")
     ensure_lookup("mw_simulation", "mw_CurrentRoundId", "mw_round", "Current Round")
+    time.sleep(8)
+
+    print("Ensuring result uniqueness...")
+    ensure_result_key()
     time.sleep(8)
 
     print("Expanding text columns...")

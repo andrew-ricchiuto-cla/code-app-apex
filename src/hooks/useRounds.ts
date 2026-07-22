@@ -6,7 +6,10 @@ import { mapRound } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
 import { mockAllRounds } from '@/test/mockData'
 
-export function useRounds(simulationId: string | null): { rounds: Round[]; isLoading: boolean; error: Error | null } {
+export function useRounds(
+  simulationId: string | null,
+  refreshKey?: string | number,
+): { rounds: Round[]; isLoading: boolean; error: Error | null } {
   const [rounds, setRounds] = useState<Round[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -39,7 +42,7 @@ export function useRounds(simulationId: string | null): { rounds: Round[]; isLoa
     return () => {
       cancelled = true
     }
-  }, [simulationId])
+  }, [refreshKey, simulationId])
 
   return { rounds, isLoading, error }
 }

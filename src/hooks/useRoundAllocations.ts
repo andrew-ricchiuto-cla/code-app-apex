@@ -8,7 +8,10 @@ import type { Allocation } from '@/types'
 
 const ALL_ALLOCATIONS = [...mockAllocations, ...mockAllocationsRound3]
 
-export function useRoundAllocations(roundId: string | null): {
+export function useRoundAllocations(
+  roundId: string | null,
+  refreshKey?: string | number,
+): {
   allocations: Allocation[]
   isLoading: boolean
   error: Error | null
@@ -45,8 +48,7 @@ export function useRoundAllocations(roundId: string | null): {
     return () => {
       cancelled = true
     }
-  }, [roundId])
+  }, [refreshKey, roundId])
 
   return { allocations, isLoading, error }
 }
-

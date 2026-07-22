@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import argparse
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -181,7 +182,18 @@ def score_result(previous_health, round_data, categories, amounts):
     return new_health, new_health - previous_health, contributions, rationale
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--facilitator-email",
+        default=os.environ.get("APEX_FACILITATOR_EMAIL"),
+        help="Dataverse user email to roster as the facilitator.",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     load_env()
     base_url = os.environ["DATAVERSE_URL"]
     print(f"Seeding Apex demo data into {base_url}", flush=True)
@@ -347,23 +359,53 @@ def main():
             if record.get("_mw_roundid_value") in round_ids.values()
         }
 
+        members = list(MEMBERS)
+        if args.facilitator_email:
+            escaped_email = args.facilitator_email.replace("'", "''")
+            users = client.records.list(
+                "systemuser",
+                filter=(
+                    f"internalemailaddress eq '{escaped_email}' "
+                    "and isdisabled eq false"
+                ),
+                select=[
+                    "systemuserid",
+                    "azureactivedirectoryobjectid",
+                    "fullname",
+                ],
+                top=1,
+            )
+            if not users or not users[0].get("azureactivedirectoryobjectid"):
+                raise RuntimeError(
+                    f"No enabled Dataverse user found for {args.facilitator_email}"
+                )
+            members.append(
+                (
+                    str(users[0]["azureactivedirectoryobjectid"]),
+                    users[0].get("fullname") or args.facilitator_email,
+                    None,
+                    False,
+                )
+            )
+
+        member_desired = []
+        for system_user_id, display_name, team_name, is_captain in members:
+            team_id = team_ids[team_name] if team_name else None
+            payload = {
+                "mw_teammember_name": display_name,
+                "mw_systemuserid": system_user_id,
+                "mw_iscaptain": is_captain,
+            }
+            if team_id:
+                payload["mw_TeamId@odata.bind"] = bind("mw_teams", team_id)
+            member_desired.append(((team_id, system_user_id), payload))
+
         sync_records(
             client,
             "mw_teammember",
             "mw_teammemberid",
             ["mw_systemuserid", "_mw_teamid_value"],
-            [
-                (
-                    (team_ids[team_name], system_user_id),
-                    {
-                        "mw_teammember_name": display_name,
-                        "mw_systemuserid": system_user_id,
-                        "mw_iscaptain": is_captain,
-                        "mw_TeamId@odata.bind": bind("mw_teams", team_ids[team_name]),
-                    },
-                )
-                for system_user_id, display_name, team_name, is_captain in MEMBERS
-            ],
+            member_desired,
             lambda record: (
                 record.get("_mw_teamid_value"),
                 record.get("mw_systemuserid"),
@@ -465,7 +507,7 @@ def main():
             "mw_round": 3,
             "mw_category": 15,
             "mw_team": 3,
-            "mw_teammember": 5,
+            "mw_teammember": len(members),
             "mw_allocation": 45,
             "mw_teamroundresult": 6,
             "mw_weightsconfig": 1,
@@ -502,9 +544,12 @@ def main():
             "mw_teammember": sum(
                 1
                 for record in fetch_records(
-                    client, "mw_teammember", ["mw_teammemberid", "_mw_teamid_value"]
+                    client,
+                    "mw_teammember",
+                    ["mw_teammemberid", "mw_systemuserid"],
                 )
-                if record.get("_mw_teamid_value") in team_ids.values()
+                if record.get("mw_systemuserid")
+                in {member[0] for member in members}
             ),
             "mw_allocation": sum(
                 1

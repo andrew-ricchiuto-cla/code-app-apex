@@ -196,6 +196,9 @@ describe('AdminConsole', () => {
 
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(refresh).toHaveBeenCalledTimes(1)
+    expect(mockUseTeams).toHaveBeenLastCalledWith(mockSimulation.id, 1)
+    expect(mockUseRounds).toHaveBeenLastCalledWith(mockSimulation.id, 1)
+    expect(mockUseRoundAllocations).toHaveBeenLastCalledWith(mockRound.id, 1)
   })
 
   it('opens a pending round through the lifecycle service and refreshes', async () => {

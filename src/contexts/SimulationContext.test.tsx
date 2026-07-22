@@ -62,6 +62,8 @@ describe('SimulationProvider', () => {
       eventKey: 'high-attrition',
       budget: 100,
     })
+    expect(serviceMocks.simulationsGetAll).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: ['modifiedon desc'], top: 1 }),
+    )
   })
 })
-

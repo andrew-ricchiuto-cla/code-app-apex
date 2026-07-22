@@ -19,12 +19,25 @@ import { SubmissionMonitor } from './SubmissionMonitor'
 export function AdminConsole() {
   const [isActioning, setIsActioning] = useState(false)
   const [actionError, setActionError] = useState<Error | null>(null)
+  const [dataRefreshKey, setDataRefreshKey] = useState(0)
   const { simulation, currentRound, isLoading: simLoading, refresh } = useSimulation()
-  const { teams, isLoading: teamsLoading } = useTeams(simulation?.id ?? null)
-  const { rounds, isLoading: roundsLoading } = useRounds(simulation?.id ?? null)
+  const { teams, isLoading: teamsLoading } = useTeams(
+    simulation?.id ?? null,
+    dataRefreshKey,
+  )
+  const { rounds, isLoading: roundsLoading } = useRounds(
+    simulation?.id ?? null,
+    dataRefreshKey,
+  )
   const { allocations, isLoading: allocationsLoading } = useRoundAllocations(
     currentRound?.id ?? null,
+    dataRefreshKey,
   )
+
+  const refreshAll = () => {
+    setDataRefreshKey(key => key + 1)
+    refresh()
+  }
 
   if (simLoading || teamsLoading || roundsLoading || allocationsLoading)
     return <LoadingSpinner message="Loading simulation…" />
@@ -54,7 +67,7 @@ export function AdminConsole() {
     setActionError(null)
     try {
       await action()
-      refresh()
+      refreshAll()
     } catch (cause) {
       setActionError(cause instanceof Error ? cause : new Error(String(cause)))
     } finally {
@@ -90,7 +103,7 @@ export function AdminConsole() {
             <Button
               variant="outline"
               className="rounded-2xl border-white/20 bg-white/10 px-5 text-white hover:bg-white hover:text-[#2E334E]"
-            onClick={refresh}
+              onClick={refreshAll}
               disabled={isActioning}
             >
               Refresh

@@ -6,7 +6,10 @@ import { mapTeam } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
 import { mockTeams } from '@/test/mockData'
 
-export function useTeams(simulationId: string | null) {
+export function useTeams(
+  simulationId: string | null,
+  refreshKey?: string | number,
+) {
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -40,7 +43,7 @@ export function useTeams(simulationId: string | null) {
     return () => {
       cancelled = true
     }
-  }, [simulationId])
+  }, [refreshKey, simulationId])
 
   return { teams, isLoading, error }
 }

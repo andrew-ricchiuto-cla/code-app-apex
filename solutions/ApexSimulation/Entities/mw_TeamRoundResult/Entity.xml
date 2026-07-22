@@ -343,6 +343,21 @@
           </Descriptions>
         </attribute>
       </attributes>
+      <EntityKeys>
+        <EntityKey>
+          <Name>mw_TeamRoundResult_RoundTeam_Key</Name>
+          <LogicalName>mw_teamroundresult_roundteam_key</LogicalName>
+          <IntroducedVersion>1.0</IntroducedVersion>
+          <IsCustomizable>0</IsCustomizable>
+          <EntityKeyAttributes>
+            <AttributeName>mw_roundid</AttributeName>
+            <AttributeName>mw_teamid</AttributeName>
+          </EntityKeyAttributes>
+          <displaynames>
+            <displayname description="Round and Team" languagecode="1033" />
+          </displaynames>
+        </EntityKey>
+      </EntityKeys>
       <EntitySetName>mw_teamroundresults</EntitySetName>
       <IsDuplicateCheckSupported>1</IsDuplicateCheckSupported>
       <IsBusinessProcessEnabled>0</IsBusinessProcessEnabled>

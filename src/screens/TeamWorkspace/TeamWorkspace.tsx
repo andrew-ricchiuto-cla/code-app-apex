@@ -19,10 +19,13 @@ function getInitials(name: string) {
 }
 
 export function TeamWorkspace() {
-  const { teamId } = useParams<{ teamId: string }>()
+  const { teamId: requestedTeamId } = useParams<{ teamId: string }>()
   const { currentRound, isLoading: simLoading } = useSimulation()
   const { currentUser } = useUserRole()
-  const { team, members, isLoading: teamLoading } = useMyTeam(teamId ?? null)
+  const canAccessTeam =
+    Boolean(requestedTeamId) && requestedTeamId === currentUser?.teamId
+  const accessibleTeamId = canAccessTeam ? requestedTeamId ?? null : null
+  const { team, members, isLoading: teamLoading } = useMyTeam(accessibleTeamId)
   const {
     allocations,
     categories,
@@ -31,9 +34,22 @@ export function TeamWorkspace() {
     submit,
     isSubmitted,
     isSubmitting,
-  } = useAllocations(currentRound?.id ?? null, teamId ?? null)
+  } = useAllocations(currentRound?.id ?? null, accessibleTeamId)
 
   if (simLoading || teamLoading || allocLoading) return <LoadingSpinner />
+
+  if (!canAccessTeam) {
+    return (
+      <div className="flex h-screen items-center justify-center p-8">
+        <p
+          role="alert"
+          className="rounded-2xl border border-red-200 bg-red-50 px-6 py-5 font-medium text-red-800"
+        >
+          You can only access your assigned team workspace.
+        </p>
+      </div>
+    )
+  }
 
   if (!currentRound) {
     return (

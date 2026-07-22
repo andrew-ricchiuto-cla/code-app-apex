@@ -190,6 +190,16 @@ describe('TeamWorkspace', () => {
     expect(screen.getByLabelText('AI Investment')).toBeDisabled()
   })
 
+  it('blocks a player from loading another team through the route', () => {
+    renderTeamWorkspace({ teamId: 'team-beta' })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'You can only access your assigned team workspace.',
+    )
+    expect(mockUseMyTeam).toHaveBeenCalledWith(null)
+    expect(mockUseAllocations).toHaveBeenCalledWith(mockRound.id, null)
+  })
+
   it('shows under-budget status when allocations have remaining budget', () => {
     renderTeamWorkspace({
       allocations: buildAllocations([20, 20, 20, 10, 10]),

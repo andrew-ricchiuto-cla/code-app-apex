@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { getContext } from '@microsoft/power-apps/app'
-import type { AppRole, CurrentUser } from '@/types'
+import type { AppRole, CurrentUser, TeamMember } from '@/types'
 import { Mw_teammembersService } from '@/generated/services/Mw_teammembersService'
 import { mapTeamMember } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
@@ -36,19 +36,39 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
 
         if (sdkName) {
           const escapedUserId = systemUserId.replaceAll("'", "''")
-          const memberships = requireData(
-            await Mw_teammembersService.getAll({
-              filter: `mw_systemuserid eq '${escapedUserId}'`,
-              top: 1,
-            }),
-          ).map(mapTeamMember)
+          let memberships: TeamMember[]
+          try {
+            memberships = requireData(
+              await Mw_teammembersService.getAll({
+                filter: `mw_systemuserid eq '${escapedUserId}'`,
+                top: 1,
+              }),
+            ).map(mapTeamMember)
+          } catch {
+            if (cancelled) return
+            setCurrentUser({
+              systemUserId,
+              displayName: sdkName,
+              role: 'Observer',
+              teamId: null,
+              isCaptain: false,
+            })
+            setIsLoading(false)
+            return
+          }
           const membership = memberships[0]
           if (cancelled) return
           setCurrentUser({
             systemUserId,
             displayName: sdkName,
-            role: membership ? (membership.isCaptain ? 'Captain' : 'Member') : 'Facilitator',
-            teamId: membership?.teamId ?? null,
+            role: membership
+              ? membership.teamId
+                ? membership.isCaptain
+                  ? 'Captain'
+                  : 'Member'
+                : 'Facilitator'
+              : 'Observer',
+            teamId: membership?.teamId || null,
             isCaptain: membership?.isCaptain ?? false,
           })
           setIsLoading(false)
@@ -59,8 +79,8 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
       }
 
       if (cancelled) return
-      // Dev / local fallback
-      setCurrentUser(mockFacilitatorUser)
+      // Fixture identity is available only when running the Vite development build.
+      setCurrentUser(import.meta.env.DEV ? mockFacilitatorUser : null)
       setIsLoading(false)
     }
 
@@ -68,7 +88,9 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true }
   }, [])
 
-  const devSwitchUser = (user: CurrentUser) => setCurrentUser(user)
+  const devSwitchUser = import.meta.env.DEV
+    ? (user: CurrentUser) => setCurrentUser(user)
+    : undefined
 
   return (
     <UserRoleContext.Provider value={{ currentUser, isLoading, role: currentUser?.role ?? null, devSwitchUser }}>

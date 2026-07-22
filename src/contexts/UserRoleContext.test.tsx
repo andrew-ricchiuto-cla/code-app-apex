@@ -57,5 +57,54 @@ describe('UserRoleProvider', () => {
       expect.objectContaining({ filter: expect.stringContaining('user-guid') }),
     )
   })
-})
 
+  it('resolves a rostered user without a team as a facilitator', async () => {
+    runtimeMocks.teamMembersGetAll.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          mw_teammemberid: 'facilitator-guid',
+          mw_systemuserid: 'user-guid',
+          mw_teammember_name: 'Alice Chen',
+          mw_iscaptain: 0,
+        },
+      ],
+    })
+
+    const { result } = renderHook(() => useUserRole(), { wrapper })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.currentUser).toMatchObject({
+      role: 'Facilitator',
+      teamId: null,
+      isCaptain: false,
+    })
+  })
+
+  it('treats an unrostered hosted user as an observer', async () => {
+    runtimeMocks.teamMembersGetAll.mockResolvedValue({ success: true, data: [] })
+
+    const { result } = renderHook(() => useUserRole(), { wrapper })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.currentUser).toMatchObject({
+      role: 'Observer',
+      teamId: null,
+      isCaptain: false,
+    })
+  })
+
+  it('fails closed as observer when hosted membership lookup fails', async () => {
+    runtimeMocks.teamMembersGetAll.mockRejectedValue(new Error('Dataverse unavailable'))
+
+    const { result } = renderHook(() => useUserRole(), { wrapper })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.currentUser).toMatchObject({
+      systemUserId: 'user-guid',
+      role: 'Observer',
+      teamId: null,
+      isCaptain: false,
+    })
+  })
+})
