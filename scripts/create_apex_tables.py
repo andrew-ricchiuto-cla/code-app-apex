@@ -19,20 +19,65 @@ SOLUTION = "ApexSimulation"
 cred = get_credential()
 client = DataverseClient(DATAVERSE_URL, cred)
 
+ALREADY_EXISTS_MARKERS = ("already exists", "0x80040237", "0x80048d0b")
+TRANSIENT_METADATA_MARKERS = (
+    "0x80040216",
+    "0x80060891",
+    "another customization operation",
+    "another operation is running",
+    "metadata cache",
+    "temporarily unavailable",
+    "timed out",
+    "timeout",
+)
+
+
+def is_already_exists(error):
+    detail = str(error).lower()
+    return any(marker in detail for marker in ALREADY_EXISTS_MARKERS)
+
+
+def is_transient_metadata_error(error):
+    detail = str(error).lower()
+    return any(marker in detail for marker in TRANSIENT_METADATA_MARKERS)
+
+
+def retry_metadata(operation, description, max_attempts=5):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return operation()
+        except Exception as error:
+            if is_already_exists(error):
+                print(f"  SKIP (exists): {description}")
+                return None
+            if not is_transient_metadata_error(error) or attempt == max_attempts:
+                raise
+            wait_seconds = 5 * attempt
+            print(
+                f"  RETRY transient metadata error: {description} "
+                f"({attempt}/{max_attempts}, waiting {wait_seconds}s)"
+            )
+            time.sleep(wait_seconds)
+
+
 def ensure_table(schema, columns, display_name, primary_column=None):
     existing = client.tables.get(schema)
     if existing:
         print(f"  SKIP (exists): {schema}")
         return existing
     primary_column = primary_column or f"{schema.split('_')[0]}_{schema.split('_',1)[1]}_Name"
-    info = client.tables.create(
+    info = retry_metadata(
+        lambda: client.tables.create(
+            schema,
+            columns,
+            solution=SOLUTION,
+            primary_column=primary_column,
+            display_name=display_name,
+        ),
         schema,
-        columns,
-        solution=SOLUTION,
-        primary_column=primary_column,
-        display_name=display_name,
     )
-    print(f"  CREATED: {schema}")
+    if info is not None:
+        print(f"  CREATED: {schema}")
     return info
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -116,22 +161,19 @@ time.sleep(20)
 print("Phase 2: Creating lookups...")
 
 def ensure_lookup(ref_table, lookup_field, referenced_table, display):
-    try:
-        result = client.tables.create_lookup_field(
+    result = retry_metadata(
+        lambda: client.tables.create_lookup_field(
             referencing_table=ref_table,
             lookup_field_name=lookup_field,
             referenced_table=referenced_table,
             display_name=display,
             solution=SOLUTION,
-        )
+        ),
+        f"{ref_table}.{lookup_field}",
+    )
+    if result is not None:
         print(f"  CREATED lookup: {ref_table}.{lookup_field} -> {referenced_table}")
-        return result
-    except Exception as e:
-        msg = str(e)
-        if "already exists" in msg.lower() or "0x80040237" in msg.lower():
-            print(f"  SKIP (exists): {ref_table}.{lookup_field}")
-        else:
-            print(f"  ERROR {ref_table}.{lookup_field}: {msg}")
+    return result
 
 # Round -> Simulation
 ensure_lookup("mw_round",           "mw_SimulationId", "mw_simulation",    "Simulation")

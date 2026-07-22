@@ -103,6 +103,46 @@ load_env()
 DATAVERSE_URL = os.environ["DATAVERSE_URL"].rstrip("/")
 client = DataverseClient(DATAVERSE_URL + "/", get_credential())
 
+ALREADY_EXISTS_MARKERS = ("already exists", "0x80040237", "0x80048d0b")
+TRANSIENT_METADATA_MARKERS = (
+    "0x80040216",
+    "0x80060891",
+    "another customization operation",
+    "another operation is running",
+    "metadata cache",
+    "temporarily unavailable",
+    "timed out",
+    "timeout",
+)
+
+
+def is_already_exists(error):
+    detail = str(error).lower()
+    return any(marker in detail for marker in ALREADY_EXISTS_MARKERS)
+
+
+def is_transient_metadata_error(error):
+    detail = str(error).lower()
+    return any(marker in detail for marker in TRANSIENT_METADATA_MARKERS)
+
+
+def retry_metadata(operation, description, max_attempts=5):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return operation()
+        except Exception as error:
+            if is_already_exists(error):
+                print(f"  RECOVERED already-existing metadata: {description}")
+                return None
+            if not is_transient_metadata_error(error) or attempt == max_attempts:
+                raise
+            wait_seconds = 5 * attempt
+            print(
+                f"  RETRY transient metadata error: {description} "
+                f"({attempt}/{max_attempts}, waiting {wait_seconds}s)"
+            )
+            time.sleep(wait_seconds)
+
 
 def web_api(method, path, body=None):
     data = json.dumps(body).encode("utf-8") if body is not None else None
@@ -146,6 +186,58 @@ def get_custom_attributes(table):
     ]
 
 
+def get_attribute_metadata(table, column, timeout_seconds=90):
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        try:
+            return web_api(
+                "GET",
+                f"EntityDefinitions(LogicalName='{table}')/Attributes"
+                f"(LogicalName='{column}')?$select=LogicalName,MetadataId",
+            )
+        except urllib.error.HTTPError as error:
+            if error.code != 404 or time.monotonic() >= deadline:
+                raise
+            print(f"  WAITING for attribute metadata: {table}.{column}")
+            time.sleep(3)
+
+
+def get_lookup_relationship(
+    referencing_table, lookup_column, referenced_table, timeout_seconds=90
+):
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        result = web_api(
+            "GET",
+            f"EntityDefinitions(LogicalName='{referencing_table}')/"
+            "ManyToOneRelationships"
+            "?$select=MetadataId,SchemaName,ReferencingAttribute,ReferencedEntity",
+        )
+        relationship = next(
+            (
+                item
+                for item in result.get("value", [])
+                if item.get("ReferencingAttribute", "").lower()
+                == lookup_column.lower()
+                and item.get("ReferencedEntity", "").lower()
+                == referenced_table.lower()
+            ),
+            None,
+        )
+        if relationship:
+            return relationship
+        if time.monotonic() >= deadline:
+            raise TimeoutError(
+                "Timed out waiting for lookup relationship: "
+                f"{referencing_table}.{lookup_column} -> {referenced_table}"
+            )
+        print(
+            "  WAITING for relationship metadata: "
+            f"{referencing_table}.{lookup_column} -> {referenced_table}"
+        )
+        time.sleep(3)
+
+
 def get_table_metadata(table, timeout_seconds=90):
     deadline = time.monotonic() + timeout_seconds
     while True:
@@ -162,7 +254,12 @@ def get_table_metadata(table, timeout_seconds=90):
             time.sleep(3)
 
 
-def ensure_component_in_solution(component_id, component_type, description):
+def ensure_component_in_solution(
+    component_id,
+    component_type,
+    description,
+    do_not_include_subcomponents=True,
+):
     try:
         web_api(
             "POST",
@@ -172,7 +269,7 @@ def ensure_component_in_solution(component_id, component_type, description):
                 "ComponentType": component_type,
                 "SolutionUniqueName": SOLUTION,
                 "AddRequiredComponents": False,
-                "DoNotIncludeSubcomponents": True,
+                "DoNotIncludeSubcomponents": do_not_include_subcomponents,
             },
         )
         print(f"  INCLUDED: {description}")
@@ -193,17 +290,26 @@ def ensure_table(schema_name, columns, display_name, primary_column):
     if existing:
         print(f"  SKIP (exists): {logical_name}")
     else:
-        client.tables.create(
-            schema_name,
-            columns,
-            solution=SOLUTION,
-            primary_column=primary_column,
-            display_name=display_name,
+        created = retry_metadata(
+            lambda: client.tables.create(
+                schema_name,
+                columns,
+                solution=SOLUTION,
+                primary_column=primary_column,
+                display_name=display_name,
+            ),
+            logical_name,
         )
-        print(f"  CREATED: {logical_name}")
+        if created is not None:
+            print(f"  CREATED: {logical_name}")
 
     metadata = get_table_metadata(logical_name)
-    ensure_component_in_solution(metadata["MetadataId"], 1, logical_name)
+    ensure_component_in_solution(
+        metadata["MetadataId"],
+        1,
+        logical_name,
+        do_not_include_subcomponents=False,
+    )
 
 
 def ensure_attribute_in_solution(table, attribute):
@@ -227,8 +333,13 @@ def ensure_scalar_column(table, schema_name, type_name):
         if error.code != 404:
             raise
 
-    client.tables.add_columns(table, {schema_name: type_name})
-    print(f"  CREATED: {table}.{logical_name}")
+    created = retry_metadata(
+        lambda: client.tables.add_columns(table, {schema_name: type_name}),
+        f"{table}.{logical_name}",
+    )
+    get_attribute_metadata(table, logical_name)
+    if created is not None:
+        print(f"  CREATED: {table}.{logical_name}")
 
 
 def ensure_lookup(referencing_table, schema_name, referenced_table, display_name):
@@ -240,19 +351,43 @@ def ensure_lookup(referencing_table, schema_name, referenced_table, display_name
             f"(LogicalName='{logical_name}')?$select=LogicalName",
         )
         print(f"  SKIP (exists): {referencing_table}.{logical_name}")
-        return
+        exists = True
     except urllib.error.HTTPError as error:
         if error.code != 404:
             raise
+        exists = False
 
-    client.tables.create_lookup_field(
-        referencing_table=referencing_table,
-        lookup_field_name=schema_name,
-        referenced_table=referenced_table,
-        display_name=display_name,
-        solution=SOLUTION,
+    if not exists:
+        created = retry_metadata(
+            lambda: client.tables.create_lookup_field(
+                referencing_table=referencing_table,
+                lookup_field_name=schema_name,
+                referenced_table=referenced_table,
+                display_name=display_name,
+                solution=SOLUTION,
+            ),
+            f"{referencing_table}.{logical_name}",
+        )
+        if created is not None:
+            print(
+                f"  CREATED lookup: {referencing_table}.{logical_name} "
+                f"-> {referenced_table}"
+            )
+
+    attribute = get_attribute_metadata(referencing_table, logical_name)
+    ensure_component_in_solution(
+        attribute["MetadataId"],
+        2,
+        f"lookup {referencing_table}.{logical_name}",
     )
-    print(f"  CREATED lookup: {referencing_table}.{logical_name} -> {referenced_table}")
+    relationship = get_lookup_relationship(
+        referencing_table, logical_name, referenced_table
+    )
+    ensure_component_in_solution(
+        relationship["MetadataId"],
+        10,
+        f"relationship {relationship['SchemaName']}",
+    )
 
 
 def ensure_string_length(table, column, max_length=4000):
@@ -288,17 +423,64 @@ def ensure_string_length(table, column, max_length=4000):
     )
 
 
+def find_alternate_key(table, key_name):
+    keys = retry_metadata(
+        lambda: client.tables.get_alternate_keys(table),
+        f"list alternate keys for {table}",
+    )
+    return next((item for item in keys if item.schema_name == key_name), None)
+
+
+def create_or_refetch_alternate_key(
+    table, key_name, columns, display_name, max_attempts=5
+):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return (
+                client.tables.create_alternate_key(
+                    table,
+                    key_name,
+                    columns,
+                    display_name=display_name,
+                ),
+                True,
+            )
+        except Exception as error:
+            if not (
+                is_already_exists(error) or is_transient_metadata_error(error)
+            ):
+                raise
+
+            visibility_deadline = time.monotonic() + 15
+            while time.monotonic() < visibility_deadline:
+                key = find_alternate_key(table, key_name)
+                if key is not None:
+                    print(
+                        "  RECOVERED alternate key after ambiguous create: "
+                        f"{table}.{key_name}"
+                    )
+                    return key, False
+                time.sleep(3)
+
+            if attempt == max_attempts:
+                raise
+            print(
+                f"  RETRY alternate key create: {table}.{key_name} "
+                f"({attempt}/{max_attempts})"
+            )
+
+
 def ensure_alternate_key(table, key_name, columns, display_name):
-    keys = client.tables.get_alternate_keys(table)
-    key = next((item for item in keys if item.schema_name == key_name), None)
+    key = find_alternate_key(table, key_name)
     if key is None:
-        key = client.tables.create_alternate_key(
+        key, created = create_or_refetch_alternate_key(
             table,
             key_name,
             columns,
-            display_name=display_name,
+            display_name,
         )
-        print(f"  CREATED alternate key: {table}.{key_name}")
+        if created:
+            print(f"  CREATED alternate key: {table}.{key_name}")
     else:
         print(f"  SKIP (exists): {table}.{key_name} ({key.status})")
 
@@ -311,7 +493,10 @@ def ensure_alternate_key(table, key_name, columns, display_name):
         current = next(
             (
                 item
-                for item in client.tables.get_alternate_keys(table)
+                for item in retry_metadata(
+                    lambda: client.tables.get_alternate_keys(table),
+                    f"poll alternate key {table}.{key_name}",
+                )
                 if item.schema_name == key_name
             ),
             None,
@@ -356,7 +541,12 @@ def main():
     time.sleep(8)
 
     print("Adding configuration lookups...")
-    for referencing_table, schema_name, referenced_table, display_name in CONFIG_LOOKUPS:
+    for (
+        referencing_table,
+        schema_name,
+        referenced_table,
+        display_name,
+    ) in CONFIG_LOOKUPS:
         ensure_lookup(referencing_table, schema_name, referenced_table, display_name)
         time.sleep(5)
 
