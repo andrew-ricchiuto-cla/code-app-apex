@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getHealthBandClassName, getSystemHealthBand } from '@/lib/systemHealth'
-import type { Team, TeamRoundResult } from '@/types'
+import type { HealthBand, Team, TeamRoundResult } from '@/types'
 
 const TEAM_COLORS = ['#7DD2D3', '#FBC55A', '#E2E868', '#EE5340', '#8B9DC3'] as const
 
@@ -9,11 +9,12 @@ interface TeamResultCardProps {
   result: TeamRoundResult
   displayName?: string
   teamIndex: number
+  bands: readonly HealthBand[]
 }
 
-export function TeamResultCard({ team, result, displayName, teamIndex }: TeamResultCardProps) {
+export function TeamResultCard({ team, result, displayName, teamIndex, bands }: TeamResultCardProps) {
   const teamColor = TEAM_COLORS[teamIndex] ?? TEAM_COLORS[TEAM_COLORS.length - 1]
-  const healthBand = getSystemHealthBand(result.newHealth)
+  const healthBand = getSystemHealthBand(result.newHealth, bands)
   const positive = result.delta > 0
   const neutral = result.delta === 0
   const badgeClassName = neutral

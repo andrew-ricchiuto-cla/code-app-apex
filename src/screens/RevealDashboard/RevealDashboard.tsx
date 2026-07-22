@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { useSimulation } from '@/contexts/SimulationContext'
 import { useAllRoundResults } from '@/hooks/useAllRoundResults'
+import { useRoundConfiguration } from '@/hooks/useRoundConfiguration'
 import { useRoundResults } from '@/hooks/useRoundResults'
 import { useRounds } from '@/hooks/useRounds'
 import { useTeams } from '@/hooks/useTeams'
@@ -12,6 +13,7 @@ import {
   getHealthBandClassName,
   getOverallSystemHealth,
   getSystemHealthBand,
+  SYSTEM_HEALTH_BASELINE,
 } from '@/lib/systemHealth'
 
 import { HealthTrendChart } from './HealthTrendChart'
@@ -37,13 +39,28 @@ export function RevealDashboard() {
   const { results: allResults, isLoading: allResultsLoading } = useAllRoundResults(
     simulation?.id ?? null,
   )
+  const {
+    configSet,
+    bands,
+    isLoading: configurationLoading,
+    isFallback,
+    warning: configurationWarning,
+    error: configurationError,
+  } = useRoundConfiguration(currentRound?.configSetId ?? null)
 
-  if (simLoading || teamsLoading || resultsLoading || roundsLoading || allResultsLoading)
+  if (
+    simLoading ||
+    teamsLoading ||
+    resultsLoading ||
+    roundsLoading ||
+    allResultsLoading ||
+    configurationLoading
+  )
     return <LoadingSpinner />
 
   const hasResults = currentRound?.status === 'Revealed' && results.length > 0
   const overallHealth = getOverallSystemHealth(results.map(result => result.newHealth))
-  const overallBand = getSystemHealthBand(overallHealth)
+  const overallBand = getSystemHealthBand(overallHealth, bands)
   const teamLabels = new Map<string, string>()
   const duplicateCounts = new Map<string, number>()
 
@@ -62,20 +79,36 @@ export function RevealDashboard() {
     .filter(r => r.status === 'Revealed')
     .sort((a, b) => a.index - b.index)
 
+  const chartResults = currentRound
+    ? [...allResults.filter(result => result.roundId !== currentRound.id), ...results]
+    : allResults
+  const firstRevealedRound = revealedRounds[0]
+  const firstRoundPreviousHealth = new Map(
+    firstRevealedRound
+      ? chartResults
+          .filter(result => result.roundId === firstRevealedRound.id)
+          .map(result => [result.teamId, result.previousHealth])
+      : [],
+  )
+  const configuredBaseline = configSet?.systemHealthBaseline ?? SYSTEM_HEALTH_BASELINE
+
   const trendData: TrendDataPoint[] = hasResults
     ? [
         // Baseline before round 1
         {
           roundLabel: 'Start',
           ...Object.fromEntries(
-            teams.map(t => [teamLabels.get(t.id) ?? t.id, t.systemHealthBaseline]),
+            teams.map(team => [
+              teamLabels.get(team.id) ?? team.id,
+              firstRoundPreviousHealth.get(team.id) ?? configuredBaseline,
+            ]),
           ),
         },
         // One point per revealed round
         ...revealedRounds.map(round => ({
           roundLabel: `Round ${round.index}`,
           ...Object.fromEntries(
-            allResults
+            chartResults
               .filter(r => r.roundId === round.id)
               .map(r => [teamLabels.get(r.teamId) ?? r.teamId, r.newHealth]),
           ),
@@ -124,6 +157,24 @@ export function RevealDashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-8 p-8">
+        {isFallback && configurationWarning && (
+          <div
+            role="status"
+            className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm font-semibold text-amber-900"
+          >
+            {configurationWarning}
+          </div>
+        )}
+
+        {configurationError && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-red-300 bg-red-50 px-5 py-4 text-sm font-semibold text-red-900"
+          >
+            Configuration could not be loaded: {configurationError.message}
+          </div>
+        )}
+
         {!hasResults && (
           <div className="flex min-h-56 items-center justify-center rounded-[32px] border border-dashed border-[#BFCBDA] bg-white p-8 shadow-[0_28px_70px_-42px_rgba(46,51,78,0.35)]">
             <p className="max-w-xl text-center text-base text-muted-foreground">
@@ -136,7 +187,7 @@ export function RevealDashboard() {
           </div>
         )}
 
-        {hasResults && (
+        {hasResults && !configurationError && (
           <>
             <Card className="overflow-hidden border-0 bg-[#2E334E] text-white shadow-[0_28px_70px_-42px_rgba(46,51,78,0.65)]">
               <CardContent className="flex flex-col gap-5 p-7 sm:flex-row sm:items-center sm:justify-between">
@@ -179,6 +230,7 @@ export function RevealDashboard() {
                       teamIndex={teamIndex}
                       result={result}
                       displayName={teamLabels.get(team.id) ?? team.name}
+                      bands={bands}
                     />
                   ) : null
                 })}

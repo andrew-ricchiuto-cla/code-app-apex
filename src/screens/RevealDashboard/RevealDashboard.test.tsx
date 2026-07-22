@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Round, Simulation, Team, TeamRoundResult } from '@/types'
+import { DEFAULT_SYSTEM_HEALTH_BANDS } from '@/lib/systemHealth'
+import type { ConfigSet, HealthBand, Round, Simulation, Team, TeamRoundResult } from '@/types'
 import {
   mockAllRounds,
   mockAllTeamRoundResults,
@@ -19,12 +20,14 @@ const {
   mockUseRoundResults,
   mockUseRounds,
   mockUseAllRoundResults,
+  mockUseRoundConfiguration,
 } = vi.hoisted(() => ({
   mockUseSimulation: vi.fn(),
   mockUseTeams: vi.fn(),
   mockUseRoundResults: vi.fn(),
   mockUseRounds: vi.fn(),
   mockUseAllRoundResults: vi.fn(),
+  mockUseRoundConfiguration: vi.fn(),
 }))
 
 vi.mock('@/contexts/SimulationContext', () => ({
@@ -47,13 +50,21 @@ vi.mock('@/hooks/useAllRoundResults', () => ({
   useAllRoundResults: mockUseAllRoundResults,
 }))
 
+vi.mock('@/hooks/useRoundConfiguration', () => ({
+  useRoundConfiguration: mockUseRoundConfiguration,
+}))
+
 vi.mock('recharts', () => {
   const Wrapper = ({ children }: { children?: ReactNode }) => <div>{children}</div>
 
   return {
     ResponsiveContainer: Wrapper,
     BarChart: Wrapper,
-    LineChart: Wrapper,
+    LineChart: ({ children, data }: { children?: ReactNode; data: unknown }) => (
+      <div data-testid="trend-chart" data-chart-data={JSON.stringify(data)}>
+        {children}
+      </div>
+    ),
     Bar: Wrapper,
     XAxis: Wrapper,
     YAxis: Wrapper,
@@ -70,6 +81,21 @@ vi.mock('recharts', () => {
 
 import { RevealDashboard } from './RevealDashboard'
 
+const configuredSet: ConfigSet = {
+  id: 'baseline-config-v2',
+  name: 'Apex Baseline v2',
+  version: '2.0',
+  status: 'Published',
+  systemHealthBaseline: 65,
+  publishedAt: '2026-07-22T12:00:00Z',
+}
+
+const configuredBands: HealthBand[] = [
+  { id: 'red', configSetId: configuredSet.id, label: 'Red', minScore: 0, color: 'Red', displayOrder: 1 },
+  { id: 'yellow', configSetId: configuredSet.id, label: 'Yellow', minScore: 50, color: 'Yellow', displayOrder: 2 },
+  { id: 'green', configSetId: configuredSet.id, label: 'Green', minScore: 80, color: 'Green', displayOrder: 3 },
+]
+
 function renderRevealDashboard({
   simulation = mockSimulation,
   currentRound = mockRound,
@@ -82,6 +108,14 @@ function renderRevealDashboard({
   roundsLoading = false,
   allResults = mockAllTeamRoundResults,
   allResultsLoading = false,
+  configuration = {
+    configSet: configuredSet,
+    bands: configuredBands,
+    isLoading: false,
+    isFallback: false,
+    warning: null,
+    error: null,
+  },
   refresh = vi.fn(),
 }: {
   simulation?: Simulation | null
@@ -95,6 +129,14 @@ function renderRevealDashboard({
   roundsLoading?: boolean
   allResults?: TeamRoundResult[]
   allResultsLoading?: boolean
+  configuration?: {
+    configSet: ConfigSet | null
+    bands: HealthBand[]
+    isLoading: boolean
+    isFallback: boolean
+    warning: string | null
+    error: Error | null
+  }
   refresh?: () => void
 } = {}) {
   mockUseSimulation.mockReturnValue({
@@ -119,6 +161,7 @@ function renderRevealDashboard({
     results: allResults,
     isLoading: allResultsLoading,
   })
+  mockUseRoundConfiguration.mockReturnValue(configuration)
 
   return { refresh, user: userEvent.setup(), ...render(<RevealDashboard />) }
 }
@@ -204,7 +247,6 @@ describe('RevealDashboard', () => {
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(refresh).toHaveBeenCalledTimes(1)
   })
-
   it('labels team outcomes using the configured Red, Yellow, and Green bands', () => {
     renderRevealDashboard({
       currentRound: { ...mockRound, status: 'Revealed' },
@@ -218,6 +260,88 @@ describe('RevealDashboard', () => {
     expect(within(screen.getByTestId('team-result-team-alpha')).getByText('Red')).toBeInTheDocument()
     expect(within(screen.getByTestId('team-result-team-beta')).getByText('Yellow')).toBeInTheDocument()
     expect(within(screen.getByTestId('team-result-team-gamma')).getByText('Green')).toBeInTheDocument()
+  })
+
+  it('uses configured thresholds for both overall and team health classifications', () => {
+    renderRevealDashboard({
+      currentRound: { ...mockRound, status: 'Revealed' },
+      results: [
+        { ...mockTeamRoundResults[0]!, newHealth: 75, delta: 25 },
+        { ...mockTeamRoundResults[1]!, newHealth: 82, delta: 32 },
+        { ...mockTeamRoundResults[2]!, newHealth: 75, delta: 25 },
+      ],
+    })
+
+    expect(screen.getByTestId('overall-health-band')).toHaveTextContent('Yellow')
+    expect(within(screen.getByTestId('team-result-team-alpha')).getByText('Yellow')).toBeInTheDocument()
+    expect(within(screen.getByTestId('team-result-team-beta')).getByText('Green')).toBeInTheDocument()
+  })
+
+  it('shows an accessible warning when built-in fallback configuration is active', () => {
+    renderRevealDashboard({
+      currentRound: { ...mockRound, status: 'Revealed' },
+      configuration: {
+        configSet: null,
+        bands: [...DEFAULT_SYSTEM_HEALTH_BANDS],
+        isLoading: false,
+        isFallback: true,
+        warning:
+          'Configuration fallback active. Results use the built-in baseline configuration.',
+        error: null,
+      },
+    })
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Configuration fallback active. Results use the built-in baseline configuration.',
+    )
+  })
+
+  it('shows corrupt configuration errors separately from fallback warnings', () => {
+    renderRevealDashboard({
+      currentRound: { ...mockRound, status: 'Revealed' },
+      configuration: {
+        configSet: null,
+        bands: [],
+        isLoading: false,
+        isFallback: false,
+        warning: null,
+        error: new Error('Missing health band: Green.'),
+      },
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Configuration could not be loaded: Missing health band: Green.',
+    )
+    expect(
+      screen.queryByText(
+        'Configuration fallback active. Results use the built-in baseline configuration.',
+      ),
+    ).not.toBeInTheDocument()
+  })
+
+  it('starts the trend at the persisted first-round previous health', () => {
+    const firstRoundResults = mockTeamRoundResults.map(result => ({
+      ...result,
+      previousHealth: 65,
+    }))
+    renderRevealDashboard({
+      currentRound: { ...mockRound, status: 'Revealed', configSetId: configuredSet.id },
+      rounds: [{ ...mockRound, status: 'Revealed', configSetId: configuredSet.id }],
+      results: firstRoundResults,
+      allResults: firstRoundResults,
+      teams: mockTeams.map(team => ({ ...team, systemHealthBaseline: 50 })),
+    })
+
+    const chartData = JSON.parse(
+      screen.getByTestId('trend-chart').getAttribute('data-chart-data') ?? '[]',
+    ) as Array<Record<string, number | string>>
+
+    expect(chartData[0]).toMatchObject({
+      roundLabel: 'Start',
+      'Team Alpha': 65,
+      'Team Beta': 65,
+      'Team Gamma': 65,
+    })
   })
 
   it('keeps health-trend series distinct when teams share the same display name', () => {

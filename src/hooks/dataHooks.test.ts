@@ -5,11 +5,14 @@ const serviceMocks = vi.hoisted(() => ({
   allocationsGetAll: vi.fn(),
   allocationsUpdate: vi.fn(),
   categoriesGetAll: vi.fn(),
+  configSetsGet: vi.fn(),
+  healthBandsGetAll: vi.fn(),
   roundsGetAll: vi.fn(),
   teamResultsGetAll: vi.fn(),
   teamsGet: vi.fn(),
   teamsGetAll: vi.fn(),
   teamMembersGetAll: vi.fn(),
+  weightsGetAll: vi.fn(),
 }))
 
 vi.mock('@/generated/services/Mw_allocationsService', () => ({
@@ -20,6 +23,12 @@ vi.mock('@/generated/services/Mw_allocationsService', () => ({
 }))
 vi.mock('@/generated/services/Mw_categoriesService', () => ({
   Mw_categoriesService: { getAll: serviceMocks.categoriesGetAll },
+}))
+vi.mock('@/generated/services/Mw_configsetsService', () => ({
+  Mw_configsetsService: { get: serviceMocks.configSetsGet },
+}))
+vi.mock('@/generated/services/Mw_healthbandsService', () => ({
+  Mw_healthbandsService: { getAll: serviceMocks.healthBandsGetAll },
 }))
 vi.mock('@/generated/services/Mw_roundsService', () => ({
   Mw_roundsService: { getAll: serviceMocks.roundsGetAll },
@@ -36,12 +45,16 @@ vi.mock('@/generated/services/Mw_teamsService', () => ({
 vi.mock('@/generated/services/Mw_teammembersService', () => ({
   Mw_teammembersService: { getAll: serviceMocks.teamMembersGetAll },
 }))
+vi.mock('@/generated/services/Mw_weightsService', () => ({
+  Mw_weightsService: { getAll: serviceMocks.weightsGetAll },
+}))
 
 import { useAllocations } from './useAllocations'
 import { useAllRoundResults } from './useAllRoundResults'
 import { useMyTeam } from './useMyTeam'
 import { useRoundResults } from './useRoundResults'
 import { useRoundAllocations } from './useRoundAllocations'
+import { useRoundConfiguration } from './useRoundConfiguration'
 import { useRounds } from './useRounds'
 import { useTeams } from './useTeams'
 
@@ -55,11 +68,14 @@ describe('Dataverse data hooks', () => {
     serviceMocks.allocationsGetAll.mockResolvedValue(success([]))
     serviceMocks.allocationsUpdate.mockResolvedValue(success({}))
     serviceMocks.categoriesGetAll.mockResolvedValue(success([]))
+    serviceMocks.configSetsGet.mockResolvedValue(success(null))
+    serviceMocks.healthBandsGetAll.mockResolvedValue(success([]))
     serviceMocks.roundsGetAll.mockResolvedValue(success([]))
     serviceMocks.teamResultsGetAll.mockResolvedValue(success([]))
     serviceMocks.teamsGet.mockResolvedValue(success(null))
     serviceMocks.teamsGetAll.mockResolvedValue(success([]))
     serviceMocks.teamMembersGetAll.mockResolvedValue(success([]))
+    serviceMocks.weightsGetAll.mockResolvedValue(success([]))
   })
 
   it('loads and maps teams for a simulation', async () => {
@@ -273,5 +289,116 @@ describe('Dataverse data hooks', () => {
     expect(result.current.results).toEqual([
       expect.objectContaining({ id: 'result-guid', roundId: 'round-guid' }),
     ])
+  })
+
+  it('loads and validates one round configuration from its Config Set', async () => {
+    const configSetId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    serviceMocks.configSetsGet.mockResolvedValue(
+      success({
+        mw_configsetid: configSetId,
+        mw_configset_name: 'Apex Baseline v2',
+        mw_version: '2.0',
+        mw_status: 'Published',
+        mw_systemhealthbaseline: '65',
+      }),
+    )
+    serviceMocks.weightsGetAll.mockResolvedValue(
+      success([
+        {
+          mw_weightid: 'weight-1',
+          _mw_configsetid_value: configSetId,
+          mw_eventkey: 'high-attrition',
+          mw_categorykey: 'reskilling',
+          mw_value: '1.5',
+        },
+      ]),
+    )
+    serviceMocks.healthBandsGetAll.mockResolvedValue(
+      success([
+        {
+          mw_healthbandid: 'red',
+          _mw_configsetid_value: configSetId,
+          mw_label: 'Red',
+          mw_minscore: '0',
+          mw_color: 'Red',
+          mw_displayorder: '1',
+        },
+        {
+          mw_healthbandid: 'yellow',
+          _mw_configsetid_value: configSetId,
+          mw_label: 'Yellow',
+          mw_minscore: '50',
+          mw_color: 'Yellow',
+          mw_displayorder: '2',
+        },
+        {
+          mw_healthbandid: 'green',
+          _mw_configsetid_value: configSetId,
+          mw_label: 'Green',
+          mw_minscore: '80',
+          mw_color: 'Green',
+          mw_displayorder: '3',
+        },
+      ]),
+    )
+
+    const { result } = renderHook(() => useRoundConfiguration(configSetId))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current).toMatchObject({
+      configSet: expect.objectContaining({ id: configSetId, systemHealthBaseline: 65 }),
+      isFallback: false,
+      warning: null,
+      error: null,
+    })
+    expect(result.current.bands.map(band => [band.label, band.minScore])).toEqual([
+      ['Red', 0],
+      ['Yellow', 50],
+      ['Green', 80],
+    ])
+    expect(serviceMocks.weightsGetAll).toHaveBeenCalledWith({
+      filter: `_mw_configsetid_value eq ${configSetId}`,
+    })
+  })
+
+  it('uses the explicit fallback when the configuration source is unavailable', async () => {
+    const configSetId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    serviceMocks.configSetsGet.mockResolvedValue({
+      success: false,
+      error: new Error('Dataverse unavailable'),
+    })
+
+    const { result } = renderHook(() => useRoundConfiguration(configSetId))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current).toMatchObject({
+      configSet: null,
+      isFallback: true,
+      warning:
+        'Configuration fallback active. Results use the built-in baseline configuration.',
+      error: null,
+    })
+    expect(result.current.bands.map(band => band.label)).toEqual(['Red', 'Yellow', 'Green'])
+  })
+
+  it('reports corrupt configuration instead of silently falling back', async () => {
+    const configSetId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    serviceMocks.configSetsGet.mockResolvedValue(
+      success({
+        mw_configsetid: configSetId,
+        mw_configset_name: 'Corrupt configuration',
+        mw_version: '2.0',
+        mw_status: 'Published',
+        mw_systemhealthbaseline: '65',
+      }),
+    )
+    serviceMocks.healthBandsGetAll.mockResolvedValue(success([]))
+
+    const { result } = renderHook(() => useRoundConfiguration(configSetId))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.isFallback).toBe(false)
+    expect(result.current.warning).toBeNull()
+    expect(result.current.error?.message).toContain('Missing health band: Green.')
   })
 })
