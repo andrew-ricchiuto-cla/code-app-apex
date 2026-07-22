@@ -20,7 +20,7 @@ npm install
 npm run dev
 ```
 
-The dev server opens at `http://localhost:5173`. All data routes through **mock stubs** — no Dataverse connection is required for local development.
+The dev server opens at `http://localhost:5173`. Hosted builds use the generated Dataverse services. Local development falls back to the test fixtures only when the Power Apps runtime/data calls are unavailable.
 
 ### Test suite
 
@@ -35,7 +35,8 @@ npm run test:coverage     # coverage report
 
 ```bash
 npm run build             # TypeScript compile + Vite bundle → dist/
-pac code push             # publish to connected Power Apps environment
+pac auth select --name apex
+pac code push -s ApexSimulation
 ```
 
 ---
@@ -47,7 +48,9 @@ src/
 ├── types/              # Domain TypeScript interfaces (single source of truth)
 ├── services/
 │   ├── scoring/        # Pluggable scoring engine (pure TS, no SDK deps)
-│   └── weights/        # WeightsConfigLoader + JSON stub
+│   ├── simulation/     # Persisted round lifecycle orchestration
+│   └── weights/        # WeightsConfigLoader + baseline JSON
+├── generated/          # PAC-generated Dataverse models and services
 ├── contexts/           # UserRoleContext, SimulationContext (app-wide state)
 ├── hooks/              # useTeams, useMyTeam, useAllocations, useRoundResults
 ├── components/         # Shared UI: LoadingSpinner, RoleGate
@@ -85,18 +88,18 @@ QueryClientProvider (TanStack Query)
 
 ## Dataverse Data Model
 
-Eight tables are required. Create them in the Power Apps maker portal before connecting.
+Eight `mw_` tables are provisioned in the unmanaged `ApexSimulation` solution. The reconciliation script is safe to rerun.
 
 | Table (logical name) | Key Columns |
 |---|---|
-| `apex_simulation` | name, createdBy, status, currentRoundId |
-| `apex_round` | simulationId, index, eventTitle, eventDescription, budget, weightsConfigId, status (Pending\|Open\|Locked\|Revealed) |
-| `apex_category` | name, description, roundId (nullable = global) |
-| `apex_team` | simulationId, name |
-| `apex_team_member` | teamId, userId, role (Captain\|Member) |
-| `apex_allocation` | roundId, teamId, categoryId, amount, submittedAt |
-| `apex_team_round_result` | roundId, teamId, previousHealth, newHealth, delta, rationale, contributions (JSON) |
-| `apex_weights_config` | sourceRef, payload (JSON text column) |
+| `mw_simulation` | name, createdByRef, status, currentRoundId |
+| `mw_round` | simulationId, index, eventKey, eventTitle, eventDescription, budget, weightsConfigId, status |
+| `mw_category` | roundId, stable key, name, description |
+| `mw_team` | simulationId, name, systemHealthBaseline |
+| `mw_teammember` | teamId, systemUserId, isCaptain |
+| `mw_allocation` | roundId, teamId, categoryId, amount, submittedAt |
+| `mw_teamroundresult` | roundId, teamId, previousHealth, newHealth, delta, rationale, contributions JSON |
+| `mw_weightsconfig` | sourceRef, payload JSON |
 
 ### Security Roles
 
@@ -108,23 +111,20 @@ Create three Dataverse security roles and assign them to users before publishing
 
 ---
 
-## Connecting Dataverse (after table creation)
+## Dataverse setup
 
 ```bash
-# Add each data source (repeat for each table)
-pac code add-data-source -a "shared_commondataservice" -c "<connectionId>" -t "apex_simulation" -d "<environmentId>"
+# Reconcile metadata in the ApexSimulation solution
+python scripts/reconcile_apex_schema.py
+
+# Add a native Dataverse data source; repeat for all eight table names above
+pac code add-data-source -a dataverse -t mw_simulation -env "<environment-url>"
+
+# Seed or refresh the scoped Apex demo records and verify counts
+python scripts/seed_apex_data.py
 ```
 
-Then replace all `// TODO: Replace with SDK call` stubs in:
-
-- `src/contexts/UserRoleContext.tsx`
-- `src/contexts/SimulationContext.tsx`
-- `src/hooks/useTeams.ts`
-- `src/hooks/useMyTeam.ts`
-- `src/hooks/useAllocations.ts`
-- `src/hooks/useRoundResults.ts`
-
-Each stub includes a comment with the exact shape expected by the consumer.
+The generated sources are registered in `power.config.json`. Application code consumes them through domain mappers and hooks, while round state changes and scoring writes are coordinated by `src/services/simulation/DataverseRoundLifecycle.ts`.
 
 ---
 
@@ -144,7 +144,7 @@ scoreRound(input: ScoringInput): ScoringResult
 
 ```typescript
 {
-  previousSystemHealth: number;   // 0–100
+  previousHealth: number;         // 0–100
   budget: number;                 // round budget
   allocations: Record<string, number>;   // categoryId → amount
   eventWeights: Record<string, number>;  // categoryId → weight multiplier
@@ -155,7 +155,7 @@ scoreRound(input: ScoringInput): ScoringResult
 
 ```typescript
 {
-  newSystemHealth: number;        // clamped 0–100
+  newHealth: number;              // clamped 0–100
   delta: number;                  // newHealth − previousHealth
   contributions: CategoryContribution[];  // per-category impact
   rationaleText: string;          // plain English explanation
@@ -179,13 +179,13 @@ Shape:
 ```json
 {
   "high-attrition": {
-    "cat-reskilling": 1.8,
-    "cat-ai-investment": 0.9,
-    "cat-marketing": 0.4
+    "reskilling": 1.8,
+    "ai-investment": 0.9,
+    "marketing": 0.4
   },
   "default": {
-    "cat-reskilling": 1.0,
-    "cat-ai-investment": 1.0
+    "reskilling": 1.0,
+    "ai-investment": 1.0
   }
 }
 ```
@@ -196,40 +196,25 @@ Keys are `eventKey` values stored on each `Round`. `"default"` is the fallback f
 
 ```typescript
 const loader = WeightsConfigLoader.fromJson(rawJson);
-const weights = loader.getWeightsForEvent('high-attrition');
+const weights = loader.getWeightsForCategories('high-attrition', categories);
 ```
 
-Once the Excel model is finalized, export the weights as JSON in this shape and store it in the `apex_weights_config` table. The `payload` column holds the JSON string; `sourceRef` is a human-readable label (e.g., `"Yassir Excel v3 2026-08"`).
+Weights are keyed by stable category keys rather than environment-specific GUIDs. Store revised JSON in `mw_weightsconfig.mw_payload`; `mw_sourceref` identifies the source/version.
 
 ### 3 — Post-Simulation Export Hook
 
-`AdminConsole.tsx` contains a commented placeholder:
-
-```typescript
-// TODO: post-simulation export — call export service here
-```
-
-Wire a reporting service (PDF, Excel, or Power BI dataset push) to this hook when the export feature is scoped.
+Post-simulation export is not part of the current build. Add a reporting service (PDF, Excel, or Power BI dataset push) when the output and retention requirements are scoped.
 
 ---
 
-## Open Questions (to resolve with stakeholders)
+## Remaining Product Decisions
 
-1. **Category list per round** — The scaffold supports fully configurable categories per round. What is the initial list? Are any categories fixed across all rounds?
-
-2. **Round count and budget schedule** — How many rounds per simulation? Is the budget the same every round, or does it vary (e.g., $100 round 1, $150 round 2)?
-
-3. **Exact vs. flexible budget spend** — Must allocations sum to exactly the round budget, or is underspend allowed? The current validation enforces exact equality.
-
-4. **Team visibility pre-reveal** — Can teams see each other's allocations before the facilitator reveals results? Default is **no**. If yes, the Team Workspace needs a read-only peer panel.
-
-5. **System Health edge cases** — What happens when a team's score hits 0 or 100? Is the team eliminated, frozen, or does play continue with the score pinned?
-
-6. **Scoring formula source** — The stub formula is a placeholder. When is the Excel model (Yassir) ready to export as JSON weights?
-
-7. **Real-time updates** — Currently omitted. If needed, Power Apps push notifications or polling intervals are the recommended approach within the Dataverse/Power Platform stack.
-
-8. **Multi-simulation navigation** — The current app assumes one active simulation at a time. If facilitators need to switch between simulations, a simulation-picker screen is needed.
+1. **Final scoring model** — Replace the baseline weights/formula when the approved model is available.
+2. **Identity governance** — Assign the three Dataverse security roles and decide whether facilitator/observer UI roles should be read from security-role membership rather than the current build-time facilitator fallback for non-team users.
+3. **Budget policy** — The current validation requires exact spend. Confirm whether underspend should be allowed.
+4. **System Health at 0/100** — Scores currently clamp and play continues. Confirm any elimination or freeze rule.
+5. **Real-time refresh** — The current build refreshes on navigation/actions and via the dashboard button. Add polling or push only if live spectator updates are required.
+6. **Multi-simulation and export** — The app assumes one active simulation and has no post-simulation export; both remain separately scopeable enhancements.
 
 ---
 

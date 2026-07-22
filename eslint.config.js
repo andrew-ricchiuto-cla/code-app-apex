@@ -19,5 +19,22 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // These hooks intentionally reset request state when their Dataverse query key changes.
+      'react-hooks/set-state-in-effect': 'off',
+      // Provider modules colocate their consumer hook; shadcn modules export CVA constants.
+      'react-refresh/only-export-components': [
+        'error',
+        {
+          allowConstantExport: true,
+          allowExportNames: [
+            'badgeVariants',
+            'buttonVariants',
+            'useSimulation',
+            'useUserRole',
+          ],
+        },
+      ],
+    },
   },
 ])

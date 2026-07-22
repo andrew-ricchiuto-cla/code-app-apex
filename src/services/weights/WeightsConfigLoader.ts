@@ -5,8 +5,8 @@ import type { Category, WeightsConfig, WeightsPayload } from '@/types'
  *
  * Priority: event-specific key → "default" fallback → 1.0 per category
  *
- * TODO: Fetch the WeightsConfig from Dataverse (apex_weights_config table)
- * using the round's weightsConfigId, then call WeightsConfigLoader.fromJson().
+ * Round lifecycle code supplies the Dataverse mw_weightsconfig record after
+ * mapping its JSON payload to the domain model.
  */
 export class WeightsConfigLoader {
   private readonly config: WeightsConfig
