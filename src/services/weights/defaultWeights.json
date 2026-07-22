@@ -1,13 +1,34 @@
 {
   "id": "default-weights-v1",
-  "sourceRef": "stub-uniform-weights",
+  "sourceRef": "assumption-v1-2026-07-22",
   "payload": {
+    "high-attrition": {
+      "ai-investment": 0.4,
+      "reskilling": 1.4,
+      "industries": 0.2,
+      "marketing": -0.5,
+      "operations": -0.2
+    },
+    "digital-talent-arms-race": {
+      "ai-investment": -0.4,
+      "reskilling": 0.8,
+      "talent-acquisition": 1.5,
+      "innovation-labs": 0.6,
+      "operations": 0.1
+    },
+    "market-disruption": {
+      "ai-investment": 1.4,
+      "reskilling": 1.0,
+      "compliance-programs": -0.2,
+      "change-management": 0.5,
+      "operations": -0.3
+    },
     "default": {
-      "cat-ai": 1.0,
-      "cat-reskill": 1.0,
-      "cat-industries": 1.0,
-      "cat-marketing": 1.0,
-      "cat-ops": 1.0
+      "ai-investment": 1.0,
+      "reskilling": 1.0,
+      "industries": 1.0,
+      "marketing": 1.0,
+      "operations": 1.0
     }
   }
 }

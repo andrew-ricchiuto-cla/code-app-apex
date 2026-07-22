@@ -1,4 +1,4 @@
-import type { WeightsConfig, WeightsPayload } from '@/types'
+import type { Category, WeightsConfig, WeightsPayload } from '@/types'
 
 /**
  * Loads event-specific category weights from a WeightsConfig record.
@@ -24,6 +24,18 @@ export class WeightsConfigLoader {
 
     return Object.fromEntries(
       categoryIds.map(id => [id, eventWeights[id] ?? 1.0]),
+    )
+  }
+
+  getWeightsForCategories(
+    eventKey: string,
+    categories: Pick<Category, 'id' | 'key'>[],
+  ): Record<string, number> {
+    const eventWeights =
+      this.config.payload[eventKey] ?? this.config.payload['default'] ?? {}
+
+    return Object.fromEntries(
+      categories.map(category => [category.id, eventWeights[category.key] ?? 1.0]),
     )
   }
 

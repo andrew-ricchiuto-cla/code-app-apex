@@ -24,6 +24,31 @@ describe('WeightsConfigLoader', () => {
     expect(weights['cat-unknown']).toBe(1.0)
   })
 
+  it('maps stable category keys to environment-specific category ids', () => {
+    const configured = WeightsConfigLoader.fromJson({
+      id: 'weights-id',
+      sourceRef: 'assumption-v1',
+      payload: {
+        'high-attrition': {
+          reskilling: 1.4,
+          marketing: -0.5,
+        },
+      },
+    })
+
+    expect(
+      configured.getWeightsForCategories('high-attrition', [
+        { id: 'category-guid-1', key: 'reskilling' },
+        { id: 'category-guid-2', key: 'marketing' },
+        { id: 'category-guid-3', key: 'unknown' },
+      ]),
+    ).toEqual({
+      'category-guid-1': 1.4,
+      'category-guid-2': -0.5,
+      'category-guid-3': 1,
+    })
+  })
+
   it('throws on invalid JSON shape', () => {
     expect(() => WeightsConfigLoader.fromJson({ bad: 'shape' })).toThrow()
   })
