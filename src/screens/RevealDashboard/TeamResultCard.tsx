@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { getSystemHealthBand } from '@/lib/systemHealth'
 import type { Team, TeamRoundResult } from '@/types'
 
 const TEAM_COLORS = ['#7DD2D3', '#FBC55A', '#E2E868', '#EE5340', '#8B9DC3'] as const
@@ -12,6 +13,7 @@ interface TeamResultCardProps {
 
 export function TeamResultCard({ team, result, displayName, teamIndex }: TeamResultCardProps) {
   const teamColor = TEAM_COLORS[teamIndex] ?? TEAM_COLORS[TEAM_COLORS.length - 1]
+  const healthBand = getSystemHealthBand(result.newHealth)
   const positive = result.delta > 0
   const neutral = result.delta === 0
   const badgeClassName = neutral
@@ -31,7 +33,10 @@ export function TeamResultCard({ team, result, displayName, teamIndex }: TeamRes
   }
 
   return (
-    <Card className="overflow-hidden border border-slate-200 shadow-[0_24px_60px_-36px_rgba(46,51,78,0.45)]">
+    <Card
+      data-testid={`team-result-${team.id}`}
+      className="overflow-hidden border border-slate-200 shadow-[0_24px_60px_-36px_rgba(46,51,78,0.45)]"
+    >
       <div className="h-1.5 w-full" style={{ backgroundColor: teamColor }} />
       <CardHeader className="space-y-5">
         <div className="flex items-start justify-between gap-4">
@@ -58,9 +63,16 @@ export function TeamResultCard({ team, result, displayName, teamIndex }: TeamRes
         </div>
 
         <div className="rounded-[28px] bg-[#F7FAFC] p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
-            System Health
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
+              System Health
+            </p>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.18em] ${healthBand.badgeClassName}`}
+            >
+              {healthBand.label}
+            </span>
+          </div>
           <div className="mt-3 flex items-end gap-3">
             <span className="text-lg font-semibold text-slate-400">{result.previousHealth}</span>
             <span className="pb-2 text-xl text-slate-400">→</span>

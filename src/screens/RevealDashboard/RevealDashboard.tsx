@@ -8,6 +8,7 @@ import { useAllRoundResults } from '@/hooks/useAllRoundResults'
 import { useRoundResults } from '@/hooks/useRoundResults'
 import { useRounds } from '@/hooks/useRounds'
 import { useTeams } from '@/hooks/useTeams'
+import { getOverallSystemHealth, getSystemHealthBand } from '@/lib/systemHealth'
 
 import { HealthTrendChart } from './HealthTrendChart'
 import { TeamResultCard } from './TeamResultCard'
@@ -37,6 +38,8 @@ export function RevealDashboard() {
     return <LoadingSpinner />
 
   const hasResults = currentRound?.status === 'Revealed' && results.length > 0
+  const overallHealth = getOverallSystemHealth(results.map(result => result.newHealth))
+  const overallBand = getSystemHealthBand(overallHealth)
   const teamLabels = new Map<string, string>()
   const duplicateCounts = new Map<string, number>()
 
@@ -131,6 +134,30 @@ export function RevealDashboard() {
 
         {hasResults && (
           <>
+            <Card className="overflow-hidden border-0 bg-[#2E334E] text-white shadow-[0_28px_70px_-42px_rgba(46,51,78,0.65)]">
+              <CardContent className="flex flex-col gap-5 p-7 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#7DD2D3]">
+                    Overall System Health
+                  </p>
+                  <p className="mt-2 text-sm text-white/65">
+                    Average health across all teams in the current round.
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-5xl font-black tracking-tight">
+                    {overallHealth.toFixed(1)}
+                  </span>
+                  <span
+                    data-testid="overall-health-band"
+                    className={`rounded-full px-4 py-2 text-sm font-black uppercase tracking-[0.2em] ${overallBand.badgeClassName}`}
+                  >
+                    {overallBand.label}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
             <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-black text-[#2E334E]">Round Results</h2>

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -186,6 +186,9 @@ describe('RevealDashboard', () => {
 
     expect(screen.getByText('Round Results')).toBeInTheDocument()
     expect(screen.getByText('System Health Trend')).toBeInTheDocument()
+    expect(screen.getByText('Overall System Health')).toBeInTheDocument()
+    expect(screen.getByText('58.3')).toBeInTheDocument()
+    expect(screen.getByTestId('overall-health-band')).toHaveTextContent('Yellow')
     expect(screen.getByText('Team Alpha')).toBeInTheDocument()
     expect(screen.getByText('Team Beta')).toBeInTheDocument()
     expect(screen.getByText('Team Gamma')).toBeInTheDocument()
@@ -200,6 +203,21 @@ describe('RevealDashboard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('labels team outcomes using the configured Red, Yellow, and Green bands', () => {
+    renderRevealDashboard({
+      currentRound: { ...mockRound, status: 'Revealed' },
+      results: [
+        { ...mockTeamRoundResults[0]!, newHealth: 30, delta: -20 },
+        { ...mockTeamRoundResults[1]!, newHealth: 55, delta: 5 },
+        { ...mockTeamRoundResults[2]!, newHealth: 80, delta: 30 },
+      ],
+    })
+
+    expect(within(screen.getByTestId('team-result-team-alpha')).getByText('Red')).toBeInTheDocument()
+    expect(within(screen.getByTestId('team-result-team-beta')).getByText('Yellow')).toBeInTheDocument()
+    expect(within(screen.getByTestId('team-result-team-gamma')).getByText('Green')).toBeInTheDocument()
   })
 
   it('keeps health-trend series distinct when teams share the same display name', () => {
