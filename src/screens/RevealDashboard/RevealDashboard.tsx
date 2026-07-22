@@ -82,14 +82,16 @@ export function RevealDashboard() {
   const chartResults = currentRound
     ? [...allResults.filter(result => result.roundId !== currentRound.id), ...results]
     : allResults
-  const firstRevealedRound = revealedRounds[0]
-  const firstRoundPreviousHealth = new Map(
-    firstRevealedRound
-      ? chartResults
-          .filter(result => result.roundId === firstRevealedRound.id)
-          .map(result => [result.teamId, result.previousHealth])
-      : [],
-  )
+  const earliestPreviousHealthByTeam = new Map<string, number>()
+  revealedRounds.forEach(round => {
+    chartResults
+      .filter(result => result.roundId === round.id)
+      .forEach(result => {
+        if (!earliestPreviousHealthByTeam.has(result.teamId)) {
+          earliestPreviousHealthByTeam.set(result.teamId, result.previousHealth)
+        }
+      })
+  })
   const configuredBaseline = configSet?.systemHealthBaseline ?? SYSTEM_HEALTH_BASELINE
 
   const trendData: TrendDataPoint[] = hasResults
@@ -100,7 +102,7 @@ export function RevealDashboard() {
           ...Object.fromEntries(
             teams.map(team => [
               teamLabels.get(team.id) ?? team.id,
-              firstRoundPreviousHealth.get(team.id) ?? configuredBaseline,
+              earliestPreviousHealthByTeam.get(team.id) ?? configuredBaseline,
             ]),
           ),
         },

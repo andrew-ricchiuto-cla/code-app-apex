@@ -9,6 +9,7 @@ import {
   mockAllRounds,
   mockAllTeamRoundResults,
   mockRound,
+  mockRound2,
   mockSimulation,
   mockTeamRoundResults,
   mockTeams,
@@ -319,17 +320,39 @@ describe('RevealDashboard', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('starts the trend at the persisted first-round previous health', () => {
-    const firstRoundResults = mockTeamRoundResults.map(result => ({
-      ...result,
-      previousHealth: 65,
-    }))
+  it('starts each team at its earliest persisted previous health', () => {
+    const roundOneResults = [
+      { ...mockTeamRoundResults[0]!, previousHealth: 61 },
+      { ...mockTeamRoundResults[1]!, previousHealth: 62 },
+    ]
+    const currentGammaResult = {
+      ...mockTeamRoundResults[2]!,
+      id: 'result-gamma-round-2',
+      roundId: mockRound2.id,
+      previousHealth: 73,
+      newHealth: 82,
+      delta: 9,
+    }
     renderRevealDashboard({
-      currentRound: { ...mockRound, status: 'Revealed', configSetId: configuredSet.id },
-      rounds: [{ ...mockRound, status: 'Revealed', configSetId: configuredSet.id }],
-      results: firstRoundResults,
-      allResults: firstRoundResults,
-      teams: mockTeams.map(team => ({ ...team, systemHealthBaseline: 50 })),
+      currentRound: { ...mockRound2, status: 'Revealed', configSetId: configuredSet.id },
+      rounds: [
+        { ...mockRound, status: 'Revealed', configSetId: configuredSet.id },
+        { ...mockRound2, status: 'Revealed', configSetId: configuredSet.id },
+      ],
+      results: [currentGammaResult],
+      allResults: [
+        ...roundOneResults,
+        { ...currentGammaResult, previousHealth: 55, newHealth: 56 },
+      ],
+      teams: [
+        ...mockTeams.map(team => ({ ...team, systemHealthBaseline: 50 })),
+        {
+          id: 'team-delta',
+          simulationId: mockSimulation.id,
+          name: 'Team Delta',
+          systemHealthBaseline: 50,
+        },
+      ],
     })
 
     const chartData = JSON.parse(
@@ -338,10 +361,12 @@ describe('RevealDashboard', () => {
 
     expect(chartData[0]).toMatchObject({
       roundLabel: 'Start',
-      'Team Alpha': 65,
-      'Team Beta': 65,
-      'Team Gamma': 65,
+      'Team Alpha': 61,
+      'Team Beta': 62,
+      'Team Gamma': 73,
+      'Team Delta': 65,
     })
+    expect(chartData[2]).toMatchObject({ roundLabel: 'Round 2', 'Team Gamma': 82 })
   })
 
   it('keeps health-trend series distinct when teams share the same display name', () => {
