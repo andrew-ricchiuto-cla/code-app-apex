@@ -1,4 +1,10 @@
-import type { ConfigSet, HealthBand, HealthBandColor, WeightRow } from '@/types'
+import type {
+  ConfigSet,
+  ConfigSetStatus,
+  HealthBand,
+  HealthBandColor,
+  WeightRow,
+} from '@/types'
 
 interface RequiredPair {
   eventKey: string
@@ -13,6 +19,7 @@ interface ConfigurationValidationInput {
 }
 
 const REQUIRED_BANDS: readonly HealthBandColor[] = ['Red', 'Yellow', 'Green']
+const CONFIG_SET_STATUSES: readonly ConfigSetStatus[] = ['Draft', 'Published', 'Retired']
 
 function pairKey(pair: RequiredPair): string {
   return `${pair.eventKey}/${pair.categoryKey}`
@@ -26,8 +33,14 @@ export function validateConfiguration({
 }: ConfigurationValidationInput): string[] {
   const errors: string[] = []
 
+  if (!CONFIG_SET_STATUSES.includes(configSet.status)) {
+    errors.push('Config set status must be Draft, Published, or Retired.')
+  }
+
   if (!Number.isFinite(configSet.systemHealthBaseline)) {
     errors.push('System health baseline must be a finite number.')
+  } else if (configSet.systemHealthBaseline < 0 || configSet.systemHealthBaseline > 100) {
+    errors.push('System health baseline must be between 0 and 100.')
   }
 
   const weightCounts = new Map<string, number>()
@@ -49,6 +62,13 @@ export function validateConfiguration({
   const bandsByLabel = new Map<HealthBandColor, HealthBand[]>()
   REQUIRED_BANDS.forEach(label => bandsByLabel.set(label, []))
   bands.forEach(band => {
+    if (!REQUIRED_BANDS.includes(band.label)) {
+      errors.push('Health band label must be Red, Yellow, or Green.')
+    }
+    if (!REQUIRED_BANDS.includes(band.color)) {
+      errors.push(`Health band ${band.label} color must be Red, Yellow, or Green.`)
+    }
+
     const matchingBands = bandsByLabel.get(band.label)
     if (matchingBands) matchingBands.push(band)
 

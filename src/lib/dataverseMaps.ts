@@ -32,6 +32,12 @@ function numberValue(value: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+function configurationNumber(value: string | undefined): number {
+  if (value === undefined || value.trim() === '') return Number.NaN
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : Number.NaN
+}
+
 function parseContributions(value: string | undefined): CategoryContribution[] {
   if (!value) return []
   try {
@@ -55,11 +61,16 @@ function parseWeights(value: string | undefined): WeightsPayload {
 }
 
 function configSetStatus(value: string | undefined): ConfigSetStatus {
-  return value === 'Published' || value === 'Retired' ? value : 'Draft'
+  if (value === 'Draft' || value === 'Published' || value === 'Retired') return value
+  throw new Error(`Invalid config set status: ${value ?? '(missing)'}.`)
 }
 
-function healthBandColor(value: string | undefined): HealthBandColor {
-  return value === 'Yellow' || value === 'Green' ? value : 'Red'
+function healthBandColor(
+  value: string | undefined,
+  field: 'label' | 'color',
+): HealthBandColor {
+  if (value === 'Red' || value === 'Yellow' || value === 'Green') return value
+  throw new Error(`Invalid health band ${field}: ${value ?? '(missing)'}.`)
 }
 
 export function mapSimulation(raw: Mw_simulations): Simulation {
@@ -93,7 +104,7 @@ export function mapConfigSet(raw: Mw_configsets): ConfigSet {
     name: raw.mw_configset_name ?? '',
     version: raw.mw_version ?? '',
     status: configSetStatus(raw.mw_status),
-    systemHealthBaseline: numberValue(raw.mw_systemhealthbaseline),
+    systemHealthBaseline: configurationNumber(raw.mw_systemhealthbaseline),
     publishedAt: raw.mw_publishedat ?? null,
   }
 }
@@ -104,7 +115,7 @@ export function mapWeightRow(raw: Mw_weights): WeightRow {
     configSetId: raw._mw_configsetid_value ?? '',
     eventKey: raw.mw_eventkey ?? '',
     categoryKey: raw.mw_categorykey ?? '',
-    value: numberValue(raw.mw_value),
+    value: configurationNumber(raw.mw_value),
   }
 }
 
@@ -112,10 +123,10 @@ export function mapHealthBand(raw: Mw_healthbands): HealthBand {
   return {
     id: raw.mw_healthbandid,
     configSetId: raw._mw_configsetid_value ?? '',
-    label: healthBandColor(raw.mw_label),
-    minScore: numberValue(raw.mw_minscore),
-    color: healthBandColor(raw.mw_color),
-    displayOrder: numberValue(raw.mw_displayorder),
+    label: healthBandColor(raw.mw_label, 'label'),
+    minScore: configurationNumber(raw.mw_minscore),
+    color: healthBandColor(raw.mw_color, 'color'),
+    displayOrder: configurationNumber(raw.mw_displayorder),
   }
 }
 

@@ -11,6 +11,7 @@ import type { Mw_teamroundresults } from '@/generated/models/Mw_teamroundresults
 import type { Mw_teams } from '@/generated/models/Mw_teamsModel'
 import type { Mw_weightsconfigs } from '@/generated/models/Mw_weightsconfigsModel'
 import type { Mw_weights } from '@/generated/models/Mw_weightsModel'
+import { validateConfiguration } from '@/services/configuration/configurationValidation'
 
 import {
   mapAllocation,
@@ -131,27 +132,113 @@ describe('Dataverse domain mappers', () => {
     })
   })
 
-  it('maps missing lookups and unknown business tokens to safe defaults', () => {
+  it('maps missing configuration lookups without inventing identifiers', () => {
     const weight = {
       mw_weightid: 'weight-id',
     } as Mw_weights
-    const configSet = {
-      mw_configsetid: 'config-set-id',
-      mw_status: 'Unexpected',
-    } as Mw_configsets
     const band = {
       mw_healthbandid: 'band-id',
-      mw_label: '<style>unsafe</style>',
-      mw_color: 'Blue',
+      mw_label: 'Red',
+      mw_color: 'Red',
     } as Mw_healthbands
 
     expect(mapWeightRow(weight).configSetId).toBe('')
-    expect(mapConfigSet(configSet).status).toBe('Draft')
-    expect(mapHealthBand(band)).toMatchObject({
-      configSetId: '',
-      label: 'Red',
-      color: 'Red',
-    })
+    expect(mapHealthBand(band).configSetId).toBe('')
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['unknown', 'Unexpected'],
+  ])('rejects a %s config-set status', (_case, status) => {
+    const raw = {
+      mw_configsetid: 'config-set-id',
+      mw_status: status,
+      mw_systemhealthbaseline: '50',
+    } as Mw_configsets
+
+    expect(() => mapConfigSet(raw)).toThrow(`Invalid config set status: ${status ?? '(missing)'}.`)
+  })
+
+  it.each([
+    ['label', undefined, 'Red'],
+    ['label', 'Blue', 'Red'],
+    ['color', 'Red', undefined],
+    ['color', 'Red', 'Blue'],
+  ])('rejects an invalid health-band %s token', (field, label, color) => {
+    const raw = {
+      mw_healthbandid: 'band-id',
+      mw_label: label,
+      mw_color: color,
+    } as Mw_healthbands
+
+    const invalidValue = field === 'label' ? label : color
+    expect(() => mapHealthBand(raw)).toThrow(
+      `Invalid health band ${field}: ${invalidValue ?? '(missing)'}.`,
+    )
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['blank', ''],
+    ['whitespace', '   '],
+    ['malformed', 'not-a-number'],
+    ['NaN', 'NaN'],
+    ['infinite', 'Infinity'],
+  ])('preserves %s configuration numbers as invalid for validation', (_case, value) => {
+    const mappedConfigSet = mapConfigSet({
+      mw_configsetid: 'config-set-id',
+      mw_status: 'Draft',
+      mw_systemhealthbaseline: value,
+    } as Mw_configsets)
+    const mappedWeight = mapWeightRow({
+      mw_weightid: 'weight-id',
+      _mw_configsetid_value: 'config-set-id',
+      mw_eventkey: 'high-attrition',
+      mw_categorykey: 'reskilling',
+      mw_value: value,
+    } as Mw_weights)
+    const mappedBands = [
+      mapHealthBand({
+        mw_healthbandid: 'red',
+        _mw_configsetid_value: 'config-set-id',
+        mw_label: 'Red',
+        mw_color: 'Red',
+        mw_minscore: '0',
+        mw_displayorder: '1',
+      } as Mw_healthbands),
+      mapHealthBand({
+        mw_healthbandid: 'yellow',
+        _mw_configsetid_value: 'config-set-id',
+        mw_label: 'Yellow',
+        mw_color: 'Yellow',
+        mw_minscore: value,
+        mw_displayorder: value,
+      } as Mw_healthbands),
+      mapHealthBand({
+        mw_healthbandid: 'green',
+        _mw_configsetid_value: 'config-set-id',
+        mw_label: 'Green',
+        mw_color: 'Green',
+        mw_minscore: '70',
+        mw_displayorder: '3',
+      } as Mw_healthbands),
+    ]
+
+    expect(
+      validateConfiguration({
+        configSet: mappedConfigSet,
+        weights: [mappedWeight],
+        bands: mappedBands,
+        requiredPairs: [{ eventKey: 'high-attrition', categoryKey: 'reskilling' }],
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        'System health baseline must be a finite number.',
+        'Weight for high-attrition/reskilling must be a finite number.',
+        'Health band Yellow threshold must be a finite number.',
+        'Health band Yellow display order must be a finite number.',
+      ]),
+    )
   })
 
   it('maps a stable category key and round lookup', () => {

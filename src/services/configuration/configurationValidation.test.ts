@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ConfigSet, HealthBand, WeightRow } from '@/types'
+import type {
+  ConfigSet,
+  ConfigSetStatus,
+  HealthBand,
+  HealthBandColor,
+  WeightRow,
+} from '@/types'
 
 import { validateConfiguration } from './configurationValidation'
 
@@ -106,6 +112,37 @@ describe('configuration validation', () => {
         'Weight for high-attrition/reskilling must be a finite number.',
         'Health band Yellow threshold must be a finite number.',
         'Health band Green display order must be a finite number.',
+      ]),
+    )
+  })
+
+  it('accepts system health baseline boundaries', () => {
+    expect(validate({ configSet: { ...configSet, systemHealthBaseline: 0 } })).toEqual([])
+    expect(validate({ configSet: { ...configSet, systemHealthBaseline: 100 } })).toEqual([])
+  })
+
+  it.each([-0.01, 100.01])('rejects an out-of-range system health baseline of %s', baseline => {
+    expect(
+      validate({ configSet: { ...configSet, systemHealthBaseline: baseline } }),
+    ).toContain('System health baseline must be between 0 and 100.')
+  })
+
+  it('rejects invalid configuration identity tokens at runtime', () => {
+    const invalidConfigSet = {
+      ...configSet,
+      status: 'Archived' as ConfigSetStatus,
+    }
+    const invalidBands = bands.map(band => {
+      if (band.label === 'Red') return { ...band, label: 'Blue' as HealthBandColor }
+      if (band.label === 'Yellow') return { ...band, color: 'Blue' as HealthBandColor }
+      return band
+    })
+
+    expect(validate({ configSet: invalidConfigSet, bands: invalidBands })).toEqual(
+      expect.arrayContaining([
+        'Config set status must be Draft, Published, or Retired.',
+        'Health band label must be Red, Yellow, or Green.',
+        'Health band Yellow color must be Red, Yellow, or Green.',
       ]),
     )
   })
