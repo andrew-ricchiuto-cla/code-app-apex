@@ -12,6 +12,7 @@ import type {
 } from '@/types'
 
 import {
+  CONFIGURATION_FALLBACK_WARNING,
   ConfigurationSourceUnavailableError,
 } from '@/services/configuration/ConfigurationLoader'
 
@@ -19,6 +20,7 @@ import {
   forceAdvanceRound,
   openRound,
   revealRound,
+  validateAllocationCategoryIntegrity,
   type RoundLifecycleDependencies,
 } from './RoundLifecycle'
 
@@ -144,7 +146,7 @@ describe('round lifecycle', () => {
   })
 
   it('scores teams from prior health, writes results, and reveals the round', async () => {
-    await revealRound(
+    const outcome = await revealRound(
       { round: round2, rounds: [round1, round2], teams },
       dependencies,
     )
@@ -167,6 +169,12 @@ describe('round lifecycle', () => {
       }),
     )
     expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', { status: 'Revealed' })
+    expect(outcome.configuration).toMatchObject({
+      configSet: { id: 'config-set-1', version: '1.0' },
+      bands,
+      isFallback: false,
+      warning: null,
+    })
   })
 
   it('uses the configuration baseline and row weight on the first round', async () => {
@@ -191,7 +199,7 @@ describe('round lifecycle', () => {
     )
     vi.mocked(dependencies.listResults).mockResolvedValue([])
 
-    await revealRound(
+    const outcome = await revealRound(
       { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
       dependencies,
     )
@@ -201,6 +209,11 @@ describe('round lifecycle', () => {
     expect(dependencies.createResult).toHaveBeenCalledWith(
       expect.objectContaining({ previousHealth: 50, newHealth: 78, delta: 28 }),
     )
+    expect(outcome.configuration).toMatchObject({
+      configSet: null,
+      isFallback: true,
+      warning: CONFIGURATION_FALLBACK_WARNING,
+    })
   })
 
   it('does not fallback for a corrupt Config Set mapping', async () => {
@@ -244,6 +257,37 @@ describe('round lifecycle', () => {
     ).rejects.toThrow('Missing weight for high-attrition/reskilling.')
     expect(dependencies.createResult).not.toHaveBeenCalled()
     expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('rejects allocation/category mismatches before any result or status writes', async () => {
+    vi.mocked(dependencies.listAllocations).mockResolvedValue([
+      { ...allocations[0]!, categoryId: 'orphan-category' },
+    ])
+
+    await expect(
+      revealRound(
+        { round: round2, rounds: [round1, round2], teams },
+        dependencies,
+      ),
+    ).rejects.toThrow(
+      'Allocation allocation-1 references category orphan-category, which is not part of round round-2.',
+    )
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+    expect(dependencies.updateResult).not.toHaveBeenCalled()
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('rejects persisted allocations without an explicit event weight', () => {
+    expect(() =>
+      validateAllocationCategoryIntegrity(
+        [allocations[0]!],
+        categories,
+        {},
+        'round-2',
+      ),
+    ).toThrow(
+      'Allocation allocation-1 has no event weight for category category-1.',
+    )
   })
 
   it('updates existing current-round results so reveal is idempotent', async () => {

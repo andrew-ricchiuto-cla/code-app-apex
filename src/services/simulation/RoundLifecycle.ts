@@ -23,6 +23,10 @@ export interface AllocationWrite {
 
 export type ResultWrite = Omit<TeamRoundResult, 'id'>
 
+export interface RevealRoundResult {
+  configuration: RuntimeConfiguration
+}
+
 export interface RoundLifecycleDependencies {
   updateRound: (roundId: string, changes: Pick<Round, 'status'>) => Promise<void>
   listAllocations: (roundId: string) => Promise<Allocation[]>
@@ -97,10 +101,41 @@ export async function forceAdvanceRound(
   await dependencies.updateRound(roundId, { status: 'Locked' })
 }
 
+export function validateAllocationCategoryIntegrity(
+  allocations: readonly Allocation[],
+  categories: readonly Category[],
+  eventWeights: Readonly<Record<string, number>>,
+  roundId: string,
+): void {
+  const categoryIds = new Set(categories.map(category => category.id))
+  const errors: string[] = []
+
+  allocations.forEach(allocation => {
+    if (!categoryIds.has(allocation.categoryId)) {
+      errors.push(
+        `Allocation ${allocation.id} references category ${allocation.categoryId}, ` +
+          `which is not part of round ${roundId}.`,
+      )
+      return
+    }
+
+    if (
+      !Object.prototype.hasOwnProperty.call(eventWeights, allocation.categoryId) ||
+      !Number.isFinite(eventWeights[allocation.categoryId])
+    ) {
+      errors.push(
+        `Allocation ${allocation.id} has no event weight for category ${allocation.categoryId}.`,
+      )
+    }
+  })
+
+  if (errors.length > 0) throw new Error(errors.join(' '))
+}
+
 export async function revealRound(
   input: { round: Round; rounds: Round[]; teams: Team[] },
   dependencies: RoundLifecycleDependencies,
-): Promise<void> {
+): Promise<RevealRoundResult> {
   const { round, rounds, teams } = input
   const previousRound = [...rounds]
     .filter(candidate => candidate.index < round.index && candidate.status === 'Revealed')
@@ -116,6 +151,7 @@ export async function revealRound(
     ])
 
   const eventWeights = configuration.getWeightsForCategories(round.eventKey, categories)
+  validateAllocationCategoryIntegrity(allocations, categories, eventWeights, round.id)
   const categoryNames = Object.fromEntries(
     categories.map(category => [category.id, category.name]),
   )
@@ -160,4 +196,9 @@ export async function revealRound(
   )
 
   await dependencies.updateRound(round.id, { status: 'Revealed' })
+
+  // Task 6 must lock the round's Config Set and reveal transition. The current
+  // dependency exposes neither an atomic transaction nor a conditional round
+  // update, so this layer cannot safely arbitrate competing reveal snapshots.
+  return { configuration }
 }

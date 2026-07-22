@@ -62,7 +62,7 @@ export function AdminConsole() {
     return teamAllocs.length > 0 && teamAllocs.every(a => a.submittedAt !== null)
   }).length
 
-  const runAction = async (action: () => Promise<void>) => {
+  const runAction = async (action: () => Promise<unknown>) => {
     setIsActioning(true)
     setActionError(null)
     try {
