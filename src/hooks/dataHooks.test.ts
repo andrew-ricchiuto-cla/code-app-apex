@@ -62,6 +62,43 @@ function success<T>(data: T) {
   return { success: true, data }
 }
 
+function rawBands(configSetId: string, yellowMin: number, greenMin: number) {
+  return [
+    {
+      mw_healthbandid: 'red',
+      _mw_configsetid_value: configSetId,
+      mw_label: 'Red',
+      mw_minscore: '0',
+      mw_color: 'Red',
+      mw_displayorder: '1',
+    },
+    {
+      mw_healthbandid: 'yellow',
+      _mw_configsetid_value: configSetId,
+      mw_label: 'Yellow',
+      mw_minscore: yellowMin.toString(),
+      mw_color: 'Yellow',
+      mw_displayorder: '2',
+    },
+    {
+      mw_healthbandid: 'green',
+      _mw_configsetid_value: configSetId,
+      mw_label: 'Green',
+      mw_minscore: greenMin.toString(),
+      mw_color: 'Green',
+      mw_displayorder: '3',
+    },
+  ]
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>(resolvePromise => {
+    resolve = resolvePromise
+  })
+  return { promise, resolve }
+}
+
 describe('Dataverse data hooks', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -291,6 +328,94 @@ describe('Dataverse data hooks', () => {
     ])
   })
 
+  it('refetches rounds and revealed history when the refresh key changes', async () => {
+    serviceMocks.roundsGetAll
+      .mockResolvedValueOnce(
+        success([
+          {
+            mw_roundid: 'round-guid',
+            _mw_simulationid_value: 'simulation-guid',
+            mw_index: '1',
+            mw_status: 'Revealed',
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        success([
+          {
+            mw_roundid: 'round-guid',
+            _mw_simulationid_value: 'simulation-guid',
+            mw_index: '1',
+            mw_eventtitle: 'Refreshed title',
+            mw_status: 'Revealed',
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        success([
+          {
+            mw_roundid: 'round-guid',
+            _mw_simulationid_value: 'simulation-guid',
+            mw_index: '1',
+            mw_status: 'Revealed',
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        success([
+          {
+            mw_roundid: 'round-guid',
+            _mw_simulationid_value: 'simulation-guid',
+            mw_index: '1',
+            mw_status: 'Revealed',
+          },
+        ]),
+      )
+    serviceMocks.teamResultsGetAll
+      .mockResolvedValueOnce(
+        success([
+          {
+            mw_teamroundresultid: 'result-guid',
+            _mw_roundid_value: 'round-guid',
+            _mw_teamid_value: 'team-guid',
+            mw_newhealth: '60',
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        success([
+          {
+            mw_teamroundresultid: 'result-guid',
+            _mw_roundid_value: 'round-guid',
+            _mw_teamid_value: 'team-guid',
+            mw_newhealth: '72',
+          },
+        ]),
+      )
+
+    const roundsHook = renderHook(
+      ({ refreshKey }) => useRounds('simulation-guid', refreshKey),
+      { initialProps: { refreshKey: 0 } },
+    )
+    await waitFor(() => expect(roundsHook.result.current.isLoading).toBe(false))
+    roundsHook.rerender({ refreshKey: 1 })
+    await waitFor(() =>
+      expect(roundsHook.result.current.rounds[0]?.eventTitle).toBe('Refreshed title'),
+    )
+
+    const historyHook = renderHook(
+      ({ refreshKey }) => useAllRoundResults('simulation-guid', refreshKey),
+      { initialProps: { refreshKey: 0 } },
+    )
+    await waitFor(() => expect(historyHook.result.current.isLoading).toBe(false))
+    expect(historyHook.result.current.results[0]?.newHealth).toBe(60)
+    historyHook.rerender({ refreshKey: 1 })
+    await waitFor(() => expect(historyHook.result.current.results[0]?.newHealth).toBe(72))
+
+    expect(serviceMocks.roundsGetAll).toHaveBeenCalledTimes(4)
+    expect(serviceMocks.teamResultsGetAll).toHaveBeenCalledTimes(2)
+  })
+
   it('loads and validates one round configuration from its Config Set', async () => {
     const configSetId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
     serviceMocks.configSetsGet.mockResolvedValue(
@@ -400,5 +525,79 @@ describe('Dataverse data hooks', () => {
     expect(result.current.isFallback).toBe(false)
     expect(result.current.warning).toBeNull()
     expect(result.current.error?.message).toContain('Missing health band: Green.')
+  })
+
+  it('refetches configuration rows when the refresh key changes', async () => {
+    const configSetId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    serviceMocks.configSetsGet.mockResolvedValue(
+      success({
+        mw_configsetid: configSetId,
+        mw_configset_name: 'Apex Baseline v2',
+        mw_version: '2.0',
+        mw_status: 'Published',
+        mw_systemhealthbaseline: '65',
+      }),
+    )
+    serviceMocks.healthBandsGetAll
+      .mockResolvedValueOnce(success(rawBands(configSetId, 50, 80)))
+      .mockResolvedValueOnce(success(rawBands(configSetId, 60, 90)))
+
+    const { result, rerender } = renderHook(
+      ({ refreshKey }) => useRoundConfiguration(configSetId, refreshKey),
+      { initialProps: { refreshKey: 0 } },
+    )
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.bands.find(band => band.label === 'Yellow')?.minScore).toBe(50)
+    rerender({ refreshKey: 1 })
+    await waitFor(() =>
+      expect(result.current.bands.find(band => band.label === 'Yellow')?.minScore).toBe(60),
+    )
+    expect(serviceMocks.configSetsGet).toHaveBeenCalledTimes(2)
+    expect(serviceMocks.weightsGetAll).toHaveBeenCalledTimes(2)
+    expect(serviceMocks.healthBandsGetAll).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not let a stale configuration response overwrite a refreshed request', async () => {
+    const configSetId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    const staleResponse = deferred<ReturnType<typeof success>>()
+    serviceMocks.configSetsGet
+      .mockImplementationOnce(() => staleResponse.promise)
+      .mockResolvedValueOnce(
+        success({
+          mw_configsetid: configSetId,
+          mw_configset_name: 'Refreshed configuration',
+          mw_version: '2.0',
+          mw_status: 'Published',
+          mw_systemhealthbaseline: '70',
+        }),
+      )
+    serviceMocks.weightsGetAll.mockResolvedValue(success([]))
+    serviceMocks.healthBandsGetAll.mockResolvedValue(
+      success(rawBands(configSetId, 60, 90)),
+    )
+
+    const { result, rerender } = renderHook(
+      ({ refreshKey }) => useRoundConfiguration(configSetId, refreshKey),
+      { initialProps: { refreshKey: 0 } },
+    )
+    rerender({ refreshKey: 1 })
+    await waitFor(() => expect(result.current.configSet?.name).toBe('Refreshed configuration'))
+
+    await act(async () => {
+      staleResponse.resolve(
+        success({
+          mw_configsetid: configSetId,
+          mw_configset_name: 'Stale configuration',
+          mw_version: '1.0',
+          mw_status: 'Published',
+          mw_systemhealthbaseline: '40',
+        }),
+      )
+      await staleResponse.promise
+    })
+
+    expect(result.current.configSet?.name).toBe('Refreshed configuration')
+    expect(result.current.configSet?.systemHealthBaseline).toBe(70)
   })
 })

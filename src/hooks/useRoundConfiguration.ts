@@ -13,7 +13,10 @@ export interface RoundConfigurationState {
   error: Error | null
 }
 
-export function useRoundConfiguration(configSetId: string | null): RoundConfigurationState {
+export function useRoundConfiguration(
+  configSetId: string | null,
+  refreshKey?: string | number,
+): RoundConfigurationState {
   const [state, setState] = useState<RoundConfigurationState>({
     configSet: null,
     bands: [],
@@ -61,7 +64,7 @@ export function useRoundConfiguration(configSetId: string | null): RoundConfigur
     return () => {
       cancelled = true
     }
-  }, [configSetId])
+  }, [configSetId, refreshKey])
 
   return state
 }

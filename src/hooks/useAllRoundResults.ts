@@ -10,6 +10,7 @@ import { mockAllRounds, mockAllTeamRoundResults } from '@/test/mockData'
 /** Returns results for every revealed round in a simulation — used for the health trend chart. */
 export function useAllRoundResults(
   simulationId: string | null,
+  refreshKey?: string | number,
 ): { results: TeamRoundResult[]; isLoading: boolean; error: Error | null } {
   const [results, setResults] = useState<TeamRoundResult[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -61,7 +62,7 @@ export function useAllRoundResults(
     return () => {
       cancelled = true
     }
-  }, [simulationId])
+  }, [refreshKey, simulationId])
 
   return { results, isLoading, error }
 }

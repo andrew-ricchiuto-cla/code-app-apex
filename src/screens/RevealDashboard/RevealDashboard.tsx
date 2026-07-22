@@ -31,13 +31,17 @@ export function RevealDashboard() {
   const { simulation, currentRound, isLoading: simLoading, refresh } = useSimulation()
   const [resultsRefreshKey, setResultsRefreshKey] = useState(0)
   const { teams, isLoading: teamsLoading } = useTeams(simulation?.id ?? null)
-  const { rounds, isLoading: roundsLoading } = useRounds(simulation?.id ?? null)
+  const { rounds, isLoading: roundsLoading } = useRounds(
+    simulation?.id ?? null,
+    resultsRefreshKey,
+  )
   const { results, isLoading: resultsLoading } = useRoundResults(
     currentRound?.id ?? null,
     `${currentRound?.status ?? 'None'}:${resultsRefreshKey}`,
   )
   const { results: allResults, isLoading: allResultsLoading } = useAllRoundResults(
     simulation?.id ?? null,
+    resultsRefreshKey,
   )
   const {
     configSet,
@@ -46,7 +50,7 @@ export function RevealDashboard() {
     isFallback,
     warning: configurationWarning,
     error: configurationError,
-  } = useRoundConfiguration(currentRound?.configSetId ?? null)
+  } = useRoundConfiguration(currentRound?.configSetId ?? null, resultsRefreshKey)
 
   if (
     simLoading ||

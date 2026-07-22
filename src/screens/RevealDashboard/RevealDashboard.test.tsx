@@ -247,7 +247,64 @@ describe('RevealDashboard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(refresh).toHaveBeenCalledTimes(1)
+    expect(mockUseRounds).toHaveBeenLastCalledWith(mockSimulation.id, 1)
+    expect(mockUseAllRoundResults).toHaveBeenLastCalledWith(mockSimulation.id, 1)
+    expect(mockUseRoundConfiguration).toHaveBeenLastCalledWith(mockRound.configSetId, 1)
   })
+
+  it('renders refreshed history and configuration fallback state', async () => {
+    const currentResult = {
+      ...mockTeamRoundResults[0]!,
+      id: 'current-result',
+      roundId: mockRound2.id,
+      previousHealth: 62,
+      newHealth: 70,
+      delta: 8,
+    }
+    const staleHistory = { ...mockTeamRoundResults[0]!, newHealth: 62 }
+    const refreshedHistory = { ...staleHistory, newHealth: 74 }
+    const { user } = renderRevealDashboard({
+      currentRound: mockRound2,
+      rounds: [mockRound, mockRound2],
+      results: [currentResult],
+      allResults: [staleHistory, currentResult],
+    })
+    mockUseAllRoundResults.mockImplementation((_simulationId, refreshKey) => ({
+      results: refreshKey === 1 ? [refreshedHistory, currentResult] : [staleHistory, currentResult],
+      isLoading: false,
+    }))
+    mockUseRoundConfiguration.mockImplementation((_configSetId, refreshKey) =>
+      refreshKey === 1
+        ? {
+            configSet: null,
+            bands: [...DEFAULT_SYSTEM_HEALTH_BANDS],
+            isLoading: false,
+            isFallback: true,
+            warning:
+              'Configuration fallback active. Results use the built-in baseline configuration.',
+            error: null,
+          }
+        : {
+            configSet: configuredSet,
+            bands: configuredBands,
+            isLoading: false,
+            isFallback: false,
+            warning: null,
+            error: null,
+          },
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Configuration fallback active. Results use the built-in baseline configuration.',
+    )
+    const chartData = JSON.parse(
+      screen.getByTestId('trend-chart').getAttribute('data-chart-data') ?? '[]',
+    ) as Array<Record<string, number | string>>
+    expect(chartData[1]).toMatchObject({ roundLabel: 'Round 1', 'Team Alpha': 74 })
+  })
+
   it('labels team outcomes using the configured Red, Yellow, and Green bands', () => {
     renderRevealDashboard({
       currentRound: { ...mockRound, status: 'Revealed' },
