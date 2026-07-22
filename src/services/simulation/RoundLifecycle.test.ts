@@ -3,11 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   Allocation,
   Category,
+  ConfigSet,
+  HealthBand,
   Round,
   Team,
   TeamRoundResult,
-  WeightsConfig,
+  WeightRow,
 } from '@/types'
+
+import {
+  ConfigurationSourceUnavailableError,
+} from '@/services/configuration/ConfigurationLoader'
 
 import {
   forceAdvanceRound,
@@ -60,11 +66,30 @@ const allocations: Allocation[] = teams.map((team, index) => ({
   submittedAt: index === 0 ? '2026-07-22T12:00:00Z' : null,
 }))
 
-const weights: WeightsConfig = {
-  id: 'weights-1',
-  sourceRef: 'assumption-v1',
-  payload: { 'high-attrition': { reskilling: 0.5 } },
+const configSet: ConfigSet = {
+  id: 'config-set-1',
+  name: 'Apex Baseline v1',
+  version: '1.0',
+  status: 'Published',
+  systemHealthBaseline: 45,
+  publishedAt: '2026-07-22T00:00:00Z',
 }
+
+const weights: WeightRow[] = [
+  {
+    id: 'weight-1',
+    configSetId: configSet.id,
+    eventKey: 'high-attrition',
+    categoryKey: 'reskilling',
+    value: 0.5,
+  },
+]
+
+const bands: HealthBand[] = [
+  { id: 'red', configSetId: configSet.id, label: 'Red', minScore: 0, color: 'Red', displayOrder: 1 },
+  { id: 'yellow', configSetId: configSet.id, label: 'Yellow', minScore: 40, color: 'Yellow', displayOrder: 2 },
+  { id: 'green', configSetId: configSet.id, label: 'Green', minScore: 70, color: 'Green', displayOrder: 3 },
+]
 
 const previousResult: TeamRoundResult = {
   id: 'previous-result',
@@ -88,7 +113,9 @@ function buildDependencies(): RoundLifecycleDependencies {
     ),
     createResult: vi.fn().mockResolvedValue(undefined),
     updateResult: vi.fn().mockResolvedValue(undefined),
-    getWeightsConfig: vi.fn().mockResolvedValue(weights),
+    getConfigSet: vi.fn().mockResolvedValue(configSet),
+    listWeights: vi.fn().mockResolvedValue(weights),
+    listHealthBands: vi.fn().mockResolvedValue(bands),
   }
 }
 
@@ -135,11 +162,88 @@ describe('round lifecycle', () => {
     expect(dependencies.createResult).toHaveBeenCalledWith(
       expect.objectContaining({
         teamId: 'team-2',
-        previousHealth: 50,
-        newHealth: 60,
+        previousHealth: 45,
+        newHealth: 55,
       }),
     )
     expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', { status: 'Revealed' })
+  })
+
+  it('uses the configuration baseline and row weight on the first round', async () => {
+    vi.mocked(dependencies.listResults).mockResolvedValue([])
+    vi.mocked(dependencies.listWeights).mockResolvedValue([
+      { ...weights[0]!, value: 1.4 },
+    ])
+
+    await revealRound(
+      { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+      dependencies,
+    )
+
+    expect(dependencies.createResult).toHaveBeenCalledWith(
+      expect.objectContaining({ previousHealth: 45, newHealth: 73, delta: 28 }),
+    )
+  })
+
+  it('uses the explicit legacy fallback only when the config set read fails', async () => {
+    vi.mocked(dependencies.getConfigSet).mockRejectedValue(
+      new ConfigurationSourceUnavailableError(new Error('Dataverse unavailable')),
+    )
+    vi.mocked(dependencies.listResults).mockResolvedValue([])
+
+    await revealRound(
+      { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+      dependencies,
+    )
+
+    expect(dependencies.listWeights).not.toHaveBeenCalled()
+    expect(dependencies.listHealthBands).not.toHaveBeenCalled()
+    expect(dependencies.createResult).toHaveBeenCalledWith(
+      expect.objectContaining({ previousHealth: 50, newHealth: 78, delta: 28 }),
+    )
+  })
+
+  it('does not fallback for a corrupt Config Set mapping', async () => {
+    vi.mocked(dependencies.getConfigSet).mockRejectedValue(
+      new Error('Invalid config set status: Broken.'),
+    )
+
+    await expect(
+      revealRound(
+        { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+        dependencies,
+      ),
+    ).rejects.toThrow('Invalid config set status: Broken.')
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+  })
+
+  it('uses fallback when configuration row reads are unavailable', async () => {
+    vi.mocked(dependencies.listWeights).mockRejectedValue(
+      new ConfigurationSourceUnavailableError(new Error('Weight rows unavailable')),
+    )
+    vi.mocked(dependencies.listResults).mockResolvedValue([])
+
+    await revealRound(
+      { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+      dependencies,
+    )
+
+    expect(dependencies.createResult).toHaveBeenCalledWith(
+      expect.objectContaining({ previousHealth: 50, newHealth: 78, delta: 28 }),
+    )
+  })
+
+  it('rejects invalid published rows without silently applying fallback weights', async () => {
+    vi.mocked(dependencies.listWeights).mockResolvedValue([])
+
+    await expect(
+      revealRound(
+        { round: { ...round1, status: 'Open' }, rounds: [round1], teams: [teams[0]!] },
+        dependencies,
+      ),
+    ).rejects.toThrow('Missing weight for high-attrition/reskilling.')
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
   })
 
   it('updates existing current-round results so reveal is idempotent', async () => {

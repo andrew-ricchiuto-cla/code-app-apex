@@ -1,13 +1,19 @@
-import defaultWeights from '@/services/weights/defaultWeights.json'
+import {
+  ConfigurationLoader,
+  ConfigurationSourceUnavailableError,
+  loadLegacyFallback,
+  type RuntimeConfiguration,
+} from '@/services/configuration/ConfigurationLoader'
 import { scoreRound } from '@/services/scoring/ScoringEngine'
-import { WeightsConfigLoader } from '@/services/weights/WeightsConfigLoader'
 import type {
   Allocation,
   Category,
+  ConfigSet,
+  HealthBand,
   Round,
   Team,
   TeamRoundResult,
-  WeightsConfig,
+  WeightRow,
 } from '@/types'
 
 export interface AllocationWrite {
@@ -25,7 +31,44 @@ export interface RoundLifecycleDependencies {
   listResults: (roundId: string) => Promise<TeamRoundResult[]>
   createResult: (result: ResultWrite) => Promise<void>
   updateResult: (resultId: string, result: ResultWrite) => Promise<void>
-  getWeightsConfig: (weightsConfigId: string | null) => Promise<WeightsConfig | null>
+  getConfigSet: (configSetId: string | null) => Promise<ConfigSet | null>
+  listWeights: (configSetId: string) => Promise<WeightRow[]>
+  listHealthBands: (configSetId: string) => Promise<HealthBand[]>
+}
+
+export async function loadRoundConfiguration(
+  configSetId: string | null,
+  dependencies: Pick<
+    RoundLifecycleDependencies,
+    'getConfigSet' | 'listWeights' | 'listHealthBands'
+  >,
+): Promise<RuntimeConfiguration> {
+  let configSet: ConfigSet | null
+  try {
+    configSet = await dependencies.getConfigSet(configSetId)
+  } catch (cause) {
+    if (cause instanceof ConfigurationSourceUnavailableError) {
+      return loadLegacyFallback()
+    }
+    throw cause
+  }
+
+  if (!configSet) return loadLegacyFallback()
+
+  let configurationRows: [WeightRow[], HealthBand[]]
+  try {
+    configurationRows = await Promise.all([
+      dependencies.listWeights(configSet.id),
+      dependencies.listHealthBands(configSet.id),
+    ])
+  } catch (cause) {
+    if (cause instanceof ConfigurationSourceUnavailableError) {
+      return loadLegacyFallback()
+    }
+    throw cause
+  }
+  const [weights, bands] = configurationRows
+  return new ConfigurationLoader(configSet, weights, bands)
 }
 
 export async function openRound(
@@ -63,19 +106,16 @@ export async function revealRound(
     .filter(candidate => candidate.index < round.index && candidate.status === 'Revealed')
     .sort((left, right) => right.index - left.index)[0]
 
-  const [allocations, categories, currentResults, previousResults, weightsConfig] =
+  const [allocations, categories, currentResults, previousResults, configuration] =
     await Promise.all([
       dependencies.listAllocations(round.id),
       dependencies.listCategories(round.id),
       dependencies.listResults(round.id),
       previousRound ? dependencies.listResults(previousRound.id) : Promise.resolve([]),
-      dependencies.getWeightsConfig(round.weightsConfigId),
+      loadRoundConfiguration(round.configSetId, dependencies),
     ])
 
-  const loader = weightsConfig
-    ? new WeightsConfigLoader(weightsConfig)
-    : WeightsConfigLoader.fromJson(defaultWeights)
-  const eventWeights = loader.getWeightsForCategories(round.eventKey, categories)
+  const eventWeights = configuration.getWeightsForCategories(round.eventKey, categories)
   const categoryNames = Object.fromEntries(
     categories.map(category => [category.id, category.name]),
   )
@@ -92,7 +132,8 @@ export async function revealRound(
       const allocationMap = Object.fromEntries(
         teamAllocations.map(allocation => [allocation.categoryId, allocation.amount]),
       )
-      const previousHealth = previousByTeam.get(team.id) ?? team.systemHealthBaseline
+      const previousHealth =
+        previousByTeam.get(team.id) ?? configuration.systemHealthBaseline
       const scored = scoreRound({
         previousHealth,
         budget: round.budget,
@@ -120,4 +161,3 @@ export async function revealRound(
 
   await dependencies.updateRound(round.id, { status: 'Revealed' })
 }
-

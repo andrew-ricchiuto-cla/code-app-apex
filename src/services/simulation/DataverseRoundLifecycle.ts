@@ -1,17 +1,33 @@
 import { Mw_allocationsService } from '@/generated/services/Mw_allocationsService'
 import { Mw_categoriesService } from '@/generated/services/Mw_categoriesService'
+import { Mw_configsetsService } from '@/generated/services/Mw_configsetsService'
+import { Mw_healthbandsService } from '@/generated/services/Mw_healthbandsService'
 import { Mw_roundsService } from '@/generated/services/Mw_roundsService'
 import { Mw_teamroundresultsService } from '@/generated/services/Mw_teamroundresultsService'
-import { Mw_weightsconfigsService } from '@/generated/services/Mw_weightsconfigsService'
+import { Mw_weightsService } from '@/generated/services/Mw_weightsService'
 import {
   mapAllocation,
   mapCategory,
+  mapConfigSet,
+  mapHealthBand,
   mapTeamRoundResult,
-  mapWeightsConfig,
+  mapWeightRow,
 } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
+import { ConfigurationSourceUnavailableError } from '@/services/configuration/ConfigurationLoader'
 
 import type { ResultWrite, RoundLifecycleDependencies } from './RoundLifecycle'
+
+const DATAVERSE_GUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function normalizeDataverseGuid(value: string): string {
+  const normalized = value.trim().replace(/^\{(.*)\}$/, '$1').toLowerCase()
+  if (!DATAVERSE_GUID.test(normalized)) {
+    throw new Error(`Invalid Dataverse GUID: ${value}`)
+  }
+  return normalized
+}
 
 function resultFields(result: ResultWrite) {
   return {
@@ -96,8 +112,46 @@ export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
     )
   },
 
-  async getWeightsConfig(weightsConfigId) {
-    if (!weightsConfigId) return null
-    return mapWeightsConfig(requireData(await Mw_weightsconfigsService.get(weightsConfigId)))
+  async getConfigSet(configSetId) {
+    if (!configSetId) return null
+    const id = normalizeDataverseGuid(configSetId)
+    let rawConfigSet
+    try {
+      rawConfigSet = requireData(await Mw_configsetsService.get(id))
+    } catch (cause) {
+      throw new ConfigurationSourceUnavailableError(cause)
+    }
+    return mapConfigSet(rawConfigSet)
+  },
+
+  async listWeights(configSetId) {
+    const id = normalizeDataverseGuid(configSetId)
+    let rawWeights
+    try {
+      rawWeights = requireData(
+        await Mw_weightsService.getAll({
+          filter: `_mw_configsetid_value eq ${id}`,
+        }),
+      )
+    } catch (cause) {
+      throw new ConfigurationSourceUnavailableError(cause)
+    }
+    return rawWeights.map(mapWeightRow)
+  },
+
+  async listHealthBands(configSetId) {
+    const id = normalizeDataverseGuid(configSetId)
+    let rawHealthBands
+    try {
+      rawHealthBands = requireData(
+        await Mw_healthbandsService.getAll({
+          filter: `_mw_configsetid_value eq ${id}`,
+          orderBy: ['mw_displayorder asc'],
+        }),
+      )
+    } catch (cause) {
+      throw new ConfigurationSourceUnavailableError(cause)
+    }
+    return rawHealthBands.map(mapHealthBand)
   },
 }
