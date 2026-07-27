@@ -15,89 +15,18 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(__file__))
 
 from auth import get_credential, get_token, load_env
+from apex_schema import (
+    DATETIME_COLUMNS,
+    EXPECTED_TABLES,
+    EXTRA_SCALAR_COLUMNS,
+    LONG_TEXT_COLUMNS,
+    LONG_TEXT_MAX_LENGTH,
+    MANAGED_KEYS,
+    MANAGED_LOOKUPS,
+    MANAGED_TABLES,
+    SOLUTION,
+)
 from PowerPlatform.Dataverse.client import DataverseClient
-
-
-SOLUTION = "ApexSimulation"
-EXPECTED_TABLES = (
-    "mw_simulation",
-    "mw_round",
-    "mw_category",
-    "mw_team",
-    "mw_teammember",
-    "mw_allocation",
-    "mw_teamroundresult",
-    "mw_weightsconfig",
-    "mw_configset",
-    "mw_weight",
-    "mw_healthband",
-)
-CONFIG_TABLES = (
-    (
-        "mw_ConfigSet",
-        {
-            "mw_Version": "string",
-            "mw_Status": "string",
-            "mw_SystemHealthBaseline": "decimal",
-            "mw_PublishedAt": "datetime",
-        },
-        "Config Set",
-        "mw_ConfigSet_Name",
-    ),
-    (
-        "mw_Weight",
-        {
-            "mw_EventKey": "string",
-            "mw_CategoryKey": "string",
-            "mw_Value": "decimal",
-        },
-        "Weight",
-        "mw_Weight_Name",
-    ),
-    (
-        "mw_HealthBand",
-        {
-            "mw_Label": "string",
-            "mw_MinScore": "decimal",
-            "mw_Color": "string",
-            "mw_DisplayOrder": "int",
-        },
-        "Health Band",
-        "mw_HealthBand_Name",
-    ),
-)
-CONFIG_LOOKUPS = (
-    ("mw_weight", "mw_ConfigSetId", "mw_configset", "Config Set"),
-    ("mw_healthband", "mw_ConfigSetId", "mw_configset", "Config Set"),
-    ("mw_round", "mw_ConfigSetId", "mw_configset", "Config Set"),
-)
-CONFIG_KEYS = (
-    (
-        "mw_configset",
-        "mw_ConfigSet_Version_Key",
-        ["mw_version"],
-        "Configuration Version",
-    ),
-    (
-        "mw_weight",
-        "mw_Weight_ConfigEventCategory_Key",
-        ["mw_configsetid", "mw_eventkey", "mw_categorykey"],
-        "Config Event Category",
-    ),
-    (
-        "mw_healthband",
-        "mw_HealthBand_ConfigLabel_Key",
-        ["mw_configsetid", "mw_label"],
-        "Config Label",
-    ),
-)
-LONG_TEXT_COLUMNS = (
-    ("mw_round", "mw_eventdescription"),
-    ("mw_teamroundresult", "mw_contributionsjson"),
-    ("mw_teamroundresult", "mw_rationale"),
-    ("mw_weightsconfig", "mw_payload"),
-)
-
 
 load_env()
 DATAVERSE_URL = os.environ["DATAVERSE_URL"].rstrip("/")
@@ -171,6 +100,31 @@ def get_string_attribute(table, column):
         "?$select=LogicalName,SchemaName,MaxLength,MetadataId"
     )
     return web_api("GET", path)
+
+
+def get_datetime_attribute(table, column):
+    path = (
+        f"EntityDefinitions(LogicalName='{table}')/Attributes"
+        f"(LogicalName='{column}')/"
+        "Microsoft.Dynamics.CRM.DateTimeAttributeMetadata"
+        "?$select=LogicalName,SchemaName,DateTimeBehavior,Format,MetadataId"
+    )
+    try:
+        return web_api("GET", path)
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+        raise
+
+
+def datetime_metadata_matches(attribute, behavior, format_name):
+    if attribute is None:
+        return False
+    actual_behavior = attribute.get("DateTimeBehavior") or {}
+    return (
+        actual_behavior.get("Value") == behavior
+        and attribute.get("Format") == format_name
+    )
 
 
 def get_custom_attributes(table):
@@ -342,6 +296,100 @@ def ensure_scalar_column(table, schema_name, type_name):
         print(f"  CREATED: {table}.{logical_name}")
 
 
+def metadata_label(text):
+    return {
+        "@odata.type": "Microsoft.Dynamics.CRM.Label",
+        "LocalizedLabels": [
+            {
+                "@odata.type": "Microsoft.Dynamics.CRM.LocalizedLabel",
+                "Label": text,
+                "LanguageCode": 1033,
+            }
+        ],
+    }
+
+
+def publish_entity(table):
+    web_api(
+        "POST",
+        "PublishXml",
+        {
+            "ParameterXml": (
+                "<importexportxml><entities>"
+                f"<entity>{table}</entity>"
+                "</entities></importexportxml>"
+            )
+        },
+    )
+
+
+def ensure_datetime_column(
+    table,
+    schema_name,
+    display_name,
+    behavior,
+    format_name,
+):
+    logical_name = schema_name.lower()
+    attribute = get_datetime_attribute(table, logical_name)
+    if attribute is None:
+        web_api(
+            "POST",
+            f"EntityDefinitions(LogicalName='{table}')/Attributes",
+            {
+                "@odata.type": (
+                    "Microsoft.Dynamics.CRM.DateTimeAttributeMetadata"
+                ),
+                "AttributeType": "DateTime",
+                "AttributeTypeName": {"Value": "DateTimeType"},
+                "DisplayName": metadata_label(display_name),
+                "RequiredLevel": {"Value": "None"},
+                "SchemaName": schema_name,
+                "DateTimeBehavior": {"Value": behavior},
+                "Format": format_name,
+            },
+        )
+        attribute = get_attribute_metadata(table, logical_name)
+        print(f"  CREATED datetime: {table}.{logical_name}")
+    elif datetime_metadata_matches(attribute, behavior, format_name):
+        print(
+            f"  SKIP (datetime {behavior}/{format_name}): "
+            f"{table}.{logical_name}"
+        )
+    else:
+        web_api(
+            "PUT",
+            f"EntityDefinitions(LogicalName='{table}')/Attributes"
+            f"(LogicalName='{logical_name}')",
+            {
+                "@odata.type": (
+                    "Microsoft.Dynamics.CRM.DateTimeAttributeMetadata"
+                ),
+                "MetadataId": attribute["MetadataId"],
+                "SchemaName": attribute["SchemaName"],
+                "DateTimeBehavior": {"Value": behavior},
+                "Format": format_name,
+            },
+        )
+        print(
+            f"  UPDATED datetime: {table}.{logical_name} "
+            f"-> {behavior}/{format_name}"
+        )
+
+    publish_entity(table)
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline:
+        current = get_datetime_attribute(table, logical_name)
+        if datetime_metadata_matches(current, behavior, format_name):
+            ensure_attribute_in_solution(table, current)
+            return
+        time.sleep(3)
+    raise TimeoutError(
+        "Timed out waiting for datetime metadata: "
+        f"{table}.{logical_name} -> {behavior}/{format_name}"
+    )
+
+
 def ensure_lookup(referencing_table, schema_name, referenced_table, display_name):
     logical_name = schema_name.lower()
     try:
@@ -511,8 +559,8 @@ def ensure_alternate_key(table, key_name, columns, display_name):
 
 
 def main():
-    print("Reconciling versioned configuration tables...")
-    for schema_name, columns, display_name, primary_column in CONFIG_TABLES:
+    print("Reconciling Apex-managed tables...")
+    for schema_name, columns, display_name, primary_column in MANAGED_TABLES:
         ensure_table(schema_name, columns, display_name, primary_column)
         time.sleep(3)
 
@@ -523,48 +571,58 @@ def main():
             raise RuntimeError(f"Missing required table: {table}")
         print(f"  {info.logical_name} ({info.schema_name})")
 
-    print("Adding stable keys...")
-    ensure_scalar_column("mw_round", "mw_EventKey", "string")
-    time.sleep(3)
-    ensure_scalar_column("mw_category", "mw_Key", "string")
-    time.sleep(8)
+    print("Adding scalar administration columns...")
+    for table, schema_name, type_name in EXTRA_SCALAR_COLUMNS:
+        ensure_scalar_column(table, schema_name, type_name)
+        time.sleep(3)
 
-    print("Verifying configuration columns...")
-    for schema_name, columns, _, _ in CONFIG_TABLES:
+    print("Verifying managed table columns...")
+    for schema_name, columns, _, _ in MANAGED_TABLES:
         table = schema_name.lower()
         for column, type_name in columns.items():
             ensure_scalar_column(table, column, type_name)
             time.sleep(3)
 
+    print("Ensuring timestamp columns...")
+    for (
+        table,
+        schema_name,
+        display_name,
+        behavior,
+        format_name,
+    ) in DATETIME_COLUMNS:
+        ensure_datetime_column(
+            table,
+            schema_name,
+            display_name,
+            behavior,
+            format_name,
+        )
+        time.sleep(5)
+
     print("Adding current-round lookup...")
     ensure_lookup("mw_simulation", "mw_CurrentRoundId", "mw_round", "Current Round")
     time.sleep(8)
 
-    print("Adding configuration lookups...")
+    print("Adding managed lookups...")
     for (
         referencing_table,
         schema_name,
         referenced_table,
         display_name,
-    ) in CONFIG_LOOKUPS:
+    ) in MANAGED_LOOKUPS:
         ensure_lookup(referencing_table, schema_name, referenced_table, display_name)
         time.sleep(5)
 
     print("Ensuring alternate keys...")
-    ensure_alternate_key(
-        "mw_teamroundresult",
-        "mw_TeamRoundResult_RoundTeam_Key",
-        ["mw_roundid", "mw_teamid"],
-        "Round and Team",
-    )
-    for table, key_name, columns, display_name in CONFIG_KEYS:
+    for table, key_name, columns, display_name in MANAGED_KEYS:
         ensure_alternate_key(table, key_name, columns, display_name)
         time.sleep(3)
     time.sleep(8)
 
     print("Expanding text columns...")
     for table, column in LONG_TEXT_COLUMNS:
-        ensure_string_length(table, column)
+        ensure_string_length(table, column, LONG_TEXT_MAX_LENGTH)
         time.sleep(3)
 
     print("Including all Apex attributes in the solution...")

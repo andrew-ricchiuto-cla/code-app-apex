@@ -3,6 +3,7 @@
   <EntityRelationship Name="business_unit_mw_configset" />
   <EntityRelationship Name="business_unit_mw_healthband" />
   <EntityRelationship Name="business_unit_mw_simulation" />
+  <EntityRelationship Name="business_unit_mw_teamsubmission" />
   <EntityRelationship Name="business_unit_mw_weight" />
   <EntityRelationship Name="business_unit_mw_weightsconfig" />
   <EntityRelationship Name="lk_mw_configset_createdby" />
@@ -11,6 +12,8 @@
   <EntityRelationship Name="lk_mw_healthband_modifiedby" />
   <EntityRelationship Name="lk_mw_simulation_createdby" />
   <EntityRelationship Name="lk_mw_simulation_modifiedby" />
+  <EntityRelationship Name="lk_mw_teamsubmission_createdby" />
+  <EntityRelationship Name="lk_mw_teamsubmission_modifiedby" />
   <EntityRelationship Name="lk_mw_weight_createdby" />
   <EntityRelationship Name="lk_mw_weight_modifiedby" />
   <EntityRelationship Name="lk_mw_weightsconfig_createdby" />
@@ -23,25 +26,30 @@
   <EntityRelationship Name="mw_round_mw_category_mw_RoundId" />
   <EntityRelationship Name="mw_round_mw_simulation_mw_CurrentRoundId" />
   <EntityRelationship Name="mw_round_mw_teamroundresult_mw_RoundId" />
+  <EntityRelationship Name="mw_round_mw_teamsubmission_mw_RoundId" />
   <EntityRelationship Name="mw_simulation_mw_round_mw_SimulationId" />
   <EntityRelationship Name="mw_simulation_mw_team_mw_SimulationId" />
   <EntityRelationship Name="mw_team_mw_allocation_mw_TeamId" />
   <EntityRelationship Name="mw_team_mw_teammember_mw_TeamId" />
   <EntityRelationship Name="mw_team_mw_teamroundresult_mw_TeamId" />
+  <EntityRelationship Name="mw_team_mw_teamsubmission_mw_TeamId" />
   <EntityRelationship Name="mw_weightsconfig_mw_round_mw_WeightsConfigId" />
   <EntityRelationship Name="owner_mw_configset" />
   <EntityRelationship Name="owner_mw_healthband" />
   <EntityRelationship Name="owner_mw_simulation" />
+  <EntityRelationship Name="owner_mw_teamsubmission" />
   <EntityRelationship Name="owner_mw_weight" />
   <EntityRelationship Name="owner_mw_weightsconfig" />
   <EntityRelationship Name="team_mw_configset" />
   <EntityRelationship Name="team_mw_healthband" />
   <EntityRelationship Name="team_mw_simulation" />
+  <EntityRelationship Name="team_mw_teamsubmission" />
   <EntityRelationship Name="team_mw_weight" />
   <EntityRelationship Name="team_mw_weightsconfig" />
   <EntityRelationship Name="user_mw_configset" />
   <EntityRelationship Name="user_mw_healthband" />
   <EntityRelationship Name="user_mw_simulation" />
+  <EntityRelationship Name="user_mw_teamsubmission" />
   <EntityRelationship Name="user_mw_weight" />
   <EntityRelationship Name="user_mw_weightsconfig" />
 </EntityRelationships>
