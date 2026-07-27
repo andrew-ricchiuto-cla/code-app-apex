@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { useSimulation } from '@/contexts/SimulationContext'
 import { useRoundAllocations } from '@/hooks/useRoundAllocations'
@@ -16,6 +17,7 @@ import {
 import type { ConfigSet } from '@/types'
 
 import { RoundManager } from './RoundManager'
+import { RoundsManager } from './RoundsManager'
 import { SubmissionMonitor } from './SubmissionMonitor'
 
 export function AdminConsole() {
@@ -154,34 +156,60 @@ export function AdminConsole() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl space-y-6 p-8">
-        {actionError && (
-          <div
-            role="alert"
-            className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800"
-          >
-            {actionError.message}
-          </div>
-        )}
-        {configSetsError && (
-          <div
-            role="alert"
-            className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800"
-          >
-            {configSetsError.message}
-          </div>
-        )}
-        <RoundManager
-          round={currentRound}
-          onOpenRound={handleOpenRound}
-          onForceAdvance={handleForceAdvance}
-          onRevealResults={handleRevealResults}
-          configSets={configSets}
-          selectedConfigSet={selectedConfigSet}
-          onConfigurationChange={handleConfigurationChange}
-          disabled={isActioning}
-        />
-        <SubmissionMonitor teams={teams} allocations={allocations} budget={currentRound.budget} />
+      <main className="mx-auto max-w-5xl p-8">
+        <Tabs defaultValue="live-run">
+          <TabsList className="mb-6">
+            <TabsTrigger value="live-run">Live Run</TabsTrigger>
+            <TabsTrigger value="rounds">Rounds</TabsTrigger>
+            <TabsTrigger value="scoring">Scoring</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="live-run">
+            <div className="space-y-6">
+              {actionError && (
+                <div
+                  role="alert"
+                  className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800"
+                >
+                  {actionError.message}
+                </div>
+              )}
+              {configSetsError && (
+                <div
+                  role="alert"
+                  className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800"
+                >
+                  {configSetsError.message}
+                </div>
+              )}
+              <RoundManager
+                round={currentRound}
+                onOpenRound={handleOpenRound}
+                onForceAdvance={handleForceAdvance}
+                onRevealResults={handleRevealResults}
+                configSets={configSets}
+                selectedConfigSet={selectedConfigSet}
+                onConfigurationChange={handleConfigurationChange}
+                disabled={isActioning}
+              />
+              <SubmissionMonitor
+                teams={teams}
+                allocations={allocations}
+                budget={currentRound.budget}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="rounds">
+            <RoundsManager configSets={configSets} />
+          </TabsContent>
+
+          <TabsContent value="scoring">
+            <div className="rounded-2xl border border-dashed border-[#D7E3EC] p-8 text-center text-sm text-muted-foreground">
+              Scoring configuration coming soon.
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   )

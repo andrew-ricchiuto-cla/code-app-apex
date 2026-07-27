@@ -15,6 +15,7 @@ const {
   mockRevealRound,
   mockAssignRoundConfiguration,
   mockListConfigSets,
+  mockUseRoundAdmin,
 } = vi.hoisted(() => ({
   mockUseSimulation: vi.fn(),
   mockUseTeams: vi.fn(),
@@ -25,6 +26,7 @@ const {
   mockRevealRound: vi.fn(),
   mockAssignRoundConfiguration: vi.fn(),
   mockListConfigSets: vi.fn(),
+  mockUseRoundAdmin: vi.fn(),
 }))
 
 vi.mock('@/contexts/SimulationContext', () => ({
@@ -55,6 +57,10 @@ vi.mock('@/services/simulation/DataverseRoundLifecycle', () => ({
     kind: 'test-dependencies',
     listConfigSets: mockListConfigSets,
   },
+}))
+
+vi.mock('@/hooks/useRoundAdmin', () => ({
+  useRoundAdmin: mockUseRoundAdmin,
 }))
 
 import { AdminConsole } from './AdminConsole'
@@ -135,6 +141,20 @@ describe('AdminConsole', () => {
     mockRevealRound.mockResolvedValue(undefined)
     mockAssignRoundConfiguration.mockResolvedValue(undefined)
     mockListConfigSets.mockResolvedValue(availableConfigSets)
+    mockUseRoundAdmin.mockReturnValue({
+      rounds: [mockRound],
+      isLoading: false,
+      loadError: null,
+      isActioning: false,
+      commandError: null,
+      createRound: vi.fn(),
+      saveRound: vi.fn(),
+      deleteRound: vi.fn(),
+      activateRound: vi.fn(),
+      completeSimulation: vi.fn(),
+      loadCategoriesForEdit: vi.fn().mockResolvedValue([]),
+      clearCommandError: vi.fn(),
+    })
   })
 
   afterEach(() => {
@@ -331,5 +351,35 @@ describe('AdminConsole', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Assignment conflicted')
     expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('renders Live Run, Rounds, and Scoring tabs', () => {
+    renderAdminConsole()
+    expect(screen.getByRole('tab', { name: 'Live Run' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Rounds' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Scoring' })).toBeInTheDocument()
+  })
+
+  it('defaults to the Live Run tab showing the round manager', () => {
+    renderAdminConsole()
+    expect(screen.getByRole('tab', { name: 'Live Run' })).toHaveAttribute(
+      'data-state',
+      'active',
+    )
+    expect(screen.getByText('Round Control')).toBeInTheDocument()
+  })
+
+  it('shows the Rounds tab content when Rounds tab is clicked', async () => {
+    const { user } = renderAdminConsole()
+    await user.click(screen.getByRole('tab', { name: 'Rounds' }))
+    expect(screen.getByRole('button', { name: 'Add Round' })).toBeInTheDocument()
+  })
+
+  it('shows the Scoring placeholder when Scoring tab is clicked', async () => {
+    const { user } = renderAdminConsole()
+    await user.click(screen.getByRole('tab', { name: 'Scoring' }))
+    expect(
+      screen.getByText(/scoring configuration coming soon/i),
+    ).toBeInTheDocument()
   })
 })
