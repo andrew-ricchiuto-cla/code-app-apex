@@ -22,6 +22,8 @@ import type {
   Team,
   TeamMember,
   TeamRoundResult,
+  TeamSubmission,
+  TeamSubmissionAllocation,
   WeightsConfig,
   WeightsPayload,
   WeightRow,
@@ -131,12 +133,62 @@ export function mapHealthBand(raw: Mw_healthbands): HealthBand {
 }
 
 export function mapCategory(raw: Mw_categories): Category {
+  const withDisplayOrder = raw as Mw_categories & { mw_displayorder?: string }
   return {
     id: raw.mw_categoryid,
     roundId: raw._mw_roundid_value ?? '',
     key: raw.mw_key ?? raw.mw_categoryid,
     name: raw.mw_category_name ?? '',
     description: raw.mw_description ?? '',
+    displayOrder: numberValue(withDisplayOrder.mw_displayorder),
+  }
+}
+
+interface RawTeamSubmission {
+  mw_teamsubmissionid: string
+  _mw_roundid_value?: string
+  _mw_teamid_value?: string
+  mw_allocationpayload?: string
+  mw_submittedat?: string
+  mw_submittedbyref?: string
+}
+
+function parseSubmissionAllocations(
+  value: string | undefined,
+): TeamSubmissionAllocation[] {
+  if (!value) throw new Error('Team submission allocation payload is missing.')
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value)
+  } catch {
+    throw new Error('Team submission allocation payload is malformed JSON.')
+  }
+
+  if (
+    !Array.isArray(parsed) ||
+    parsed.some(
+      item =>
+        typeof item !== 'object' ||
+        item === null ||
+        typeof (item as TeamSubmissionAllocation).categoryId !== 'string' ||
+        typeof (item as TeamSubmissionAllocation).amount !== 'number',
+    )
+  ) {
+    throw new Error('Team submission allocation payload must be an array.')
+  }
+
+  return parsed as TeamSubmissionAllocation[]
+}
+
+export function mapTeamSubmission(raw: RawTeamSubmission): TeamSubmission {
+  return {
+    id: raw.mw_teamsubmissionid,
+    roundId: raw._mw_roundid_value ?? '',
+    teamId: raw._mw_teamid_value ?? '',
+    allocations: parseSubmissionAllocations(raw.mw_allocationpayload),
+    submittedAt: raw.mw_submittedat ?? '',
+    submittedBy: raw.mw_submittedbyref ?? '',
   }
 }
 

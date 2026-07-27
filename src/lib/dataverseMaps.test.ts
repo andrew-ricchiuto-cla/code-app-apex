@@ -23,6 +23,7 @@ import {
   mapTeam,
   mapTeamMember,
   mapTeamRoundResult,
+  mapTeamSubmission,
   mapWeightsConfig,
   mapWeightRow,
 } from './dataverseMaps'
@@ -248,7 +249,8 @@ describe('Dataverse domain mappers', () => {
       mw_key: 'reskilling',
       mw_category_name: 'Reskilling',
       mw_description: 'Develop the workforce.',
-    } as Mw_categories
+      mw_displayorder: '2',
+    } as unknown as Mw_categories
 
     expect(mapCategory(raw)).toEqual({
       id: 'category-id',
@@ -256,7 +258,49 @@ describe('Dataverse domain mappers', () => {
       key: 'reskilling',
       name: 'Reskilling',
       description: 'Develop the workforce.',
+      displayOrder: 2,
     })
+  })
+
+  it('maps an authoritative team submission payload', () => {
+    const raw = {
+      mw_teamsubmissionid: 'submission-id',
+      _mw_roundid_value: 'round-id',
+      _mw_teamid_value: 'team-id',
+      mw_allocationpayload:
+        '[{"categoryId":"category-ai","amount":60},{"categoryId":"category-people","amount":40}]',
+      mw_submittedat: '2026-07-27T15:00:00Z',
+      mw_submittedbyref: 'user-id',
+    }
+
+    expect(mapTeamSubmission(raw)).toEqual({
+      id: 'submission-id',
+      roundId: 'round-id',
+      teamId: 'team-id',
+      allocations: [
+        { categoryId: 'category-ai', amount: 60 },
+        { categoryId: 'category-people', amount: 40 },
+      ],
+      submittedAt: '2026-07-27T15:00:00Z',
+      submittedBy: 'user-id',
+    })
+  })
+
+  it.each([
+    ['missing', undefined],
+    ['malformed', '{not-json'],
+    ['wrong shape', '{"categoryId":"category-ai","amount":100}'],
+  ])('rejects a %s team submission payload', (_case, payload) => {
+    expect(() =>
+      mapTeamSubmission({
+        mw_teamsubmissionid: 'submission-id',
+        _mw_roundid_value: 'round-id',
+        _mw_teamid_value: 'team-id',
+        mw_allocationpayload: payload,
+        mw_submittedat: '2026-07-27T15:00:00Z',
+        mw_submittedbyref: 'user-id',
+      }),
+    ).toThrow(/allocation payload/i)
   })
 
   it('maps teams and team members', () => {

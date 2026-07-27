@@ -40,6 +40,7 @@ export const mockCategories: Category[] = [
     key: 'ai-investment',
     name: 'AI Investment',
     description: 'Automation and AI tooling',
+    displayOrder: 1,
   },
   {
     id: 'cat-reskill',
@@ -47,6 +48,7 @@ export const mockCategories: Category[] = [
     key: 'reskilling',
     name: 'Reskilling',
     description: 'Workforce development programs',
+    displayOrder: 2,
   },
   {
     id: 'cat-industries',
@@ -54,6 +56,7 @@ export const mockCategories: Category[] = [
     key: 'industries',
     name: 'Industries',
     description: 'Industry vertical focus',
+    displayOrder: 3,
   },
   {
     id: 'cat-marketing',
@@ -61,6 +64,7 @@ export const mockCategories: Category[] = [
     key: 'marketing',
     name: 'Marketing',
     description: 'Brand and demand generation',
+    displayOrder: 4,
   },
   {
     id: 'cat-ops',
@@ -68,6 +72,7 @@ export const mockCategories: Category[] = [
     key: 'operations',
     name: 'Operations',
     description: 'Operational efficiency',
+    displayOrder: 5,
   },
 ]
 
@@ -281,11 +286,11 @@ export const mockRound2: Round = {
 }
 
 export const mockCategoriesRound2: Category[] = [
-  { id: 'cat-ai-r2', roundId: 'round-002', key: 'ai-investment', name: 'AI Investment', description: 'Automation and AI tooling' },
-  { id: 'cat-reskill-r2', roundId: 'round-002', key: 'reskilling', name: 'Reskilling', description: 'Workforce development programs' },
-  { id: 'cat-talent-r2', roundId: 'round-002', key: 'talent-acquisition', name: 'Talent Acquisition', description: 'Recruiting and sourcing' },
-  { id: 'cat-innovation-r2', roundId: 'round-002', key: 'innovation-labs', name: 'Innovation Labs', description: 'R&D and prototyping' },
-  { id: 'cat-ops-r2', roundId: 'round-002', key: 'operations', name: 'Operations', description: 'Operational efficiency' },
+  { id: 'cat-ai-r2', roundId: 'round-002', key: 'ai-investment', name: 'AI Investment', description: 'Automation and AI tooling', displayOrder: 1 },
+  { id: 'cat-reskill-r2', roundId: 'round-002', key: 'reskilling', name: 'Reskilling', description: 'Workforce development programs', displayOrder: 2 },
+  { id: 'cat-talent-r2', roundId: 'round-002', key: 'talent-acquisition', name: 'Talent Acquisition', description: 'Recruiting and sourcing', displayOrder: 3 },
+  { id: 'cat-innovation-r2', roundId: 'round-002', key: 'innovation-labs', name: 'Innovation Labs', description: 'R&D and prototyping', displayOrder: 4 },
+  { id: 'cat-ops-r2', roundId: 'round-002', key: 'operations', name: 'Operations', description: 'Operational efficiency', displayOrder: 5 },
 ]
 
 export const mockTeamRoundResultsRound2: TeamRoundResult[] = [
@@ -364,11 +369,11 @@ export const mockRound3: Round = {
 }
 
 export const mockCategoriesRound3: Category[] = [
-  { id: 'cat-ai-r3', roundId: 'round-003', key: 'ai-investment', name: 'AI Investment', description: 'Automation and AI tooling' },
-  { id: 'cat-reskill-r3', roundId: 'round-003', key: 'reskilling', name: 'Reskilling', description: 'Workforce development programs' },
-  { id: 'cat-compliance-r3', roundId: 'round-003', key: 'compliance-programs', name: 'Compliance Programs', description: 'Regulatory adaptation' },
-  { id: 'cat-change-r3', roundId: 'round-003', key: 'change-management', name: 'Change Management', description: 'Transformation leadership' },
-  { id: 'cat-ops-r3', roundId: 'round-003', key: 'operations', name: 'Operations', description: 'Operational efficiency' },
+  { id: 'cat-ai-r3', roundId: 'round-003', key: 'ai-investment', name: 'AI Investment', description: 'Automation and AI tooling', displayOrder: 1 },
+  { id: 'cat-reskill-r3', roundId: 'round-003', key: 'reskilling', name: 'Reskilling', description: 'Workforce development programs', displayOrder: 2 },
+  { id: 'cat-compliance-r3', roundId: 'round-003', key: 'compliance-programs', name: 'Compliance Programs', description: 'Regulatory adaptation', displayOrder: 3 },
+  { id: 'cat-change-r3', roundId: 'round-003', key: 'change-management', name: 'Change Management', description: 'Transformation leadership', displayOrder: 4 },
+  { id: 'cat-ops-r3', roundId: 'round-003', key: 'operations', name: 'Operations', description: 'Operational efficiency', displayOrder: 5 },
 ]
 
 export const mockAllocationsRound3: Allocation[] = [

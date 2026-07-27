@@ -25,6 +25,7 @@ const categories: Category[] = [
     key: 'reskilling',
     name: 'Reskilling',
     description: '',
+    displayOrder: 1,
   },
 ]
 

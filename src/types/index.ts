@@ -35,6 +35,7 @@ export interface Category {
   key: string
   name: string
   description: string
+  displayOrder: number
 }
 
 // ─── Team ─────────────────────────────────────────────────────────────────────
@@ -66,6 +67,22 @@ export interface Allocation {
   amount: number
   /** null = draft/in-progress; ISO string = locked */
   submittedAt: string | null
+}
+
+// ─── Authoritative team submission ──────────────────────────────────────────
+
+export interface TeamSubmissionAllocation {
+  categoryId: string
+  amount: number
+}
+
+export interface TeamSubmission {
+  id: string
+  roundId: string
+  teamId: string
+  allocations: TeamSubmissionAllocation[]
+  submittedAt: string
+  submittedBy: string
 }
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
