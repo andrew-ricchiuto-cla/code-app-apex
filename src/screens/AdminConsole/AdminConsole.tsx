@@ -101,16 +101,15 @@ export function AdminConsole() {
     if (!configSetId) return
     void runAction(() =>
       assignRoundConfiguration(
-        currentRound.id,
+        currentRound,
         configSetId,
-        currentRound.status,
         dataverseRoundLifecycle,
       ),
     )
   }
 
   const handleForceAdvance = () =>
-    runAction(() => forceAdvanceRound(currentRound.id, dataverseRoundLifecycle))
+    runAction(() => forceAdvanceRound(currentRound, dataverseRoundLifecycle))
 
   const handleRevealResults = () =>
     runAction(() =>

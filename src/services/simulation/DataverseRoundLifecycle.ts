@@ -10,6 +10,7 @@ import {
   mapCategory,
   mapConfigSet,
   mapHealthBand,
+  mapRound,
   mapTeamRoundResult,
   mapWeightRow,
 } from '@/lib/dataverseMaps'
@@ -40,6 +41,12 @@ function resultFields(result: ResultWrite) {
 }
 
 export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
+  async getRound(roundId) {
+    return mapRound(
+      requireData(await Mw_roundsService.get(normalizeDataverseGuid(roundId))),
+    )
+  },
+
   async updateRound(roundId, changes) {
     const fields: Record<string, string> = {}
     if (changes.status !== undefined) fields.mw_status = changes.status

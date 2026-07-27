@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const serviceMocks = vi.hoisted(() => ({
   results: { create: vi.fn(), getAll: vi.fn(), update: vi.fn() },
   configSets: { get: vi.fn(), getAll: vi.fn() },
-  rounds: { update: vi.fn() },
+  rounds: { get: vi.fn(), update: vi.fn() },
   weights: { getAll: vi.fn() },
   healthBands: { getAll: vi.fn() },
 }))
@@ -83,6 +83,32 @@ describe('DataverseRoundLifecycle', () => {
         'mw_ConfigSetId@odata.bind':
           '/mw_configsets(bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb)',
       },
+    )
+  })
+
+  it('loads and maps a round by normalized GUID for stale-client checks', async () => {
+    serviceMocks.rounds.get.mockResolvedValue({
+      success: true,
+      data: {
+        mw_roundid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        _mw_simulationid_value: 'simulation-guid',
+        mw_index: '2',
+        mw_status: 'Pending',
+        _mw_configsetid_value: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      },
+    })
+
+    await expect(
+      dataverseRoundLifecycle.getRound('{AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA}'),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        status: 'Pending',
+        configSetId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      }),
+    )
+    expect(serviceMocks.rounds.get).toHaveBeenCalledWith(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     )
   })
 

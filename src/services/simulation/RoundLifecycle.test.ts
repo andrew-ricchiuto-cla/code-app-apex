@@ -18,6 +18,7 @@ import {
 
 import {
   assignRoundConfiguration,
+  assertLegalRoundTransition,
   forceAdvanceRound,
   openRound,
   revealRound,
@@ -44,6 +45,8 @@ const round2: Round = {
   index: 2,
   status: 'Locked',
 }
+
+const lockedRound1: Round = { ...round1, status: 'Locked' }
 
 const teams: Team[] = [
   { id: 'team-1', simulationId: 'simulation-1', name: 'Alpha', systemHealthBaseline: 50 },
@@ -120,6 +123,9 @@ function buildDependencies(): RoundLifecycleDependencies {
     listWeights: vi.fn().mockResolvedValue(weights),
     listHealthBands: vi.fn().mockResolvedValue(bands),
     listConfigSets: vi.fn().mockResolvedValue([configSet]),
+    getRound: vi.fn().mockImplementation((roundId: string) =>
+      Promise.resolve(roundId === round1.id ? lockedRound1 : round2),
+    ),
   }
 }
 
@@ -132,6 +138,7 @@ describe('round lifecycle', () => {
 
   it('opens a pending round with its matching published configuration', async () => {
     const pendingRound = { ...round2, status: 'Pending' as const }
+    vi.mocked(dependencies.getRound).mockResolvedValue(pendingRound)
 
     await openRound(pendingRound, configSet, dependencies)
 
@@ -143,6 +150,10 @@ describe('round lifecycle', () => {
     ['a Draft', { ...configSet, status: 'Draft' as const }],
     ['a Retired', { ...configSet, status: 'Retired' as const }],
   ])('rejects opening a round with %s configuration', async (_label, candidate) => {
+    vi.mocked(dependencies.getRound).mockResolvedValue({
+      ...round2,
+      status: 'Pending',
+    })
     await expect(
       openRound({ ...round2, status: 'Pending' }, candidate, dependencies),
     ).rejects.toThrow(/published configuration/i)
@@ -150,6 +161,11 @@ describe('round lifecycle', () => {
   })
 
   it('rejects opening a round with a different configuration than the assigned one', async () => {
+    vi.mocked(dependencies.getRound).mockResolvedValue({
+      ...round2,
+      status: 'Pending',
+      configSetId: 'assigned-config',
+    })
     await expect(
       openRound(
         { ...round2, status: 'Pending', configSetId: 'assigned-config' },
@@ -161,6 +177,10 @@ describe('round lifecycle', () => {
   })
 
   it('re-reads the assigned configuration and rejects it when no longer Published', async () => {
+    vi.mocked(dependencies.getRound).mockResolvedValue({
+      ...round2,
+      status: 'Pending',
+    })
     vi.mocked(dependencies.getConfigSet).mockResolvedValue({
       ...configSet,
       status: 'Retired',
@@ -174,7 +194,10 @@ describe('round lifecycle', () => {
   })
 
   it('assigns only a published configuration to a pending round', async () => {
-    await assignRoundConfiguration('round-2', configSet.id, 'Pending', dependencies)
+    const pendingRound = { ...round2, status: 'Pending' as const }
+    vi.mocked(dependencies.getRound).mockResolvedValue(pendingRound)
+
+    await assignRoundConfiguration(pendingRound, configSet.id, dependencies)
 
     expect(dependencies.getConfigSet).toHaveBeenCalledWith(configSet.id)
     expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', {
@@ -185,8 +208,10 @@ describe('round lifecycle', () => {
   it.each(['Open', 'Locked', 'Revealed'] as const)(
     'rejects configuration assignment when a round is %s',
     async status => {
+      const snapshot = { ...round2, status }
+      vi.mocked(dependencies.getRound).mockResolvedValue(snapshot)
       await expect(
-        assignRoundConfiguration('round-2', configSet.id, status, dependencies),
+        assignRoundConfiguration(snapshot, configSet.id, dependencies),
       ).rejects.toThrow(/pending/i)
       expect(dependencies.getConfigSet).not.toHaveBeenCalled()
       expect(dependencies.updateRound).not.toHaveBeenCalled()
@@ -197,16 +222,21 @@ describe('round lifecycle', () => {
     'rejects assigning a %s configuration',
     async status => {
       vi.mocked(dependencies.getConfigSet).mockResolvedValue({ ...configSet, status })
+      const pendingRound = { ...round2, status: 'Pending' as const }
+      vi.mocked(dependencies.getRound).mockResolvedValue(pendingRound)
 
       await expect(
-        assignRoundConfiguration('round-2', configSet.id, 'Pending', dependencies),
+        assignRoundConfiguration(pendingRound, configSet.id, dependencies),
       ).rejects.toThrow(/published configuration/i)
       expect(dependencies.updateRound).not.toHaveBeenCalled()
     },
   )
 
   it('force-submits remaining allocations and locks the round', async () => {
-    await forceAdvanceRound('round-2', dependencies, '2026-07-22T15:00:00Z')
+    const openRoundSnapshot = { ...round2, status: 'Open' as const }
+    vi.mocked(dependencies.getRound).mockResolvedValue(openRoundSnapshot)
+
+    await forceAdvanceRound(openRoundSnapshot, dependencies, '2026-07-22T15:00:00Z')
 
     expect(dependencies.updateAllocation).toHaveBeenCalledTimes(1)
     expect(dependencies.updateAllocation).toHaveBeenCalledWith('allocation-2', {
@@ -246,6 +276,109 @@ describe('round lifecycle', () => {
       isFallback: false,
       warning: null,
     })
+  })
+
+  it('accepts a Retired immutable configuration when revealing its locked round', async () => {
+    vi.mocked(dependencies.getConfigSet).mockResolvedValue({
+      ...configSet,
+      status: 'Retired',
+    })
+
+    await revealRound(
+      { round: round2, rounds: [round1, round2], teams: [teams[0]!] },
+      dependencies,
+    )
+
+    expect(dependencies.createResult).toHaveBeenCalledTimes(1)
+    expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', {
+      status: 'Revealed',
+    })
+  })
+
+  it('rejects a Draft configuration when revealing a locked round', async () => {
+    vi.mocked(dependencies.getConfigSet).mockResolvedValue({
+      ...configSet,
+      status: 'Draft',
+    })
+
+    await expect(
+      revealRound(
+        { round: round2, rounds: [round1, round2], teams: [teams[0]!] },
+        dependencies,
+      ),
+    ).rejects.toThrow(/published or retired/i)
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+  })
+
+  it('rejects a missing persisted configuration rather than using fallback', async () => {
+    vi.mocked(dependencies.getConfigSet).mockResolvedValue(null)
+
+    await expect(
+      revealRound(
+        { round: round2, rounds: [round1, round2], teams: [teams[0]!] },
+        dependencies,
+      ),
+    ).rejects.toThrow(/not found/i)
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+  })
+
+  it('rejects a mismatched persisted configuration', async () => {
+    vi.mocked(dependencies.getConfigSet).mockResolvedValue({
+      ...configSet,
+      id: 'different-config',
+    })
+
+    await expect(
+      revealRound(
+        { round: round2, rounds: [round1, round2], teams: [teams[0]!] },
+        dependencies,
+      ),
+    ).rejects.toThrow(/does not match/i)
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+  })
+
+  it('rejects stale assignment when the persisted round is no longer Pending', async () => {
+    const pendingSnapshot = { ...round2, status: 'Pending' as const }
+    vi.mocked(dependencies.getRound).mockResolvedValue({ ...round2, status: 'Open' })
+
+    await expect(
+      assignRoundConfiguration(pendingSnapshot, configSet.id, dependencies),
+    ).rejects.toThrow(/stale|conflict/i)
+    expect(dependencies.getConfigSet).not.toHaveBeenCalled()
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('rejects stale assignment when another client changed the current configuration', async () => {
+    const pendingSnapshot = { ...round2, status: 'Pending' as const }
+    vi.mocked(dependencies.getRound).mockResolvedValue({
+      ...pendingSnapshot,
+      configSetId: 'other-config',
+    })
+
+    await expect(
+      assignRoundConfiguration(pendingSnapshot, configSet.id, dependencies),
+    ).rejects.toThrow(/stale|conflict/i)
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('rejects stale opening when another client already changed round status', async () => {
+    const pendingSnapshot = { ...round2, status: 'Pending' as const }
+    vi.mocked(dependencies.getRound).mockResolvedValue({ ...round2, status: 'Open' })
+
+    await expect(
+      openRound(pendingSnapshot, configSet, dependencies),
+    ).rejects.toThrow(/stale|conflict/i)
+    expect(dependencies.getConfigSet).not.toHaveBeenCalled()
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('allows only the legal forward round status transitions', () => {
+    expect(() => assertLegalRoundTransition('Pending', 'Open')).not.toThrow()
+    expect(() => assertLegalRoundTransition('Open', 'Locked')).not.toThrow()
+    expect(() => assertLegalRoundTransition('Locked', 'Revealed')).not.toThrow()
+    expect(() => assertLegalRoundTransition('Open', 'Revealed')).toThrow(/illegal/i)
+    expect(() => assertLegalRoundTransition('Locked', 'Open')).toThrow(/illegal/i)
+    expect(() => assertLegalRoundTransition('Revealed', 'Revealed')).toThrow(/illegal/i)
   })
 
   it('uses the configuration baseline and row weight on the first round', async () => {

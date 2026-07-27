@@ -42,6 +42,7 @@ export interface RoundLifecycleDependencies {
   listWeights: (configSetId: string) => Promise<WeightRow[]>
   listHealthBands: (configSetId: string) => Promise<HealthBand[]>
   listConfigSets: () => Promise<ConfigSet[]>
+  getRound: (roundId: string) => Promise<Round>
 }
 
 export async function loadRoundConfiguration(
@@ -61,7 +62,17 @@ export async function loadRoundConfiguration(
     throw cause
   }
 
-  if (!configSet) return loadLegacyFallback()
+  if (!configSet) {
+    if (configSetId) {
+      throw new Error(`Assigned configuration ${configSetId} was not found.`)
+    }
+    return loadLegacyFallback()
+  }
+  if (configSetId && configSet.id !== configSetId) {
+    throw new Error(
+      `Loaded configuration ${configSet.id} does not match assignment ${configSetId}.`,
+    )
+  }
 
   let configurationRows: [WeightRow[], HealthBand[]]
   try {
@@ -86,13 +97,63 @@ function requirePublishedConfigSet(configSet: ConfigSet | null): ConfigSet {
   return configSet
 }
 
+function requireImmutableRoundConfigSet(configSet: ConfigSet | null): ConfigSet {
+  if (
+    !configSet ||
+    (configSet.status !== 'Published' && configSet.status !== 'Retired')
+  ) {
+    throw new Error(
+      'A Published or Retired immutable configuration is required for reveal.',
+    )
+  }
+  return configSet
+}
+
+const LEGAL_ROUND_TRANSITIONS: Readonly<Partial<Record<Round['status'], Round['status']>>> = {
+  Pending: 'Open',
+  Open: 'Locked',
+  Locked: 'Revealed',
+}
+
+export function assertLegalRoundTransition(
+  currentStatus: Round['status'],
+  nextStatus: Round['status'],
+): void {
+  if (LEGAL_ROUND_TRANSITIONS[currentStatus] !== nextStatus) {
+    throw new Error(
+      `Illegal round status transition from ${currentStatus} to ${nextStatus}.`,
+    )
+  }
+}
+
+function assertCurrentRoundSnapshot(expected: Round, persisted: Round): void {
+  if (
+    persisted.id !== expected.id ||
+    persisted.status !== expected.status ||
+    persisted.configSetId !== expected.configSetId
+  ) {
+    throw new Error(
+      'Stale round snapshot conflict: status or configuration changed in Dataverse.',
+    )
+  }
+}
+
+async function revalidateRound(
+  expected: Round,
+  dependencies: Pick<RoundLifecycleDependencies, 'getRound'>,
+): Promise<Round> {
+  const persisted = await dependencies.getRound(expected.id)
+  assertCurrentRoundSnapshot(expected, persisted)
+  return persisted
+}
+
 export async function assignRoundConfiguration(
-  roundId: string,
+  round: Round,
   configSetId: string,
-  roundStatus: Round['status'],
   dependencies: RoundLifecycleDependencies,
 ): Promise<void> {
-  if (roundStatus !== 'Pending') {
+  const persistedRound = await revalidateRound(round, dependencies)
+  if (persistedRound.status !== 'Pending') {
     throw new Error('Configuration can be assigned only while the round is Pending.')
   }
   const configSet = requirePublishedConfigSet(
@@ -101,7 +162,7 @@ export async function assignRoundConfiguration(
   if (configSet.id !== configSetId) {
     throw new Error('The selected configuration does not match the requested Config Set.')
   }
-  await dependencies.updateRound(roundId, { configSetId })
+  await dependencies.updateRound(persistedRound.id, { configSetId })
 }
 
 export async function openRound(
@@ -112,25 +173,29 @@ export async function openRound(
   if (round.status !== 'Pending') {
     throw new Error('Only a Pending round can be opened.')
   }
+  const persistedRound = await revalidateRound(round, dependencies)
+  assertLegalRoundTransition(persistedRound.status, 'Open')
   const selected = requirePublishedConfigSet(selectedConfigSet)
-  if (!round.configSetId || selected.id !== round.configSetId) {
+  if (!persistedRound.configSetId || selected.id !== persistedRound.configSetId) {
     throw new Error('The selected configuration does not match the round assignment.')
   }
   const persisted = requirePublishedConfigSet(
-    await dependencies.getConfigSet(round.configSetId),
+    await dependencies.getConfigSet(persistedRound.configSetId),
   )
-  if (persisted.id !== round.configSetId) {
+  if (persisted.id !== persistedRound.configSetId) {
     throw new Error('The persisted configuration does not match the round assignment.')
   }
-  await dependencies.updateRound(round.id, { status: 'Open' })
+  await dependencies.updateRound(persistedRound.id, { status: 'Open' })
 }
 
 export async function forceAdvanceRound(
-  roundId: string,
+  round: Round,
   dependencies: RoundLifecycleDependencies,
   submittedAt = new Date().toISOString(),
 ): Promise<void> {
-  const allocations = await dependencies.listAllocations(roundId)
+  const persistedRound = await revalidateRound(round, dependencies)
+  assertLegalRoundTransition(persistedRound.status, 'Locked')
+  const allocations = await dependencies.listAllocations(persistedRound.id)
   await Promise.all(
     allocations
       .filter(allocation => allocation.submittedAt === null)
@@ -141,7 +206,8 @@ export async function forceAdvanceRound(
         }),
       ),
   )
-  await dependencies.updateRound(roundId, { status: 'Locked' })
+  await revalidateRound(round, dependencies)
+  await dependencies.updateRound(persistedRound.id, { status: 'Locked' })
 }
 
 export function validateAllocationCategoryIntegrity(
@@ -186,6 +252,8 @@ export async function revealRound(
   if (!round.configSetId) {
     throw new Error('A Published configuration must be assigned before reveal.')
   }
+  const persistedRound = await revalidateRound(round, dependencies)
+  assertLegalRoundTransition(persistedRound.status, 'Revealed')
   const previousRound = [...rounds]
     .filter(candidate => candidate.index < round.index && candidate.status === 'Revealed')
     .sort((left, right) => right.index - left.index)[0]
@@ -200,7 +268,7 @@ export async function revealRound(
     ])
 
   if (!configuration.isFallback) {
-    const persistedConfigSet = requirePublishedConfigSet(configuration.configSet)
+    const persistedConfigSet = requireImmutableRoundConfigSet(configuration.configSet)
     if (persistedConfigSet.id !== round.configSetId) {
       throw new Error('The loaded configuration does not match the round assignment.')
     }
@@ -249,6 +317,15 @@ export async function revealRound(
     }),
   )
 
+  await revalidateRound(round, dependencies)
+  if (!configuration.isFallback) {
+    const latestConfigSet = requireImmutableRoundConfigSet(
+      await dependencies.getConfigSet(round.configSetId),
+    )
+    if (latestConfigSet.id !== round.configSetId) {
+      throw new Error('The latest configuration does not match the round assignment.')
+    }
+  }
   await dependencies.updateRound(round.id, { status: 'Revealed' })
 
   // These SDK calls are not one Dataverse transaction. The alternate result key

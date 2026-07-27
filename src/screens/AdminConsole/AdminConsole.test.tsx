@@ -290,9 +290,8 @@ describe('AdminConsole', () => {
     await user.selectOptions(selector, 'published-v2')
 
     expect(mockAssignRoundConfiguration).toHaveBeenCalledWith(
-      mockRound.id,
+      expect.objectContaining({ id: mockRound.id, status: 'Pending' }),
       'published-v2',
-      'Pending',
       expect.objectContaining({ kind: 'test-dependencies' }),
     )
     expect(refresh).toHaveBeenCalledTimes(1)
