@@ -13,6 +13,11 @@ Built as a **Power Apps Code App** — React + TypeScript + Vite frontend backed
 - Node ≥ 20
 - [Power Platform CLI (`pac`)](https://learn.microsoft.com/en-us/power-platform/developer/cli/introduction) authenticated to your target environment
 
+Python Dataverse scripts and PAC CLI use separate credentials. This tenant does
+not support device-code authentication; follow the
+[Dataverse authentication runbook](docs/dataverse-authentication.md) before
+running metadata or data scripts.
+
 ### Install and run locally
 
 ```bash
