@@ -2,15 +2,12 @@
 auth.py — Acquire Dataverse tokens via Azure Identity.
 
 Auth priority:
-  1. Service principal (CLIENT_ID + CLIENT_SECRET in .env) — non-interactive
-  2. Device code flow — interactive on first login, silent refresh thereafter
+  1. Service principal (CLIENT_ID + CLIENT_SECRET in .env) - non-interactive
+  2. Azure CLI credential pinned to TENANT_ID - local development
+  3. Interactive browser credential pinned to TENANT_ID - local fallback
 
-Token caching:
-  - Service principal: in-memory (tokens are short-lived, no persistent cache needed)
-  - Device code: OS credential store (Windows Credential Manager, macOS Keychain,
-    Linux libsecret) via TokenCachePersistenceOptions. An AuthenticationRecord is
-    persisted alongside the token cache so that new processes can silently refresh
-    without re-prompting the user.
+Device-code authentication is intentionally unsupported because the target
+tenant's Conditional Access policy rejects that flow.
 
 Functions:
   load_env()            — loads .env into os.environ
@@ -38,10 +35,6 @@ Reads from .env in the repo root (parent of scripts/) or current working directo
 import os
 import sys
 from pathlib import Path
-
-# AuthenticationRecord is persisted here so new processes skip device code flow
-_AUTH_RECORD_PATH = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / ".IdentityService" / "dataverse_cli_auth_record.json"
-
 
 def load_env():
     """Load key=value pairs from .env into os.environ (does not overwrite existing vars).
@@ -71,9 +64,8 @@ def get_credential():
     Return an Azure Identity TokenCredential, creating one on first call.
 
     The credential is cached for the lifetime of the process. Uses
-    ClientSecretCredential when CLIENT_ID + CLIENT_SECRET are set,
-    otherwise falls back to DeviceCodeCredential with persistent OS-level
-    token caching.
+    ClientSecretCredential when CLIENT_ID + CLIENT_SECRET are set. Otherwise,
+    use AzureCliCredential first and InteractiveBrowserCredential as fallback.
     """
     global _credential
     if _credential is not None:
@@ -94,18 +86,19 @@ def get_credential():
 
     try:
         from azure.identity import (
+            AzureCliCredential,
+            ChainedTokenCredential,
             ClientSecretCredential,
-            DeviceCodeCredential,
-            TokenCachePersistenceOptions,
+            InteractiveBrowserCredential,
         )
     except ImportError:
         print("ERROR: azure-identity not installed. Run: pip install --upgrade azure-identity", flush=True)
         sys.exit(1)
 
-    # Warn if only one of CLIENT_ID / CLIENT_SECRET is set
     if bool(client_id) != bool(client_secret):
-        print("WARNING: Only one of CLIENT_ID / CLIENT_SECRET is set. Both are required for", flush=True)
-        print("  service principal auth. Falling back to interactive device code flow.", flush=True)
+        raise ValueError(
+            "CLIENT_ID and CLIENT_SECRET must be configured together."
+        )
 
     # Path 1: Service principal (non-interactive)
     if client_id and client_secret:
@@ -115,68 +108,30 @@ def get_credential():
             client_secret=client_secret,
         )
     else:
-        # Path 2: Device code flow (interactive) with persistent OS-level token cache.
-        # AuthenticationRecord tells the credential which cached account to silently
-        # refresh, avoiding a device code prompt on every new process.
-        from azure.identity import AuthenticationRecord
-
-        auth_record = None
-        if _AUTH_RECORD_PATH.exists():
-            try:
-                auth_record = AuthenticationRecord.deserialize(_AUTH_RECORD_PATH.read_text(encoding="utf-8"))
-            except Exception:
-                pass  # Corrupt or stale record — will re-authenticate
-
-        def _prompt_callback(verification_uri, user_code, _expires_on):
-            print(f"\nTo sign in, visit {verification_uri} and enter code: {user_code}", flush=True)
-            print("(Waiting for you to complete the login in your browser...)\n", flush=True)
-
-        _credential = DeviceCodeCredential(
-            tenant_id=tenant_id,
-            client_id="51f81489-12ee-4a9e-aaae-a2591f45987d",  # Well-known Microsoft Power Apps public client app ID
-            prompt_callback=_prompt_callback,
-            cache_persistence_options=TokenCachePersistenceOptions(
-                name="dataverse_cli",
-                allow_unencrypted_storage=True,
+        _credential = ChainedTokenCredential(
+            AzureCliCredential(
+                tenant_id=tenant_id,
+                process_timeout=30,
             ),
-            authentication_record=auth_record,
+            InteractiveBrowserCredential(tenant_id=tenant_id),
         )
 
     return _credential
-
-
-_auth_record_saved = False
 
 
 def get_token(scope=None):
     """
     Acquire a raw access token string for the Dataverse environment.
 
-    On first call with a DeviceCodeCredential that has no saved AuthenticationRecord,
-    this triggers authenticate() to get the record and persist it. Subsequent calls
-    (same process or new processes) use silent refresh via the cached record + token cache.
-
     :param scope: OAuth2 scope. Defaults to "{DATAVERSE_URL}/.default".
     :returns: Access token string suitable for a Bearer Authorization header.
     """
-    global _auth_record_saved
     load_env()
     dataverse_url = os.environ.get("DATAVERSE_URL", "").rstrip("/")
     if not scope:
         scope = f"{dataverse_url}/.default"
 
     credential = get_credential()
-
-    try:
-        from azure.identity import DeviceCodeCredential
-        if isinstance(credential, DeviceCodeCredential) and not _auth_record_saved and not _AUTH_RECORD_PATH.exists():
-            # First login ever — use authenticate() to get and save the record
-            record = credential.authenticate(scopes=[scope])
-            _AUTH_RECORD_PATH.parent.mkdir(parents=True, exist_ok=True)
-            _AUTH_RECORD_PATH.write_text(record.serialize(), encoding="utf-8")
-            _auth_record_saved = True
-    except Exception:
-        pass  # Fall through to normal get_token flow
 
     try:
         token = credential.get_token(scope)
@@ -188,6 +143,14 @@ def get_token(scope=None):
     return token.token
 
 
-if __name__ == "__main__":
+def main():
     token = get_token()
-    print(token)
+    load_env()
+    print(
+        f"Dataverse token acquired for {os.environ['DATAVERSE_URL']} "
+        f"({len(token)} chars)"
+    )
+
+
+if __name__ == "__main__":
+    main()
