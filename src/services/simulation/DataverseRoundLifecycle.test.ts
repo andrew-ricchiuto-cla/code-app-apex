@@ -4,6 +4,7 @@ const serviceMocks = vi.hoisted(() => ({
   results: { create: vi.fn(), getAll: vi.fn(), update: vi.fn() },
   configSets: { get: vi.fn(), getAll: vi.fn() },
   rounds: { get: vi.fn(), update: vi.fn() },
+  submissions: { getAll: vi.fn() },
   weights: { getAll: vi.fn() },
   healthBands: { getAll: vi.fn() },
 }))
@@ -19,6 +20,9 @@ vi.mock('@/generated/services/Mw_categoriesService', () => ({
 }))
 vi.mock('@/generated/services/Mw_roundsService', () => ({
   Mw_roundsService: serviceMocks.rounds,
+}))
+vi.mock('@/generated/services/Mw_teamsubmissionsService', () => ({
+  Mw_teamsubmissionsService: serviceMocks.submissions,
 }))
 vi.mock('@/generated/services/Mw_configsetsService', () => ({
   Mw_configsetsService: serviceMocks.configSets,
@@ -110,6 +114,48 @@ describe('DataverseRoundLifecycle', () => {
     expect(serviceMocks.rounds.get).toHaveBeenCalledWith(
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     )
+  })
+
+  it('loads authoritative submissions by normalized round lookup', async () => {
+    serviceMocks.submissions.getAll.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          mw_teamsubmissionid: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          _mw_roundid_value: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          _mw_teamid_value: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          mw_allocationpayload: JSON.stringify([
+            {
+              categoryId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+              amount: 100,
+            },
+          ]),
+          mw_submittedat: '2026-07-27T15:00:00.000Z',
+          mw_submittedbyref: 'member@example.com',
+        },
+      ],
+    })
+
+    await expect(
+      dataverseRoundLifecycle.listTeamSubmissions(
+        '{AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA}',
+      ),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        teamId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+        allocations: [
+          {
+            categoryId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+            amount: 100,
+          },
+        ],
+      }),
+    ])
+    expect(serviceMocks.submissions.getAll).toHaveBeenCalledWith({
+      filter:
+        '_mw_roundid_value eq aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    })
   })
 
   it('loads and maps a config set by GUID', async () => {

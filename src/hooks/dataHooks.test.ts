@@ -9,6 +9,7 @@ const serviceMocks = vi.hoisted(() => ({
   healthBandsGetAll: vi.fn(),
   roundsGetAll: vi.fn(),
   teamResultsGetAll: vi.fn(),
+  teamSubmissionsGetAll: vi.fn(),
   teamsGet: vi.fn(),
   teamsGetAll: vi.fn(),
   teamMembersGetAll: vi.fn(),
@@ -35,6 +36,11 @@ vi.mock('@/generated/services/Mw_roundsService', () => ({
 }))
 vi.mock('@/generated/services/Mw_teamroundresultsService', () => ({
   Mw_teamroundresultsService: { getAll: serviceMocks.teamResultsGetAll },
+}))
+vi.mock('@/generated/services/Mw_teamsubmissionsService', () => ({
+  Mw_teamsubmissionsService: {
+    getAll: serviceMocks.teamSubmissionsGetAll,
+  },
 }))
 vi.mock('@/generated/services/Mw_teamsService', () => ({
   Mw_teamsService: {
@@ -109,6 +115,7 @@ describe('Dataverse data hooks', () => {
     serviceMocks.healthBandsGetAll.mockResolvedValue(success([]))
     serviceMocks.roundsGetAll.mockResolvedValue(success([]))
     serviceMocks.teamResultsGetAll.mockResolvedValue(success([]))
+    serviceMocks.teamSubmissionsGetAll.mockResolvedValue(success([]))
     serviceMocks.teamsGet.mockResolvedValue(success(null))
     serviceMocks.teamsGetAll.mockResolvedValue(success([]))
     serviceMocks.teamMembersGetAll.mockResolvedValue(success([]))

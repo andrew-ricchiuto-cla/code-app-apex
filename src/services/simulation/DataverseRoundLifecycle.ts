@@ -1,17 +1,17 @@
-import { Mw_allocationsService } from '@/generated/services/Mw_allocationsService'
 import { Mw_categoriesService } from '@/generated/services/Mw_categoriesService'
 import { Mw_configsetsService } from '@/generated/services/Mw_configsetsService'
 import { Mw_healthbandsService } from '@/generated/services/Mw_healthbandsService'
 import { Mw_roundsService } from '@/generated/services/Mw_roundsService'
 import { Mw_teamroundresultsService } from '@/generated/services/Mw_teamroundresultsService'
+import { Mw_teamsubmissionsService } from '@/generated/services/Mw_teamsubmissionsService'
 import { Mw_weightsService } from '@/generated/services/Mw_weightsService'
 import {
-  mapAllocation,
   mapCategory,
   mapConfigSet,
   mapHealthBand,
   mapRound,
   mapTeamRoundResult,
+  mapTeamSubmission,
   mapWeightRow,
 } from '@/lib/dataverseMaps'
 import { normalizeDataverseGuid } from '@/lib/dataverseGuid'
@@ -52,21 +52,13 @@ export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
     )
   },
 
-  async listAllocations(roundId) {
+  async listTeamSubmissions(roundId) {
+    const id = normalizeDataverseGuid(roundId)
     return requireData(
-      await Mw_allocationsService.getAll({
-        filter: `_mw_roundid_value eq ${roundId}`,
+      await Mw_teamsubmissionsService.getAll({
+        filter: `_mw_roundid_value eq ${id}`,
       }),
-    ).map(mapAllocation)
-  },
-
-  async updateAllocation(allocationId, changes) {
-    requireData(
-      await Mw_allocationsService.update(allocationId, {
-        mw_amount: changes.amount.toString(),
-        mw_submittedat: changes.submittedAt,
-      }),
-    )
+    ).map(mapTeamSubmission)
   },
 
   async listCategories(roundId) {

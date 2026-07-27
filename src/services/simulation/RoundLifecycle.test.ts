@@ -1,28 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
-  Allocation,
   Category,
   ConfigSet,
   HealthBand,
   Round,
   Team,
   TeamRoundResult,
+  TeamSubmission,
   WeightRow,
 } from '@/types'
 
-import {
-  CONFIGURATION_FALLBACK_WARNING,
-  ConfigurationSourceUnavailableError,
-} from '@/services/configuration/ConfigurationLoader'
+import { ConfigurationSourceUnavailableError } from '@/services/configuration/ConfigurationLoader'
 
 import {
   assignRoundConfiguration,
   assertLegalRoundTransition,
-  forceAdvanceRound,
+  forceLockRound,
+  lockRound,
   openRound,
   revealRound,
-  validateAllocationCategoryIntegrity,
   type RoundLifecycleDependencies,
 } from './RoundLifecycle'
 
@@ -64,13 +61,13 @@ const categories: Category[] = [
   },
 ]
 
-const allocations: Allocation[] = teams.map((team, index) => ({
-  id: `allocation-${index + 1}`,
+const submissions: TeamSubmission[] = teams.map((team, index) => ({
+  id: `submission-${index + 1}`,
   roundId: 'round-2',
   teamId: team.id,
-  categoryId: 'category-1',
-  amount: 100,
-  submittedAt: index === 0 ? '2026-07-22T12:00:00Z' : null,
+  allocations: [{ categoryId: 'category-1', amount: 100 }],
+  submittedAt: '2026-07-22T12:00:00Z',
+  submittedBy: `member-${index + 1}`,
 }))
 
 const configSet: ConfigSet = {
@@ -110,15 +107,27 @@ const previousResult: TeamRoundResult = {
 }
 
 function buildDependencies(): RoundLifecycleDependencies {
+  const currentResults: TeamRoundResult[] = []
   return {
     updateRound: vi.fn().mockResolvedValue(undefined),
-    listAllocations: vi.fn().mockResolvedValue(allocations),
-    updateAllocation: vi.fn().mockResolvedValue(undefined),
+    listTeamSubmissions: vi.fn().mockImplementation((roundId: string) =>
+      Promise.resolve(
+        submissions.map(submission => ({ ...submission, roundId })),
+      ),
+    ),
     listCategories: vi.fn().mockResolvedValue(categories),
     listResults: vi.fn().mockImplementation((roundId: string) =>
-      Promise.resolve(roundId === 'round-1' ? [previousResult] : []),
+      Promise.resolve(
+        roundId === 'round-1' ? [previousResult] : currentResults,
+      ),
     ),
-    createResult: vi.fn().mockResolvedValue(undefined),
+    createResult: vi.fn().mockImplementation((write: Omit<TeamRoundResult, 'id'>) => {
+      currentResults.push({
+        id: `result-${write.teamId}`,
+        ...write,
+      })
+      return Promise.resolve()
+    }),
     updateResult: vi.fn().mockResolvedValue(undefined),
     getConfigSet: vi.fn().mockResolvedValue(configSet),
     listWeights: vi.fn().mockResolvedValue(weights),
@@ -233,18 +242,63 @@ describe('round lifecycle', () => {
     },
   )
 
-  it('force-submits remaining allocations and locks the round', async () => {
+  it('locks an Open round only after every team has submitted', async () => {
     const openRoundSnapshot = { ...round2, status: 'Open' as const }
     vi.mocked(dependencies.getRound).mockResolvedValue(openRoundSnapshot)
 
-    await forceAdvanceRound(openRoundSnapshot, dependencies, '2026-07-22T15:00:00Z')
+    await lockRound(
+      { round: openRoundSnapshot, teams },
+      dependencies,
+    )
 
-    expect(dependencies.updateAllocation).toHaveBeenCalledTimes(1)
-    expect(dependencies.updateAllocation).toHaveBeenCalledWith('allocation-2', {
-      submittedAt: '2026-07-22T15:00:00Z',
-      amount: 100,
-    })
     expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', { status: 'Locked' })
+  })
+
+  it('rejects normal Lock when a team submission is missing', async () => {
+    const openRoundSnapshot = { ...round2, status: 'Open' as const }
+    vi.mocked(dependencies.getRound).mockResolvedValue(openRoundSnapshot)
+    vi.mocked(dependencies.listTeamSubmissions).mockResolvedValue([
+      submissions[0]!,
+    ])
+
+    await expect(
+      lockRound({ round: openRoundSnapshot, teams }, dependencies),
+    ).rejects.toThrow(/Beta/)
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('force locks without manufacturing data and reports missing teams', async () => {
+    const openRoundSnapshot = { ...round2, status: 'Open' as const }
+    vi.mocked(dependencies.getRound).mockResolvedValue(openRoundSnapshot)
+    vi.mocked(dependencies.listTeamSubmissions).mockResolvedValue([
+      submissions[0]!,
+    ])
+
+    const outcome = await forceLockRound(
+      { round: openRoundSnapshot, teams },
+      dependencies,
+    )
+
+    expect(outcome.missingTeams).toEqual([teams[1]])
+    expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', {
+      status: 'Locked',
+    })
+  })
+
+  it('re-reads submissions after Force Lock before reporting missing teams', async () => {
+    const openRoundSnapshot = { ...round2, status: 'Open' as const }
+    vi.mocked(dependencies.getRound).mockResolvedValue(openRoundSnapshot)
+    vi.mocked(dependencies.listTeamSubmissions)
+      .mockResolvedValueOnce([submissions[0]!])
+      .mockResolvedValueOnce(submissions)
+
+    const outcome = await forceLockRound(
+      { round: openRoundSnapshot, teams },
+      dependencies,
+    )
+
+    expect(outcome.missingTeams).toEqual([])
+    expect(dependencies.listTeamSubmissions).toHaveBeenCalledTimes(2)
   })
 
   it('scores teams from prior health, writes results, and reveals the round', async () => {
@@ -286,11 +340,11 @@ describe('round lifecycle', () => {
     })
 
     await revealRound(
-      { round: round2, rounds: [round1, round2], teams: [teams[0]!] },
+      { round: round2, rounds: [round1, round2], teams },
       dependencies,
     )
 
-    expect(dependencies.createResult).toHaveBeenCalledTimes(1)
+    expect(dependencies.createResult).toHaveBeenCalledTimes(2)
     expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', {
       status: 'Revealed',
     })
@@ -383,13 +437,18 @@ describe('round lifecycle', () => {
   })
 
   it('uses the configuration baseline and row weight on the first round', async () => {
-    vi.mocked(dependencies.listResults).mockResolvedValue([])
+    const firstRoundResults: TeamRoundResult[] = []
+    vi.mocked(dependencies.listResults).mockResolvedValue(firstRoundResults)
+    vi.mocked(dependencies.createResult).mockImplementation(write => {
+      firstRoundResults.push({ id: `result-${write.teamId}`, ...write })
+      return Promise.resolve()
+    })
     vi.mocked(dependencies.listWeights).mockResolvedValue([
       { ...weights[0]!, value: 1.4 },
     ])
 
     await revealRound(
-      { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
+      { round: { ...round1, status: 'Locked' }, rounds: [round1], teams },
       dependencies,
     )
 
@@ -398,27 +457,22 @@ describe('round lifecycle', () => {
     )
   })
 
-  it('uses the explicit legacy fallback only when the config set read fails', async () => {
+  it('fails closed when the Config Set source is unavailable', async () => {
     vi.mocked(dependencies.getConfigSet).mockRejectedValue(
       new ConfigurationSourceUnavailableError(new Error('Dataverse unavailable')),
     )
-    vi.mocked(dependencies.listResults).mockResolvedValue([])
 
-    const outcome = await revealRound(
-      { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
-      dependencies,
-    )
+    await expect(
+      revealRound(
+        { round: { ...round1, status: 'Locked' }, rounds: [round1], teams },
+        dependencies,
+      ),
+    ).rejects.toBeInstanceOf(ConfigurationSourceUnavailableError)
 
     expect(dependencies.listWeights).not.toHaveBeenCalled()
     expect(dependencies.listHealthBands).not.toHaveBeenCalled()
-    expect(dependencies.createResult).toHaveBeenCalledWith(
-      expect.objectContaining({ previousHealth: 50, newHealth: 78, delta: 28 }),
-    )
-    expect(outcome.configuration).toMatchObject({
-      configSet: null,
-      isFallback: true,
-      warning: CONFIGURATION_FALLBACK_WARNING,
-    })
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
   })
 
   it('does not fallback for a corrupt Config Set mapping', async () => {
@@ -428,27 +482,27 @@ describe('round lifecycle', () => {
 
     await expect(
       revealRound(
-        { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
+        { round: { ...round1, status: 'Locked' }, rounds: [round1], teams },
         dependencies,
       ),
     ).rejects.toThrow('Invalid config set status: Broken.')
     expect(dependencies.createResult).not.toHaveBeenCalled()
   })
 
-  it('uses fallback when configuration row reads are unavailable', async () => {
+  it('fails closed when configuration row reads are unavailable', async () => {
     vi.mocked(dependencies.listWeights).mockRejectedValue(
       new ConfigurationSourceUnavailableError(new Error('Weight rows unavailable')),
     )
-    vi.mocked(dependencies.listResults).mockResolvedValue([])
 
-    await revealRound(
-      { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
-      dependencies,
-    )
+    await expect(
+      revealRound(
+        { round: { ...round1, status: 'Locked' }, rounds: [round1], teams },
+        dependencies,
+      ),
+    ).rejects.toBeInstanceOf(ConfigurationSourceUnavailableError)
 
-    expect(dependencies.createResult).toHaveBeenCalledWith(
-      expect.objectContaining({ previousHealth: 50, newHealth: 78, delta: 28 }),
-    )
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
   })
 
   it('rejects invalid published rows without silently applying fallback weights', async () => {
@@ -456,7 +510,7 @@ describe('round lifecycle', () => {
 
     await expect(
       revealRound(
-        { round: { ...round1, status: 'Locked' }, rounds: [round1], teams: [teams[0]!] },
+        { round: { ...round1, status: 'Locked' }, rounds: [round1], teams },
         dependencies,
       ),
     ).rejects.toThrow('Missing weight for high-attrition/reskilling.')
@@ -464,9 +518,13 @@ describe('round lifecycle', () => {
     expect(dependencies.updateRound).not.toHaveBeenCalled()
   })
 
-  it('rejects allocation/category mismatches before any result or status writes', async () => {
-    vi.mocked(dependencies.listAllocations).mockResolvedValue([
-      { ...allocations[0]!, categoryId: 'orphan-category' },
+  it('rejects submission/category mismatches before any result or status writes', async () => {
+    vi.mocked(dependencies.listTeamSubmissions).mockResolvedValue([
+      {
+        ...submissions[0]!,
+        allocations: [{ categoryId: 'orphan-category', amount: 100 }],
+      },
+      submissions[1]!,
     ])
 
     await expect(
@@ -474,24 +532,93 @@ describe('round lifecycle', () => {
         { round: round2, rounds: [round1, round2], teams },
         dependencies,
       ),
-    ).rejects.toThrow(
-      'Allocation allocation-1 references category orphan-category, which is not part of round round-2.',
-    )
+    ).rejects.toThrow('Unknown allocation category orphan-category.')
     expect(dependencies.createResult).not.toHaveBeenCalled()
     expect(dependencies.updateResult).not.toHaveBeenCalled()
     expect(dependencies.updateRound).not.toHaveBeenCalled()
   })
 
-  it('rejects persisted allocations without an explicit event weight', () => {
-    expect(() =>
-      validateAllocationCategoryIntegrity(
-        [allocations[0]!],
-        categories,
-        {},
-        'round-2',
+  it('rejects a submission that does not spend the exact budget', async () => {
+    vi.mocked(dependencies.listTeamSubmissions).mockResolvedValue([
+      {
+        ...submissions[0]!,
+        allocations: [{ categoryId: 'category-1', amount: 90 }],
+      },
+      submissions[1]!,
+    ])
+
+    await expect(
+      revealRound(
+        { round: round2, rounds: [round1, round2], teams },
+        dependencies,
       ),
-    ).toThrow(
-      'Allocation allocation-1 has no event weight for category category-1.',
+    ).rejects.toThrow('Allocations must total 100; received 90.')
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('rejects Reveal when any required team submission is missing', async () => {
+    vi.mocked(dependencies.listTeamSubmissions).mockResolvedValue([
+      submissions[0]!,
+    ])
+
+    await expect(
+      revealRound(
+        { round: round2, rounds: [round1, round2], teams },
+        dependencies,
+      ),
+    ).rejects.toThrow(/Beta/)
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
+  })
+
+  it('rejects a submission for a team outside the round roster', async () => {
+    vi.mocked(dependencies.listTeamSubmissions).mockResolvedValue([
+      ...submissions,
+      {
+        ...submissions[0]!,
+        id: 'submission-unknown',
+        teamId: 'team-unknown',
+      },
+    ])
+
+    await expect(
+      revealRound(
+        { round: round2, rounds: [round1, round2], teams },
+        dependencies,
+      ),
+    ).rejects.toThrow(/team-unknown/)
+    expect(dependencies.createResult).not.toHaveBeenCalled()
+  })
+
+  it('scores authoritative submission payloads without reading draft allocations', async () => {
+    const legacyAllocationRead = vi.fn().mockResolvedValue([
+      {
+        id: 'legacy-allocation',
+        roundId: round2.id,
+        teamId: teams[0]!.id,
+        categoryId: categories[0]!.id,
+        amount: 0,
+        submittedAt: null,
+      },
+    ])
+    const dependenciesWithLegacyReader = {
+      ...dependencies,
+      listAllocations: legacyAllocationRead,
+    }
+
+    await revealRound(
+      { round: round2, rounds: [round1, round2], teams },
+      dependenciesWithLegacyReader,
+    )
+
+    expect(legacyAllocationRead).not.toHaveBeenCalled()
+    expect(dependencies.createResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: 'team-1',
+        newHealth: 70,
+        delta: 10,
+      }),
     )
   })
 
@@ -502,9 +629,17 @@ describe('round lifecycle', () => {
       roundId: 'round-2',
       teamId: 'team-1',
     }
+    const currentResults = [existing]
     vi.mocked(dependencies.listResults).mockImplementation((roundId: string) =>
-      Promise.resolve(roundId === 'round-2' ? [existing] : [previousResult]),
+      Promise.resolve(roundId === 'round-2' ? currentResults : [previousResult]),
     )
+    vi.mocked(dependencies.createResult).mockImplementation(write => {
+      currentResults.push({
+        id: `result-${write.teamId}`,
+        ...write,
+      })
+      return Promise.resolve()
+    })
 
     await revealRound(
       { round: round2, rounds: [round1, round2], teams },
@@ -516,6 +651,22 @@ describe('round lifecycle', () => {
     expect(dependencies.createResult).toHaveBeenCalledWith(
       expect.objectContaining({ roundId: 'round-2', teamId: 'team-2' }),
     )
+  })
+
+  it('does not mark the round Revealed until every result can be re-read', async () => {
+    vi.mocked(dependencies.listResults).mockImplementation((roundId: string) =>
+      Promise.resolve(roundId === 'round-1' ? [previousResult] : []),
+    )
+    vi.mocked(dependencies.createResult).mockResolvedValue(undefined)
+
+    await expect(
+      revealRound(
+        { round: round2, rounds: [round1, round2], teams },
+        dependencies,
+      ),
+    ).rejects.toThrow(/result.*team/i)
+    expect(dependencies.createResult).toHaveBeenCalledTimes(2)
+    expect(dependencies.updateRound).not.toHaveBeenCalled()
   })
 
   it.each(['Pending', 'Open', 'Revealed'] as const)(

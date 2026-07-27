@@ -5,21 +5,17 @@ import {
   type RuntimeConfiguration,
 } from '@/services/configuration/ConfigurationLoader'
 import { scoreRound } from '@/services/scoring/ScoringEngine'
+import { validateTeamSubmission } from '@/services/rounds/roundValidation'
 import type {
-  Allocation,
   Category,
   ConfigSet,
   HealthBand,
   Round,
   Team,
   TeamRoundResult,
+  TeamSubmission,
   WeightRow,
 } from '@/types'
-
-export interface AllocationWrite {
-  amount: number
-  submittedAt: string
-}
 
 export type ResultWrite = Omit<TeamRoundResult, 'id'>
 
@@ -27,13 +23,21 @@ export interface RevealRoundResult {
   configuration: RuntimeConfiguration
 }
 
+export interface LockRoundInput {
+  round: Round
+  teams: Team[]
+}
+
+export interface ForceLockRoundResult {
+  missingTeams: Team[]
+}
+
 export interface RoundLifecycleDependencies {
   updateRound: (
     roundId: string,
     changes: Partial<Pick<Round, 'status' | 'configSetId'>>,
   ) => Promise<void>
-  listAllocations: (roundId: string) => Promise<Allocation[]>
-  updateAllocation: (allocationId: string, changes: AllocationWrite) => Promise<void>
+  listTeamSubmissions: (roundId: string) => Promise<TeamSubmission[]>
   listCategories: (roundId: string) => Promise<Category[]>
   listResults: (roundId: string) => Promise<TeamRoundResult[]>
   createResult: (result: ResultWrite) => Promise<void>
@@ -188,57 +192,145 @@ export async function openRound(
   await dependencies.updateRound(persistedRound.id, { status: 'Open' })
 }
 
+/**
+ * @deprecated Use forceLockRound with the current team roster so callers can
+ * present an accurate missing-team report.
+ */
 export async function forceAdvanceRound(
   round: Round,
   dependencies: RoundLifecycleDependencies,
-  submittedAt = new Date().toISOString(),
+  _submittedAt?: string,
 ): Promise<void> {
+  void _submittedAt
+  await forceLockRound({ round, teams: [] }, dependencies)
+}
+
+function missingSubmissionTeams(
+  teams: readonly Team[],
+  submissions: readonly TeamSubmission[],
+): Team[] {
+  const submittedTeamIds = new Set(
+    submissions.map(submission => submission.teamId),
+  )
+  return teams.filter(team => !submittedTeamIds.has(team.id))
+}
+
+function missingSubmissionMessage(teams: readonly Team[]): string {
+  return `Missing team submissions: ${teams.map(team => team.name).join(', ')}.`
+}
+
+export async function lockRound(
+  input: LockRoundInput,
+  dependencies: RoundLifecycleDependencies,
+): Promise<void> {
+  const { round, teams } = input
   const persistedRound = await revalidateRound(round, dependencies)
   assertLegalRoundTransition(persistedRound.status, 'Locked')
-  const allocations = await dependencies.listAllocations(persistedRound.id)
-  await Promise.all(
-    allocations
-      .filter(allocation => allocation.submittedAt === null)
-      .map(allocation =>
-        dependencies.updateAllocation(allocation.id, {
-          amount: allocation.amount,
-          submittedAt,
-        }),
-      ),
-  )
+  const submissions = await dependencies.listTeamSubmissions(persistedRound.id)
+  const missingTeams = missingSubmissionTeams(teams, submissions)
+  if (missingTeams.length > 0) {
+    throw new Error(missingSubmissionMessage(missingTeams))
+  }
   await revalidateRound(round, dependencies)
   await dependencies.updateRound(persistedRound.id, { status: 'Locked' })
 }
 
-export function validateAllocationCategoryIntegrity(
-  allocations: readonly Allocation[],
+export async function forceLockRound(
+  input: LockRoundInput,
+  dependencies: RoundLifecycleDependencies,
+): Promise<ForceLockRoundResult> {
+  const { round, teams } = input
+  const persistedRound = await revalidateRound(round, dependencies)
+  assertLegalRoundTransition(persistedRound.status, 'Locked')
+  await dependencies.listTeamSubmissions(persistedRound.id)
+  await revalidateRound(round, dependencies)
+  await dependencies.updateRound(persistedRound.id, { status: 'Locked' })
+
+  // This post-lock read includes submissions that committed during the command.
+  // The generated client cannot make the submission create and round transition
+  // one transaction, so a submission already in flight can still commit after
+  // this read. Exact arbitration requires server-side transactional enforcement.
+  const finalSubmissions = await dependencies.listTeamSubmissions(
+    persistedRound.id,
+  )
+  return {
+    missingTeams: missingSubmissionTeams(teams, finalSubmissions),
+  }
+}
+
+function validateSubmissionIntegrity(
+  submissions: readonly TeamSubmission[],
   categories: readonly Category[],
-  eventWeights: Readonly<Record<string, number>>,
+  teams: readonly Team[],
+  budget: number,
   roundId: string,
 ): void {
-  const categoryIds = new Set(categories.map(category => category.id))
+  const teamIds = new Set(teams.map(team => team.id))
+  const submissionCounts = new Map<string, number>()
   const errors: string[] = []
 
-  allocations.forEach(allocation => {
-    if (!categoryIds.has(allocation.categoryId)) {
+  submissions.forEach(submission => {
+    submissionCounts.set(
+      submission.teamId,
+      (submissionCounts.get(submission.teamId) ?? 0) + 1,
+    )
+    if (submission.roundId !== roundId) {
       errors.push(
-        `Allocation ${allocation.id} references category ${allocation.categoryId}, ` +
+        `Submission ${submission.id} belongs to round ${submission.roundId}, ` +
+          `not round ${roundId}.`,
+      )
+    }
+    if (!teamIds.has(submission.teamId)) {
+      errors.push(
+        `Submission ${submission.id} references team ${submission.teamId}, ` +
           `which is not part of round ${roundId}.`,
       )
-      return
     }
+    const submissionErrors = validateTeamSubmission(
+      submission,
+      [...categories],
+      budget,
+    )
+    submissionErrors.forEach(error => {
+      errors.push(`Submission ${submission.id}: ${error}`)
+    })
+  })
 
-    if (
-      !Object.prototype.hasOwnProperty.call(eventWeights, allocation.categoryId) ||
-      !Number.isFinite(eventWeights[allocation.categoryId])
-    ) {
-      errors.push(
-        `Allocation ${allocation.id} has no event weight for category ${allocation.categoryId}.`,
-      )
+  submissionCounts.forEach((count, teamId) => {
+    if (count > 1) {
+      errors.push(`More than one submission exists for team ${teamId}.`)
     }
   })
 
+  const missingTeams = missingSubmissionTeams(teams, submissions)
+  if (missingTeams.length > 0) {
+    errors.push(missingSubmissionMessage(missingTeams))
+  }
   if (errors.length > 0) throw new Error(errors.join(' '))
+}
+
+async function loadScoringConfiguration(
+  configSetId: string,
+  dependencies: Pick<
+    RoundLifecycleDependencies,
+    'getConfigSet' | 'listWeights' | 'listHealthBands'
+  >,
+): Promise<RuntimeConfiguration> {
+  const loadedConfigSet = await dependencies.getConfigSet(configSetId)
+  if (!loadedConfigSet) {
+    throw new Error(`Assigned configuration ${configSetId} was not found.`)
+  }
+  const configSet = requireImmutableRoundConfigSet(loadedConfigSet)
+  if (configSet.id !== configSetId) {
+    throw new Error(
+      `Loaded configuration ${configSet.id} does not match assignment ${configSetId}.`,
+    )
+  }
+  const [weights, bands] = await Promise.all([
+    dependencies.listWeights(configSet.id),
+    dependencies.listHealthBands(configSet.id),
+  ])
+  return new ConfigurationLoader(configSet, weights, bands)
 }
 
 export async function revealRound(
@@ -258,24 +350,23 @@ export async function revealRound(
     .filter(candidate => candidate.index < round.index && candidate.status === 'Revealed')
     .sort((left, right) => right.index - left.index)[0]
 
-  const [allocations, categories, currentResults, previousResults, configuration] =
+  const [submissions, categories, currentResults, previousResults, configuration] =
     await Promise.all([
-      dependencies.listAllocations(round.id),
+      dependencies.listTeamSubmissions(round.id),
       dependencies.listCategories(round.id),
       dependencies.listResults(round.id),
       previousRound ? dependencies.listResults(previousRound.id) : Promise.resolve([]),
-      loadRoundConfiguration(round.configSetId, dependencies),
+      loadScoringConfiguration(round.configSetId, dependencies),
     ])
 
-  if (!configuration.isFallback) {
-    const persistedConfigSet = requireImmutableRoundConfigSet(configuration.configSet)
-    if (persistedConfigSet.id !== round.configSetId) {
-      throw new Error('The loaded configuration does not match the round assignment.')
-    }
-  }
-
+  validateSubmissionIntegrity(
+    submissions,
+    categories,
+    teams,
+    round.budget,
+    round.id,
+  )
   const eventWeights = configuration.getWeightsForCategories(round.eventKey, categories)
-  validateAllocationCategoryIntegrity(allocations, categories, eventWeights, round.id)
   const categoryNames = Object.fromEntries(
     categories.map(category => [category.id, category.name]),
   )
@@ -285,12 +376,21 @@ export async function revealRound(
   const currentByTeam = new Map(
     currentResults.map(result => [result.teamId, result]),
   )
+  const submissionByTeam = new Map(
+    submissions.map(submission => [submission.teamId, submission]),
+  )
 
   await Promise.all(
     teams.map(async team => {
-      const teamAllocations = allocations.filter(allocation => allocation.teamId === team.id)
+      const submission = submissionByTeam.get(team.id)
+      if (!submission) {
+        throw new Error(missingSubmissionMessage([team]))
+      }
       const allocationMap = Object.fromEntries(
-        teamAllocations.map(allocation => [allocation.categoryId, allocation.amount]),
+        submission.allocations.map(allocation => [
+          allocation.categoryId,
+          allocation.amount,
+        ]),
       )
       const previousHealth =
         previousByTeam.get(team.id) ?? configuration.systemHealthBaseline
@@ -317,14 +417,26 @@ export async function revealRound(
     }),
   )
 
-  await revalidateRound(round, dependencies)
-  if (!configuration.isFallback) {
-    const latestConfigSet = requireImmutableRoundConfigSet(
-      await dependencies.getConfigSet(round.configSetId),
+  const verifiedResults = await dependencies.listResults(round.id)
+  const resultTeamIds = new Set(
+    verifiedResults.map(result => result.teamId),
+  )
+  const missingResultTeams = teams.filter(
+    team => !resultTeamIds.has(team.id),
+  )
+  if (missingResultTeams.length > 0) {
+    throw new Error(
+      `Round results are missing for teams: ` +
+        `${missingResultTeams.map(team => team.name).join(', ')}.`,
     )
-    if (latestConfigSet.id !== round.configSetId) {
-      throw new Error('The latest configuration does not match the round assignment.')
-    }
+  }
+
+  await revalidateRound(round, dependencies)
+  const latestConfigSet = requireImmutableRoundConfigSet(
+    await dependencies.getConfigSet(round.configSetId),
+  )
+  if (latestConfigSet.id !== round.configSetId) {
+    throw new Error('The latest configuration does not match the round assignment.')
   }
   await dependencies.updateRound(round.id, { status: 'Revealed' })
 
