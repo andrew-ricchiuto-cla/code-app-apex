@@ -69,6 +69,11 @@
           "entitySetName": "mw_rounds",
           "logicalName": "mw_round",
           "isHidden": false
+        },
+        "teamsubmissions": {
+          "entitySetName": "mw_teamsubmissions",
+          "logicalName": "mw_teamsubmission",
+          "isHidden": false
         }
       },
       "version": "v9.0",

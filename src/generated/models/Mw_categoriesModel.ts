@@ -18,6 +18,7 @@ export interface Mw_categoriesBase {
   mw_category_name?: string;
   mw_categoryid: string;
   mw_description?: string;
+  mw_displayorder?: string;
   mw_key?: string;
   "mw_RoundId@odata.bind"?: string;
   overriddencreatedon?: string;

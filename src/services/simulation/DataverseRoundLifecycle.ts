@@ -14,21 +14,11 @@ import {
   mapTeamRoundResult,
   mapWeightRow,
 } from '@/lib/dataverseMaps'
+import { normalizeDataverseGuid } from '@/lib/dataverseGuid'
 import { requireData } from '@/lib/powerAppsData'
 import { ConfigurationSourceUnavailableError } from '@/services/configuration/ConfigurationLoader'
 
 import type { ResultWrite, RoundLifecycleDependencies } from './RoundLifecycle'
-
-const DATAVERSE_GUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-function normalizeDataverseGuid(value: string): string {
-  const normalized = value.trim().replace(/^\{(.*)\}$/, '$1').toLowerCase()
-  if (!DATAVERSE_GUID.test(normalized)) {
-    throw new Error(`Invalid Dataverse GUID: ${value}`)
-  }
-  return normalized
-}
 
 function resultFields(result: ResultWrite) {
   return {

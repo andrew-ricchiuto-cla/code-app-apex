@@ -168,6 +168,13 @@
           "x-ms-schema-name": "mw_Description",
           "maxLength": 200
         },
+        "mw_displayorder": {
+          "type": "string",
+          "title": "DisplayOrder",
+          "x-ms-dataverse-attribute": "mw_displayorder",
+          "x-ms-dataverse-type": "IntegerType",
+          "x-ms-schema-name": "mw_DisplayOrder"
+        },
         "mw_key": {
           "type": "string",
           "title": "Key",

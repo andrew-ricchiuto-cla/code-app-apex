@@ -68,6 +68,13 @@ export const dataSourcesInfo = {
     "dataSourceType": "Dataverse",
     "apis": {}
   },
+  "mw_teamsubmissions": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "mw_teamsubmissionid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
   "mw_weights": {
     "tableId": "",
     "version": "",

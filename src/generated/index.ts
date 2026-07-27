@@ -14,6 +14,7 @@ export * as Mw_simulationsModel from './models/Mw_simulationsModel';
 export * as Mw_teammembersModel from './models/Mw_teammembersModel';
 export * as Mw_teamroundresultsModel from './models/Mw_teamroundresultsModel';
 export * as Mw_teamsModel from './models/Mw_teamsModel';
+export * as Mw_teamsubmissionsModel from './models/Mw_teamsubmissionsModel';
 export * as Mw_weightsconfigsModel from './models/Mw_weightsconfigsModel';
 export * as Mw_weightsModel from './models/Mw_weightsModel';
 
@@ -27,5 +28,6 @@ export * from './services/Mw_simulationsService';
 export * from './services/Mw_teammembersService';
 export * from './services/Mw_teamroundresultsService';
 export * from './services/Mw_teamsService';
+export * from './services/Mw_teamsubmissionsService';
 export * from './services/Mw_weightsconfigsService';
 export * from './services/Mw_weightsService';
