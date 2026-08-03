@@ -238,7 +238,7 @@ export const mockTeamRoundResults: TeamRoundResult[] = [
 export const mockFacilitatorUser: CurrentUser = {
   systemUserId: 'user-facilitator',
   displayName: 'Yassir Benchouk',
-  role: 'Facilitator',
+  role: 'Admin',
   teamId: null,
   isCaptain: false,
 }
@@ -246,7 +246,7 @@ export const mockFacilitatorUser: CurrentUser = {
 export const mockCaptainUser: CurrentUser = {
   systemUserId: 'user-captain-a',
   displayName: 'Alice Chen',
-  role: 'Captain',
+  role: 'Member',
   teamId: 'team-alpha',
   isCaptain: true,
 }
@@ -262,7 +262,7 @@ export const mockMemberUser: CurrentUser = {
 export const mockObserverUser: CurrentUser = {
   systemUserId: 'user-observer',
   displayName: 'Observer Guest',
-  role: 'Observer',
+  role: 'Unknown',
   teamId: null,
   isCaptain: false,
 }

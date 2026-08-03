@@ -13,6 +13,7 @@ vi.mock('@/generated/services/Mw_teammembersService', () => ({
 }))
 
 import { UserRoleProvider, useUserRole } from './UserRoleContext'
+import { mockCaptainUser, mockFacilitatorUser, mockMemberUser } from '@/test/mockData'
 
 function wrapper({ children }: { children: ReactNode }) {
   return <UserRoleProvider>{children}</UserRoleProvider>
@@ -42,14 +43,14 @@ describe('UserRoleProvider', () => {
     })
   })
 
-  it('resolves a hosted user from Dataverse team membership', async () => {
+  it('resolves a rostered user with a team as a Member even when flagged captain', async () => {
     const { result } = renderHook(() => useUserRole(), { wrapper })
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.currentUser).toEqual({
       systemUserId: 'user-guid',
       displayName: 'Alice Chen',
-      role: 'Captain',
+      role: 'Member',
       teamId: 'team-guid',
       isCaptain: true,
     })
@@ -58,12 +59,12 @@ describe('UserRoleProvider', () => {
     )
   })
 
-  it('resolves a rostered user without a team as a facilitator', async () => {
+  it('resolves a rostered user without a team as an Admin', async () => {
     runtimeMocks.teamMembersGetAll.mockResolvedValue({
       success: true,
       data: [
         {
-          mw_teammemberid: 'facilitator-guid',
+          mw_teammemberid: 'admin-guid',
           mw_systemuserid: 'user-guid',
           mw_teammember_name: 'Alice Chen',
           mw_iscaptain: 0,
@@ -75,26 +76,26 @@ describe('UserRoleProvider', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.currentUser).toMatchObject({
-      role: 'Facilitator',
+      role: 'Admin',
       teamId: null,
       isCaptain: false,
     })
   })
 
-  it('treats an unrostered hosted user as an observer', async () => {
+  it('fails closed as Unknown for an unrostered hosted user', async () => {
     runtimeMocks.teamMembersGetAll.mockResolvedValue({ success: true, data: [] })
 
     const { result } = renderHook(() => useUserRole(), { wrapper })
 
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.currentUser).toMatchObject({
-      role: 'Observer',
+      role: 'Unknown',
       teamId: null,
       isCaptain: false,
     })
   })
 
-  it('fails closed as observer when hosted membership lookup fails', async () => {
+  it('fails closed as Unknown when the hosted membership lookup fails', async () => {
     runtimeMocks.teamMembersGetAll.mockRejectedValue(new Error('Dataverse unavailable'))
 
     const { result } = renderHook(() => useUserRole(), { wrapper })
@@ -102,9 +103,24 @@ describe('UserRoleProvider', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.currentUser).toMatchObject({
       systemUserId: 'user-guid',
-      role: 'Observer',
+      role: 'Unknown',
       teamId: null,
       isCaptain: false,
     })
+  })
+
+  it('falls back to the Admin development fixture outside the hosted runtime', async () => {
+    runtimeMocks.getContext.mockRejectedValue(new Error('not in Power Apps'))
+
+    const { result } = renderHook(() => useUserRole(), { wrapper })
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.currentUser).toMatchObject({ role: 'Admin' })
+  })
+
+  it('keeps development fixtures for both simulation personas', () => {
+    expect(mockFacilitatorUser.role).toBe('Admin')
+    expect(mockCaptainUser).toMatchObject({ role: 'Member', teamId: 'team-alpha' })
+    expect(mockMemberUser).toMatchObject({ role: 'Member', teamId: 'team-alpha' })
   })
 })

@@ -150,7 +150,7 @@ export interface WeightsConfig {
 
 // ─── App-level user/role ──────────────────────────────────────────────────────
 
-export type AppRole = 'Facilitator' | 'Captain' | 'Member' | 'Observer' | 'Unknown'
+export type AppRole = 'Admin' | 'Member' | 'Unknown'
 
 export interface CurrentUser {
   systemUserId: string

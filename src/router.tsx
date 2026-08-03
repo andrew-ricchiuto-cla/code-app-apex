@@ -17,7 +17,7 @@ export const router = createHashRouter([
       {
         path: '/admin',
         element: (
-          <RoleGate allowedRoles={['Facilitator']}>
+          <RoleGate allowedRoles={['Admin']}>
             <AdminConsole />
           </RoleGate>
         ),
@@ -25,7 +25,7 @@ export const router = createHashRouter([
       {
         path: '/team/:teamId',
         element: (
-          <RoleGate allowedRoles={['Captain', 'Member']}>
+          <RoleGate allowedRoles={['Member']}>
             <TeamWorkspace />
           </RoleGate>
         ),
@@ -33,7 +33,7 @@ export const router = createHashRouter([
       {
         path: '/reveal',
         element: (
-          <RoleGate allowedRoles={['Facilitator', 'Captain', 'Member', 'Observer']}>
+          <RoleGate allowedRoles={['Admin', 'Member']}>
             <RevealDashboard />
           </RoleGate>
         ),
@@ -41,7 +41,7 @@ export const router = createHashRouter([
       {
         path: '/observe',
         element: (
-          <RoleGate allowedRoles={['Observer', 'Facilitator']}>
+          <RoleGate allowedRoles={['Admin']}>
             <ObserverView />
           </RoleGate>
         ),

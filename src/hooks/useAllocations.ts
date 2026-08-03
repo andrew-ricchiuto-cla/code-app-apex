@@ -15,9 +15,6 @@ interface UseAllocationsResult {
   categories: Category[]
   isLoading: boolean
   updateAmount: (categoryId: string, amount: number) => void
-  submit: () => Promise<void>
-  isSubmitted: boolean
-  isSubmitting: boolean
   error: Error | null
 }
 
@@ -28,7 +25,6 @@ export function useAllocations(
   const [allocations, setAllocations] = useState<Allocation[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
@@ -70,37 +66,31 @@ export function useAllocations(
     }
   }, [roundId, teamId])
 
-  const updateAmount = useCallback((categoryId: string, amount: number) => {
-    setAllocations(prev =>
-      prev.map(a => (a.categoryId === categoryId ? { ...a, amount } : a)),
-    )
-  }, [])
+  // Draft edits stay local; the authoritative write is the single
+  // mw_teamsubmission created through useTeamSubmission, which also syncs the
+  // reporting mw_allocation rows.
+  const updateAmount = useCallback(
+    (categoryId: string, amount: number) => {
+      setAllocations(prev => {
+        if (prev.some(a => a.categoryId === categoryId)) {
+          return prev.map(a => (a.categoryId === categoryId ? { ...a, amount } : a))
+        }
+        if (!roundId || !teamId) return prev
+        return [
+          ...prev,
+          {
+            id: `draft-${categoryId}`,
+            roundId,
+            teamId,
+            categoryId,
+            amount,
+            submittedAt: null,
+          },
+        ]
+      })
+    },
+    [roundId, teamId],
+  )
 
-  const submit = useCallback(async () => {
-    setIsSubmitting(true)
-    setError(null)
-    try {
-      const now = new Date().toISOString()
-      await Promise.all(
-        allocations.map(allocation =>
-          Mw_allocationsService.update(allocation.id, {
-            mw_amount: allocation.amount.toString(),
-            mw_submittedat: now,
-          }).then(requireData),
-        ),
-      )
-      setAllocations(prev => prev.map(a => ({ ...a, submittedAt: now })))
-    } catch (cause) {
-      const nextError = cause instanceof Error ? cause : new Error(String(cause))
-      setError(nextError)
-      throw nextError
-    } finally {
-      setIsSubmitting(false)
-    }
-  }, [allocations])
-
-  const isSubmitted =
-    allocations.length > 0 && allocations.every(a => a.submittedAt !== null)
-
-  return { allocations, categories, isLoading, updateAmount, submit, isSubmitted, isSubmitting, error }
+  return { allocations, categories, isLoading, updateAmount, error }
 }

@@ -209,7 +209,7 @@ describe('Dataverse data hooks', () => {
     )
   })
 
-  it('loads, updates, and submits allocations through Dataverse', async () => {
+  it('loads allocations and keeps draft edits local', async () => {
     serviceMocks.categoriesGetAll.mockResolvedValue(
       success([
         {
@@ -240,14 +240,36 @@ describe('Dataverse data hooks', () => {
 
     act(() => result.current.updateAmount('category-guid', 90))
     expect(result.current.allocations[0]?.amount).toBe(90)
+    expect(serviceMocks.allocationsUpdate).not.toHaveBeenCalled()
+  })
 
-    await act(async () => result.current.submit())
-
-    expect(serviceMocks.allocationsUpdate).toHaveBeenCalledWith(
-      'allocation-guid',
-      expect.objectContaining({ mw_amount: '90', mw_submittedat: expect.any(String) }),
+  it('creates a local draft row when a category has no allocation yet', async () => {
+    serviceMocks.categoriesGetAll.mockResolvedValue(
+      success([
+        {
+          mw_categoryid: 'category-guid',
+          _mw_roundid_value: 'round-guid',
+          mw_key: 'reskilling',
+          mw_category_name: 'Reskilling',
+        },
+      ]),
     )
-    expect(result.current.isSubmitted).toBe(true)
+    serviceMocks.allocationsGetAll.mockResolvedValue(success([]))
+
+    const { result } = renderHook(() => useAllocations('round-guid', 'team-guid'))
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(result.current.allocations).toHaveLength(0)
+
+    act(() => result.current.updateAmount('category-guid', 40))
+
+    expect(result.current.allocations[0]).toMatchObject({
+      categoryId: 'category-guid',
+      roundId: 'round-guid',
+      teamId: 'team-guid',
+      amount: 40,
+      submittedAt: null,
+    })
   })
 
   it('loads mapped results for one round', async () => {

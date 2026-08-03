@@ -46,10 +46,11 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
             ).map(mapTeamMember)
           } catch {
             if (cancelled) return
+            // Fail closed: without a roster answer the user gets no access.
             setCurrentUser({
               systemUserId,
               displayName: sdkName,
-              role: 'Observer',
+              role: 'Unknown',
               teamId: null,
               isCaptain: false,
             })
@@ -58,16 +59,13 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
           }
           const membership = memberships[0]
           if (cancelled) return
+          // A roster row without a team is an Admin; with a team, a Member
+          // (mw_iscaptain is retained for compatibility but grants nothing).
+          // Unrostered hosted users fail closed as Unknown.
           setCurrentUser({
             systemUserId,
             displayName: sdkName,
-            role: membership
-              ? membership.teamId
-                ? membership.isCaptain
-                  ? 'Captain'
-                  : 'Member'
-                : 'Facilitator'
-              : 'Observer',
+            role: membership ? (membership.teamId ? 'Member' : 'Admin') : 'Unknown',
             teamId: membership?.teamId || null,
             isCaptain: membership?.isCaptain ?? false,
           })

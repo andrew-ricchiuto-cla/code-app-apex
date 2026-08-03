@@ -39,8 +39,8 @@ describe('mockData fixtures', () => {
     expect(mockTeamRoundResults[0]?.newHealth).toBe(62)
     expect(mockAllTeamRoundResults).toHaveLength(9)
 
-    expect(mockFacilitatorUser.role).toBe('Facilitator')
-    expect(mockCaptainUser).toMatchObject({ role: 'Captain', teamId: 'team-alpha', isCaptain: true })
+    expect(mockFacilitatorUser.role).toBe('Admin')
+    expect(mockCaptainUser).toMatchObject({ role: 'Member', teamId: 'team-alpha', isCaptain: true })
     expect(mockMemberUser).toMatchObject({ role: 'Member', teamId: 'team-alpha', isCaptain: false })
   })
 })

@@ -20,24 +20,20 @@ const DEV_USERS: CurrentUser[] = [
 
 function getNavLinks(role: AppRole | null, teamId: string | null) {
   const links = []
-  if (role === 'Facilitator') {
+  if (role === 'Admin') {
     links.push({ label: 'Admin Console', to: '/admin' })
     links.push({ label: 'Results', to: '/reveal' })
     links.push({ label: 'Observer View', to: '/observe' })
-  } else if (role === 'Captain' || role === 'Member') {
+  } else if (role === 'Member') {
     links.push({ label: 'My Team', to: `/team/${teamId ?? 'team-alpha'}` })
     links.push({ label: 'Results', to: '/reveal' })
-  } else if (role === 'Observer') {
-    links.push({ label: 'Results', to: '/observe' })
   }
   return links
 }
 
 const ROLE_BADGE: Record<string, string> = {
-  Facilitator: 'bg-riptide/20 text-riptide border border-riptide/30',
-  Captain: 'bg-celadon/20 text-[#5a6200] border border-celadon/40',
+  Admin: 'bg-riptide/20 text-riptide border border-riptide/30',
   Member: 'bg-saffron/20 text-[#7a5200] border border-saffron/30',
-  Observer: 'bg-white/10 text-white/70 border border-white/20',
 }
 
 export function AppShell() {
