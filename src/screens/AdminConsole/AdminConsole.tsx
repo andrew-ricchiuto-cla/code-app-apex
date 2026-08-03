@@ -16,6 +16,7 @@ import {
 } from '@/services/simulation/RoundLifecycle'
 import type { ConfigSet } from '@/types'
 
+import { ConfigurationManager } from './ConfigurationManager'
 import { RoundManager } from './RoundManager'
 import { RoundsManager } from './RoundsManager'
 import { SubmissionMonitor } from './SubmissionMonitor'
@@ -205,9 +206,11 @@ export function AdminConsole() {
           </TabsContent>
 
           <TabsContent value="scoring">
-            <div className="rounded-2xl border border-dashed border-[#D7E3EC] p-8 text-center text-sm text-muted-foreground">
-              Scoring configuration coming soon.
-            </div>
+            <ConfigurationManager
+              configSets={configSets}
+              rounds={rounds}
+              onRefresh={refreshAll}
+            />
           </TabsContent>
         </Tabs>
       </main>

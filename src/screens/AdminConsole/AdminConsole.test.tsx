@@ -16,6 +16,7 @@ const {
   mockAssignRoundConfiguration,
   mockListConfigSets,
   mockUseRoundAdmin,
+  mockUseConfigurationAdmin,
 } = vi.hoisted(() => ({
   mockUseSimulation: vi.fn(),
   mockUseTeams: vi.fn(),
@@ -27,6 +28,7 @@ const {
   mockAssignRoundConfiguration: vi.fn(),
   mockListConfigSets: vi.fn(),
   mockUseRoundAdmin: vi.fn(),
+  mockUseConfigurationAdmin: vi.fn(),
 }))
 
 vi.mock('@/contexts/SimulationContext', () => ({
@@ -61,6 +63,10 @@ vi.mock('@/services/simulation/DataverseRoundLifecycle', () => ({
 
 vi.mock('@/hooks/useRoundAdmin', () => ({
   useRoundAdmin: mockUseRoundAdmin,
+}))
+
+vi.mock('@/hooks/useConfigurationAdmin', () => ({
+  useConfigurationAdmin: mockUseConfigurationAdmin,
 }))
 
 import { AdminConsole } from './AdminConsole'
@@ -154,6 +160,17 @@ describe('AdminConsole', () => {
       completeSimulation: vi.fn(),
       loadCategoriesForEdit: vi.fn().mockResolvedValue([]),
       clearCommandError: vi.fn(),
+    })
+    mockUseConfigurationAdmin.mockReturnValue({
+      isActioning: false,
+      commandError: null,
+      clearCommandError: vi.fn(),
+      loadDetails: vi.fn().mockResolvedValue({ weights: [], bands: [] }),
+      loadRequiredPairs: vi.fn().mockResolvedValue([]),
+      cloneConfigSet: vi.fn(),
+      saveDraft: vi.fn(),
+      publish: vi.fn(),
+      retire: vi.fn(),
     })
   })
 
@@ -375,11 +392,12 @@ describe('AdminConsole', () => {
     expect(screen.getByRole('button', { name: 'Add Round' })).toBeInTheDocument()
   })
 
-  it('shows the Scoring placeholder when Scoring tab is clicked', async () => {
+  it('shows the configuration manager when Scoring tab is clicked', async () => {
     const { user } = renderAdminConsole()
     await user.click(screen.getByRole('tab', { name: 'Scoring' }))
     expect(
-      screen.getByText(/scoring configuration coming soon/i),
+      screen.getByRole('heading', { name: 'Scoring Configurations' }),
     ).toBeInTheDocument()
+    expect(screen.getByText('Apex Baseline v1.0')).toBeInTheDocument()
   })
 })
