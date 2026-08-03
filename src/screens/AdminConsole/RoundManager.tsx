@@ -1,12 +1,19 @@
+import { useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { ConfigSet, Round } from '@/types'
+import type { ConfigSet, Round, Team, TeamSubmission } from '@/types'
 
 interface RoundManagerProps {
   round: Round
+  teams: Team[]
+  submissions: TeamSubmission[]
   onOpenRound: () => void
-  onForceAdvance: () => void
+  onLockRound: () => void
+  onForceLock: () => void
   onRevealResults: () => void
+  onActivateNextRound: () => void
+  canActivateNext: boolean
   configSets: ConfigSet[]
   selectedConfigSet: ConfigSet | null
   onConfigurationChange: (configSetId: string) => void
@@ -22,17 +29,33 @@ const STATUS_BADGE: Record<string, string> = {
 
 export function RoundManager({
   round,
+  teams,
+  submissions,
   onOpenRound,
-  onForceAdvance,
+  onLockRound,
+  onForceLock,
   onRevealResults,
+  onActivateNextRound,
+  canActivateNext,
   configSets,
   selectedConfigSet,
   onConfigurationChange,
   disabled = false,
 }: RoundManagerProps) {
+  const [forceLockConfirmOpen, setForceLockConfirmOpen] = useState(false)
+
   const publishedConfigSets = configSets.filter(
     configSet => configSet.status === 'Published',
   )
+
+  const submittedTeamIds = new Set(submissions.map(submission => submission.teamId))
+  const missingTeams = teams.filter(team => !submittedTeamIds.has(team.id))
+  const allSubmitted = teams.length > 0 && missingTeams.length === 0
+
+  function handleForceLockConfirm() {
+    setForceLockConfirmOpen(false)
+    onForceLock()
+  }
 
   return (
     <Card className="overflow-hidden border-0 shadow-[0_28px_70px_-42px_rgba(46,51,78,0.35)]">
@@ -129,15 +152,25 @@ export function RoundManager({
               Open Round
             </Button>
           )}
-          {round.status === 'Open' && (
+          {round.status === 'Open' && allSubmitted && (
+            <Button
+              size="lg"
+              className="h-12 rounded-2xl bg-[#2E334E] px-6 text-white hover:bg-[#252940]"
+              onClick={onLockRound}
+              disabled={disabled}
+            >
+              Lock Round
+            </Button>
+          )}
+          {round.status === 'Open' && !allSubmitted && (
             <Button
               variant="outline"
               size="lg"
               className="h-12 rounded-2xl border-[#2E334E] px-6 text-[#2E334E] hover:bg-[#2E334E] hover:text-white"
-              onClick={onForceAdvance}
+              onClick={() => setForceLockConfirmOpen(true)}
               disabled={disabled}
             >
-              Force Advance
+              Force Lock
             </Button>
           )}
           {round.status === 'Locked' && (
@@ -150,12 +183,58 @@ export function RoundManager({
               Reveal Results
             </Button>
           )}
-          {round.status === 'Revealed' && (
+          {round.status === 'Revealed' && canActivateNext && (
+            <Button
+              size="lg"
+              className="h-12 rounded-2xl bg-[#7DD2D3] px-6 text-[#2E334E] hover:bg-[#5FC0C1]"
+              onClick={onActivateNextRound}
+              disabled={disabled}
+            >
+              Activate Next Round
+            </Button>
+          )}
+          {round.status === 'Revealed' && !canActivateNext && (
             <p className="rounded-2xl bg-[#F7FAFC] px-4 py-3 text-sm text-muted-foreground">
               Results have been revealed.
             </p>
           )}
         </div>
+
+        {forceLockConfirmOpen && (
+          <div
+            role="dialog"
+            aria-label="Force Lock Round"
+            className="rounded-xl border border-red-200 bg-red-50 p-4"
+          >
+            <p className="text-sm font-medium text-red-800">
+              Force lock this round? The following teams have not submitted and will
+              not be scored — no allocation is created on their behalf:
+            </p>
+            <ul className="mt-2 list-disc pl-5 text-sm font-semibold text-red-800">
+              {missingTeams.map(team => (
+                <li key={team.id}>{team.name}</li>
+              ))}
+            </ul>
+            <div className="mt-3 flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleForceLockConfirm}
+                disabled={disabled}
+                className="rounded-lg bg-red-600 text-white hover:bg-red-700"
+              >
+                Confirm Force Lock
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setForceLockConfirmOpen(false)}
+                className="rounded-lg"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

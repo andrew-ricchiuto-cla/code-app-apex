@@ -4,12 +4,15 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { useSimulation } from '@/contexts/SimulationContext'
-import { useRoundAllocations } from '@/hooks/useRoundAllocations'
+import { useRoundSubmissions } from '@/hooks/useRoundSubmissions'
 import { useRounds } from '@/hooks/useRounds'
 import { useTeams } from '@/hooks/useTeams'
+import { dataverseRoundAdmin } from '@/services/rounds/DataverseRoundAdmin'
+import { activateRound } from '@/services/rounds/RoundAdminService'
 import { dataverseRoundLifecycle } from '@/services/simulation/DataverseRoundLifecycle'
 import {
-  forceAdvanceRound,
+  forceLockRound,
+  lockRound,
   openRound,
   revealRound,
   assignRoundConfiguration,
@@ -36,7 +39,7 @@ export function AdminConsole() {
     simulation?.id ?? null,
     dataRefreshKey,
   )
-  const { allocations, isLoading: allocationsLoading } = useRoundAllocations(
+  const { submissions, isLoading: submissionsLoading } = useRoundSubmissions(
     currentRound?.id ?? null,
     dataRefreshKey,
   )
@@ -63,7 +66,7 @@ export function AdminConsole() {
     refresh()
   }
 
-  if (simLoading || teamsLoading || roundsLoading || allocationsLoading)
+  if (simLoading || teamsLoading || roundsLoading || submissionsLoading)
     return <LoadingSpinner message="Loading simulation…" />
 
   if (!simulation || !currentRound) {
@@ -74,10 +77,13 @@ export function AdminConsole() {
     )
   }
 
-  const submittedTeamsCount = teams.filter(team => {
-    const teamAllocs = allocations.filter(a => a.teamId === team.id)
-    return teamAllocs.length > 0 && teamAllocs.every(a => a.submittedAt !== null)
-  }).length
+  const submittedTeamIds = new Set(submissions.map(submission => submission.teamId))
+  const submittedTeamsCount = teams.filter(team => submittedTeamIds.has(team.id)).length
+
+  const sortedRounds = [...rounds].sort((a, b) => a.index - b.index)
+  const nextPendingRound = sortedRounds.find(r => r.status === 'Pending') ?? null
+  const canActivateNext =
+    currentRound.status === 'Revealed' && nextPendingRound !== null
 
   const runAction = async (action: () => Promise<unknown>) => {
     setIsActioning(true)
@@ -111,8 +117,13 @@ export function AdminConsole() {
     )
   }
 
-  const handleForceAdvance = () =>
-    runAction(() => forceAdvanceRound(currentRound, dataverseRoundLifecycle))
+  const handleLockRound = () =>
+    runAction(() => lockRound({ round: currentRound, teams }, dataverseRoundLifecycle))
+
+  const handleForceLock = () =>
+    runAction(() =>
+      forceLockRound({ round: currentRound, teams }, dataverseRoundLifecycle),
+    )
 
   const handleRevealResults = () =>
     runAction(() =>
@@ -121,6 +132,13 @@ export function AdminConsole() {
         dataverseRoundLifecycle,
       ),
     )
+
+  const handleActivateNextRound = () => {
+    if (!nextPendingRound) return
+    void runAction(() =>
+      activateRound(simulation, nextPendingRound, dataverseRoundAdmin),
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F7FB]">
@@ -185,19 +203,20 @@ export function AdminConsole() {
               )}
               <RoundManager
                 round={currentRound}
+                teams={teams}
+                submissions={submissions}
                 onOpenRound={handleOpenRound}
-                onForceAdvance={handleForceAdvance}
+                onLockRound={handleLockRound}
+                onForceLock={handleForceLock}
                 onRevealResults={handleRevealResults}
+                onActivateNextRound={handleActivateNextRound}
+                canActivateNext={canActivateNext}
                 configSets={configSets}
                 selectedConfigSet={selectedConfigSet}
                 onConfigurationChange={handleConfigurationChange}
                 disabled={isActioning}
               />
-              <SubmissionMonitor
-                teams={teams}
-                allocations={allocations}
-                budget={currentRound.budget}
-              />
+              <SubmissionMonitor teams={teams} submissions={submissions} />
             </div>
           </TabsContent>
 

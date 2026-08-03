@@ -1,31 +1,35 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Allocation, ConfigSet, Round, Simulation, Team } from '@/types'
-import { mockAllocations, mockRound, mockSimulation, mockTeams } from '@/test/mockData'
+import type { ConfigSet, Round, Simulation, Team, TeamSubmission } from '@/types'
+import { mockRound, mockSimulation, mockTeams } from '@/test/mockData'
 
 const {
   mockUseSimulation,
   mockUseTeams,
-  mockUseRoundAllocations,
+  mockUseRoundSubmissions,
   mockUseRounds,
   mockOpenRound,
-  mockForceAdvanceRound,
+  mockLockRound,
+  mockForceLockRound,
   mockRevealRound,
   mockAssignRoundConfiguration,
+  mockActivateRound,
   mockListConfigSets,
   mockUseRoundAdmin,
   mockUseConfigurationAdmin,
 } = vi.hoisted(() => ({
   mockUseSimulation: vi.fn(),
   mockUseTeams: vi.fn(),
-  mockUseRoundAllocations: vi.fn(),
+  mockUseRoundSubmissions: vi.fn(),
   mockUseRounds: vi.fn(),
   mockOpenRound: vi.fn(),
-  mockForceAdvanceRound: vi.fn(),
+  mockLockRound: vi.fn(),
+  mockForceLockRound: vi.fn(),
   mockRevealRound: vi.fn(),
   mockAssignRoundConfiguration: vi.fn(),
+  mockActivateRound: vi.fn(),
   mockListConfigSets: vi.fn(),
   mockUseRoundAdmin: vi.fn(),
   mockUseConfigurationAdmin: vi.fn(),
@@ -39,8 +43,8 @@ vi.mock('@/hooks/useTeams', () => ({
   useTeams: mockUseTeams,
 }))
 
-vi.mock('@/hooks/useRoundAllocations', () => ({
-  useRoundAllocations: mockUseRoundAllocations,
+vi.mock('@/hooks/useRoundSubmissions', () => ({
+  useRoundSubmissions: mockUseRoundSubmissions,
 }))
 
 vi.mock('@/hooks/useRounds', () => ({
@@ -49,7 +53,8 @@ vi.mock('@/hooks/useRounds', () => ({
 
 vi.mock('@/services/simulation/RoundLifecycle', () => ({
   openRound: mockOpenRound,
-  forceAdvanceRound: mockForceAdvanceRound,
+  lockRound: mockLockRound,
+  forceLockRound: mockForceLockRound,
   revealRound: mockRevealRound,
   assignRoundConfiguration: mockAssignRoundConfiguration,
 }))
@@ -59,6 +64,14 @@ vi.mock('@/services/simulation/DataverseRoundLifecycle', () => ({
     kind: 'test-dependencies',
     listConfigSets: mockListConfigSets,
   },
+}))
+
+vi.mock('@/services/rounds/RoundAdminService', () => ({
+  activateRound: mockActivateRound,
+}))
+
+vi.mock('@/services/rounds/DataverseRoundAdmin', () => ({
+  dataverseRoundAdmin: { kind: 'admin-test-dependencies' },
 }))
 
 vi.mock('@/hooks/useRoundAdmin', () => ({
@@ -87,21 +100,18 @@ const availableConfigSets: ConfigSet[] = [
   { ...publishedConfig, id: 'retired-v0', version: '0.9', status: 'Retired' },
 ]
 
-function buildAllocation(
-  id: string,
-  teamId: string,
-  amount: number,
-  submittedAt: string | null,
-): Allocation {
+function buildSubmission(teamId: string): TeamSubmission {
   return {
-    id,
-    roundId: 'round-001',
+    id: `submission-${teamId}`,
+    roundId: mockRound.id,
     teamId,
-    categoryId: `cat-${id}`,
-    amount,
-    submittedAt,
+    allocations: [{ categoryId: 'cat-1', amount: 100 }],
+    submittedAt: '2026-08-01T15:00:00.000Z',
+    submittedBy: 'Alice Chen',
   }
 }
+
+const allTeamSubmissions = mockTeams.map(team => buildSubmission(team.id))
 
 function renderAdminConsole({
   simulation = mockSimulation,
@@ -109,7 +119,8 @@ function renderAdminConsole({
   simLoading = false,
   teams = mockTeams,
   teamsLoading = false,
-  allocations = mockAllocations,
+  submissions = [],
+  rounds = [mockRound],
   refresh = vi.fn(),
 }: {
   simulation?: Simulation | null
@@ -117,7 +128,8 @@ function renderAdminConsole({
   simLoading?: boolean
   teams?: Team[]
   teamsLoading?: boolean
-  allocations?: Allocation[]
+  submissions?: TeamSubmission[]
+  rounds?: Round[]
   refresh?: () => void
 } = {}) {
   mockUseSimulation.mockReturnValue({
@@ -130,11 +142,12 @@ function renderAdminConsole({
     teams,
     isLoading: teamsLoading,
   })
-  mockUseRoundAllocations.mockReturnValue({
-    allocations,
+  mockUseRoundSubmissions.mockReturnValue({
+    submissions,
     isLoading: false,
+    error: null,
   })
-  mockUseRounds.mockReturnValue({ rounds: [mockRound], isLoading: false })
+  mockUseRounds.mockReturnValue({ rounds, isLoading: false })
 
   return { refresh, user: userEvent.setup(), ...render(<AdminConsole />) }
 }
@@ -143,9 +156,11 @@ describe('AdminConsole', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockOpenRound.mockResolvedValue(undefined)
-    mockForceAdvanceRound.mockResolvedValue(undefined)
+    mockLockRound.mockResolvedValue(undefined)
+    mockForceLockRound.mockResolvedValue({ missingTeams: [] })
     mockRevealRound.mockResolvedValue(undefined)
     mockAssignRoundConfiguration.mockResolvedValue(undefined)
+    mockActivateRound.mockResolvedValue(undefined)
     mockListConfigSets.mockResolvedValue(availableConfigSets)
     mockUseRoundAdmin.mockReturnValue({
       rounds: [mockRound],
@@ -184,7 +199,6 @@ describe('AdminConsole', () => {
       currentRound: null,
       simLoading: true,
       teams: [],
-      allocations: [],
     })
 
     expect(screen.getByText('Loading simulation…')).toBeInTheDocument()
@@ -195,74 +209,115 @@ describe('AdminConsole', () => {
       simulation: null,
       currentRound: null,
       teams: [],
-      allocations: [],
     })
 
     expect(screen.getByText('No active simulation found.')).toBeInTheDocument()
   })
 
-  it('shows open-round actions and per-team submission statuses', () => {
+  it('derives submission statuses and counts from authoritative submissions', () => {
     renderAdminConsole({
       currentRound: { ...mockRound, status: 'Open' },
-      allocations: [
-        ...mockAllocations,
-        buildAllocation('beta-1', 'team-beta', 100, '2026-07-07T12:00:00.000Z'),
-      ],
+      submissions: [buildSubmission('team-alpha')],
     })
 
-    expect(screen.getByText('Facilitator Console')).toBeInTheDocument()
-    expect(screen.getByText('Round 1: High Attrition Crisis')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Reveal Results' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Force Advance' })).toBeInTheDocument()
+    expect(screen.getByText('1/3 Teams Submitted')).toBeInTheDocument()
     expect(screen.getByText('Team Submissions')).toBeInTheDocument()
-    expect(screen.getByText('Ready to Submit')).toBeInTheDocument()
-    expect(screen.getByText('✓ Submitted')).toBeInTheDocument()
-    expect(screen.getByText('Not Started')).toBeInTheDocument()
+    expect(screen.getAllByText('✓ Submitted')).toHaveLength(1)
+    expect(screen.getAllByText('Awaiting Submission')).toHaveLength(2)
     expect(screen.queryByText('All Submitted')).not.toBeInTheDocument()
   })
 
-  it('keeps reveal unavailable while the round remains open', () => {
+  it('shows Lock Round when every team has an authoritative submission', () => {
     renderAdminConsole({
       currentRound: { ...mockRound, status: 'Open' },
-      allocations: [buildAllocation('alpha-1', 'team-alpha', 100, '2026-07-07T12:00:00.000Z')],
-    })
-
-    expect(screen.queryByRole('button', { name: 'Reveal Results' })).not.toBeInTheDocument()
-    expect(screen.queryByText('All Submitted')).not.toBeInTheDocument()
-  })
-
-  it('shows the all-submitted badge but keeps reveal locked until the round is Locked', () => {
-    renderAdminConsole({
-      currentRound: { ...mockRound, status: 'Open' },
-      allocations: [
-        buildAllocation('alpha-1', 'team-alpha', 100, '2026-07-07T12:00:00.000Z'),
-        buildAllocation('beta-1', 'team-beta', 100, '2026-07-07T12:00:00.000Z'),
-        buildAllocation('gamma-1', 'team-gamma', 100, '2026-07-07T12:00:00.000Z'),
-      ],
+      submissions: allTeamSubmissions,
     })
 
     expect(screen.getByText('All Submitted')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lock Round' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Force Lock' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Reveal Results' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Force Advance' })).toBeEnabled()
+  })
+
+  it('locks an open round through the lifecycle service with the full roster', async () => {
+    const refresh = vi.fn()
+    const openRound = { ...mockRound, status: 'Open' as const }
+    const { user } = renderAdminConsole({
+      currentRound: openRound,
+      submissions: allTeamSubmissions,
+      refresh,
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Lock Round' }))
+
+    expect(mockLockRound).toHaveBeenCalledWith(
+      { round: openRound, teams: mockTeams },
+      expect.objectContaining({ kind: 'test-dependencies' }),
+    )
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('requires confirmation naming missing teams before force locking', async () => {
+    const refresh = vi.fn()
+    const openRound = { ...mockRound, status: 'Open' as const }
+    const { user } = renderAdminConsole({
+      currentRound: openRound,
+      submissions: [buildSubmission('team-alpha')],
+      refresh,
+    })
+
+    expect(screen.queryByRole('button', { name: 'Lock Round' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Force Lock' }))
+
+    const dialog = screen.getByRole('dialog', { name: /force lock/i })
+    expect(dialog).toHaveTextContent('Team Beta')
+    expect(dialog).toHaveTextContent('Team Gamma')
+    expect(dialog).not.toHaveTextContent('Team Alpha')
+    expect(mockForceLockRound).not.toHaveBeenCalled()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm Force Lock' }))
+
+    expect(mockForceLockRound).toHaveBeenCalledWith(
+      { round: openRound, teams: mockTeams },
+      expect.objectContaining({ kind: 'test-dependencies' }),
+    )
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancels a force lock without locking and without manufacturing data', async () => {
+    const { user } = renderAdminConsole({
+      currentRound: { ...mockRound, status: 'Open' },
+      submissions: [buildSubmission('team-alpha')],
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Force Lock' }))
+    await user.click(
+      within(screen.getByRole('dialog', { name: /force lock/i })).getByRole('button', {
+        name: 'Cancel',
+      }),
+    )
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(mockForceLockRound).not.toHaveBeenCalled()
+    expect(mockLockRound).not.toHaveBeenCalled()
   })
 
   it('shows only the open-round action for pending rounds and refreshes on demand', async () => {
     const refresh = vi.fn()
     const { user } = renderAdminConsole({
       currentRound: { ...mockRound, status: 'Pending' },
-      allocations: [],
       refresh,
     })
 
     expect(screen.getByRole('button', { name: 'Open Round' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Reveal Results' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Force Advance' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Force Lock' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Refresh' }))
     expect(refresh).toHaveBeenCalledTimes(1)
     expect(mockUseTeams).toHaveBeenLastCalledWith(mockSimulation.id, 1)
     expect(mockUseRounds).toHaveBeenLastCalledWith(mockSimulation.id, 1)
-    expect(mockUseRoundAllocations).toHaveBeenLastCalledWith(mockRound.id, 1)
+    expect(mockUseRoundSubmissions).toHaveBeenLastCalledWith(mockRound.id, 1)
   })
 
   it('opens a pending round through the lifecycle service and refreshes', async () => {
@@ -285,8 +340,11 @@ describe('AdminConsole', () => {
   it('allows a locked round to be revealed', async () => {
     const refresh = vi.fn()
     const lockedRound = { ...mockRound, status: 'Locked' as const }
-    mockUseRounds.mockReturnValue({ rounds: [lockedRound], isLoading: false })
-    const { user } = renderAdminConsole({ currentRound: lockedRound, refresh })
+    const { user } = renderAdminConsole({
+      currentRound: lockedRound,
+      rounds: [lockedRound],
+      refresh,
+    })
 
     await user.click(screen.getByRole('button', { name: 'Reveal Results' }))
 
@@ -295,6 +353,44 @@ describe('AdminConsole', () => {
       expect.objectContaining({ kind: 'test-dependencies' }),
     )
     expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('activates the next Pending round after a reveal', async () => {
+    const refresh = vi.fn()
+    const revealedRound = { ...mockRound, status: 'Revealed' as const }
+    const nextRound = {
+      ...mockRound,
+      id: 'round-002',
+      index: 2,
+      status: 'Pending' as const,
+    }
+    const { user } = renderAdminConsole({
+      currentRound: revealedRound,
+      rounds: [revealedRound, nextRound],
+      refresh,
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Activate Next Round' }))
+
+    expect(mockActivateRound).toHaveBeenCalledWith(
+      mockSimulation,
+      nextRound,
+      expect.objectContaining({ kind: 'admin-test-dependencies' }),
+    )
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the revealed notice when no Pending round remains', () => {
+    const revealedRound = { ...mockRound, status: 'Revealed' as const }
+    renderAdminConsole({
+      currentRound: revealedRound,
+      rounds: [revealedRound],
+    })
+
+    expect(screen.getByText('Results have been revealed.')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Activate Next Round' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows lifecycle errors and does not refresh', async () => {
