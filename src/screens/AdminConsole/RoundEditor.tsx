@@ -60,7 +60,7 @@ export function RoundEditor({
 }: RoundEditorProps) {
   const idPrefix = useId()
   const [draft, setDraft] = useState({
-    id: round?.id ?? `temp-${Date.now()}`,
+    id: round?.id ?? `temp-${idPrefix}`,
     simulationId,
     index: String(round?.index ?? ''),
     eventKey: round?.eventKey ?? '',
@@ -74,7 +74,7 @@ export function RoundEditor({
   const [categories, setCategories] = useState<CategoryDraft[]>(() =>
     [...initialCategories]
       .sort((a, b) => a.displayOrder - b.displayOrder)
-      .map(({ roundId: _r, ...rest }) => rest),
+      .map(c => ({ id: c.id, key: c.key, name: c.name, description: c.description, displayOrder: c.displayOrder })),
   )
 
   const [validationErrors, setValidationErrors] = useState<string[]>([])
