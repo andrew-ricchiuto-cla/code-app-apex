@@ -8,12 +8,21 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from auth import get_credential, load_env
-from PowerPlatform.Dataverse.client import DataverseClient
-
 
 SIMULATION_NAME = "Apex Simulation 2026"
 SUBMITTED_AT = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc).isoformat()
+
+CONFIG_SET_NAME = "Apex Baseline"
+CONFIG_SET_VERSION = "1"
+CONFIG_SET_BASELINE = 50
+CONFIG_PUBLISHED_AT = datetime(2026, 7, 22, 12, 0, tzinfo=timezone.utc).isoformat()
+
+# (label, minimum score, display order) — exactly Red/Yellow/Green, ascending.
+HEALTH_BANDS = [
+    ("Red", 0, 1),
+    ("Yellow", 40, 2),
+    ("Green", 70, 3),
+]
 
 WEIGHTS = {
     "high-attrition": {
@@ -159,6 +168,151 @@ def bind(entity_set, record_id):
     return f"/{entity_set}({record_id})"
 
 
+def round_event_category_pairs():
+    return [
+        (round_data["key"], category_key)
+        for round_data in ROUNDS
+        for category_key, _name, _description in round_data["categories"]
+    ]
+
+
+def build_config_set():
+    return [
+        (
+            CONFIG_SET_VERSION,
+            {
+                "mw_configset_name": CONFIG_SET_NAME,
+                "mw_version": CONFIG_SET_VERSION,
+                "mw_status": "Published",
+                "mw_systemhealthbaseline": CONFIG_SET_BASELINE,
+                "mw_publishedat": CONFIG_PUBLISHED_AT,
+            },
+        )
+    ]
+
+
+def build_weights(config_set_id):
+    return [
+        (
+            (config_set_id, event_key, category_key),
+            {
+                "mw_weight_name": f"{event_key}:{category_key}",
+                "mw_eventkey": event_key,
+                "mw_categorykey": category_key,
+                "mw_value": WEIGHTS[event_key][category_key],
+                "mw_ConfigSetId@odata.bind": bind("mw_configsets", config_set_id),
+            },
+        )
+        for event_key, category_key in round_event_category_pairs()
+    ]
+
+
+def build_health_bands(config_set_id):
+    return [
+        (
+            (config_set_id, label),
+            {
+                "mw_healthband_name": label,
+                "mw_label": label,
+                "mw_minscore": min_score,
+                "mw_color": label,
+                "mw_displayorder": display_order,
+                "mw_ConfigSetId@odata.bind": bind("mw_configsets", config_set_id),
+            },
+        )
+        for label, min_score, display_order in HEALTH_BANDS
+    ]
+
+
+def build_rounds(simulation_id, weights_id, config_set_id):
+    return [
+        (
+            (simulation_id, round_data["index"]),
+            {
+                "mw_round_name": f"Apex 2026 - Round {round_data['index']}",
+                "mw_index": round_data["index"],
+                "mw_eventkey": round_data["key"],
+                "mw_eventtitle": round_data["title"],
+                "mw_eventdescription": round_data["description"],
+                "mw_budget": 100,
+                "mw_status": round_data["status"],
+                # Legacy weights config stays temporarily for migration/rollback.
+                "mw_weightsconfigref": "assumption-v1-2026-07-22",
+                "mw_SimulationId@odata.bind": bind("mw_simulations", simulation_id),
+                "mw_WeightsConfigId@odata.bind": bind("mw_weightsconfigs", weights_id),
+                "mw_ConfigSetId@odata.bind": bind("mw_configsets", config_set_id),
+            },
+        )
+        for round_data in ROUNDS
+    ]
+
+
+def build_categories(round_ids):
+    desired = []
+    for round_data in ROUNDS:
+        round_id = round_ids[round_data["index"]]
+        for display_order, (category_key, name, description) in enumerate(
+            round_data["categories"], start=1
+        ):
+            desired.append(
+                (
+                    (round_id, category_key),
+                    {
+                        "mw_category_name": name,
+                        "mw_key": category_key,
+                        "mw_description": description,
+                        "mw_displayorder": display_order,
+                        "mw_RoundId@odata.bind": bind("mw_rounds", round_id),
+                    },
+                )
+            )
+    return desired
+
+
+def build_allocations(round_ids, team_ids, category_map):
+    desired = []
+    for round_data in ROUNDS:
+        index = round_data["index"]
+        round_id = round_ids[index]
+        for team_name in TEAMS:
+            team_id = team_ids[team_name]
+            amounts = ALLOCATIONS[(index, team_name)]
+            for category_tuple, amount in zip(round_data["categories"], amounts):
+                category_key = category_tuple[0]
+                category_id = category_map[(round_id, category_key)]["id"]
+                payload = {
+                    "mw_allocation_name": (
+                        f"Apex R{index} - {team_name} - {category_key}"
+                    ),
+                    "mw_amount": amount,
+                    "mw_RoundId@odata.bind": bind("mw_rounds", round_id),
+                    "mw_TeamId@odata.bind": bind("mw_teams", team_id),
+                    "mw_CategoryId@odata.bind": bind("mw_categories", category_id),
+                }
+                if index < 3:
+                    payload["mw_submittedat"] = SUBMITTED_AT
+                desired.append(((round_id, team_id, category_id), payload))
+    return desired
+
+
+def build_expected_counts(member_count):
+    # Deliberately no mw_teamsubmission entry: the seed never pre-creates
+    # authoritative submissions — players create them in-app.
+    return {
+        "mw_simulation": 1,
+        "mw_round": 3,
+        "mw_category": 15,
+        "mw_team": 3,
+        "mw_teammember": member_count,
+        "mw_allocation": 45,
+        "mw_teamroundresult": 6,
+        "mw_weightsconfig": 1,
+        "mw_configset": 1,
+        "mw_weight": len(round_event_category_pairs()),
+        "mw_healthband": 3,
+    }
+
+
 def resolve_enabled_user(client, email):
     escaped_email = email.replace("'", "''")
     users = client.records.list(
@@ -201,24 +355,37 @@ def score_result(previous_health, round_data, categories, amounts):
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--admin-email",
         "--facilitator-email",
-        default=os.environ.get("APEX_FACILITATOR_EMAIL"),
-        help="Dataverse user email to roster as the facilitator.",
+        dest="admin_email",
+        default=os.environ.get("APEX_ADMIN_EMAIL")
+        or os.environ.get("APEX_FACILITATOR_EMAIL"),
+        help=(
+            "Dataverse user email to roster without a team (resolves to the "
+            "Admin app role)."
+        ),
     )
     parser.add_argument(
+        "--member",
         "--captain",
+        dest="member",
         action="append",
         default=[],
         metavar="EMAIL=TEAM",
         help=(
-            "Roster a real Dataverse user as captain of a seeded team. "
-            "Repeat for multiple teams."
+            "Roster a real Dataverse user on a seeded team (resolves to the "
+            "Member app role). Repeat for multiple users."
         ),
     )
     return parser.parse_args()
 
 
 def main():
+    # Imported lazily so the pure desired-record builders above stay
+    # import-safe for tests without the Dataverse SDK installed.
+    from auth import get_credential, load_env
+    from PowerPlatform.Dataverse.client import DataverseClient
+
     args = parse_args()
     load_env()
     base_url = os.environ["DATAVERSE_URL"]
@@ -248,6 +415,45 @@ def main():
             if record.get("mw_weightsconfig_name") == "Apex Default Weights v1"
         )
 
+        config_set_records = sync_records(
+            client,
+            "mw_configset",
+            "mw_configsetid",
+            ["mw_configset_name", "mw_version", "mw_status"],
+            build_config_set(),
+            lambda record: record.get("mw_version"),
+        )
+        config_set_id = next(
+            record["mw_configsetid"]
+            for record in config_set_records
+            if record.get("mw_version") == CONFIG_SET_VERSION
+        )
+
+        weight_records = sync_records(
+            client,
+            "mw_weight",
+            "mw_weightid",
+            ["mw_eventkey", "mw_categorykey", "_mw_configsetid_value"],
+            build_weights(config_set_id),
+            lambda record: (
+                record.get("_mw_configsetid_value"),
+                record.get("mw_eventkey"),
+                record.get("mw_categorykey"),
+            ),
+        )
+
+        health_band_records = sync_records(
+            client,
+            "mw_healthband",
+            "mw_healthbandid",
+            ["mw_label", "_mw_configsetid_value"],
+            build_health_bands(config_set_id),
+            lambda record: (
+                record.get("_mw_configsetid_value"),
+                record.get("mw_label"),
+            ),
+        )
+
         simulations = sync_records(
             client,
             "mw_simulation",
@@ -271,27 +477,7 @@ def main():
             if record.get("mw_simulation_name") == SIMULATION_NAME
         )
 
-        round_desired = []
-        for round_data in ROUNDS:
-            round_desired.append(
-                (
-                    (simulation_id, round_data["index"]),
-                    {
-                        "mw_round_name": f"Apex 2026 - Round {round_data['index']}",
-                        "mw_index": round_data["index"],
-                        "mw_eventkey": round_data["key"],
-                        "mw_eventtitle": round_data["title"],
-                        "mw_eventdescription": round_data["description"],
-                        "mw_budget": 100,
-                        "mw_status": round_data["status"],
-                        "mw_weightsconfigref": "assumption-v1-2026-07-22",
-                        "mw_SimulationId@odata.bind": bind("mw_simulations", simulation_id),
-                        "mw_WeightsConfigId@odata.bind": bind(
-                            "mw_weightsconfigs", weights_id
-                        ),
-                    },
-                )
-            )
+        round_desired = build_rounds(simulation_id, weights_id, config_set_id)
         round_records = sync_records(
             client,
             "mw_round",
@@ -349,21 +535,7 @@ def main():
             if record.get("_mw_simulationid_value") == simulation_id
         }
 
-        category_desired = []
-        for round_data in ROUNDS:
-            round_id = round_ids[round_data["index"]]
-            for category_key, name, description in round_data["categories"]:
-                category_desired.append(
-                    (
-                        (round_id, category_key),
-                        {
-                            "mw_category_name": name,
-                            "mw_key": category_key,
-                            "mw_description": description,
-                            "mw_RoundId@odata.bind": bind("mw_rounds", round_id),
-                        },
-                    )
-                )
+        category_desired = build_categories(round_ids)
         category_records = sync_records(
             client,
             "mw_category",
@@ -386,10 +558,8 @@ def main():
         }
 
         members = list(MEMBERS)
-        if args.facilitator_email:
-            user_id, display_name = resolve_enabled_user(
-                client, args.facilitator_email
-            )
+        if args.admin_email:
+            user_id, display_name = resolve_enabled_user(client, args.admin_email)
             members.append(
                 (
                     user_id,
@@ -399,18 +569,18 @@ def main():
                 )
             )
 
-        for captain_spec in args.captain:
-            if "=" not in captain_spec:
+        for member_spec in args.member:
+            if "=" not in member_spec:
                 raise ValueError(
-                    f"Invalid --captain value '{captain_spec}'; use EMAIL=TEAM"
+                    f"Invalid --member value '{member_spec}'; use EMAIL=TEAM"
                 )
-            email, team_name = (part.strip() for part in captain_spec.split("=", 1))
+            email, team_name = (part.strip() for part in member_spec.split("=", 1))
             if team_name not in team_ids:
                 raise ValueError(
-                    f"Unknown captain team '{team_name}'; choose {', '.join(TEAMS)}"
+                    f"Unknown member team '{team_name}'; choose {', '.join(TEAMS)}"
                 )
-            if args.facilitator_email and email.lower() == args.facilitator_email.lower():
-                raise ValueError("A user cannot be rostered as facilitator and captain")
+            if args.admin_email and email.lower() == args.admin_email.lower():
+                raise ValueError("A user cannot be rostered as admin and member")
             user_id, display_name = resolve_enabled_user(client, email)
             members.append((user_id, display_name, team_name, True))
 
@@ -438,32 +608,7 @@ def main():
             ),
         )
 
-        allocation_desired = []
-        for round_data in ROUNDS:
-            index = round_data["index"]
-            round_id = round_ids[index]
-            for team_name in TEAMS:
-                team_id = team_ids[team_name]
-                amounts = ALLOCATIONS[(index, team_name)]
-                for category_tuple, amount in zip(round_data["categories"], amounts):
-                    category_key = category_tuple[0]
-                    category_id = category_map[(round_id, category_key)]["id"]
-                    payload = {
-                        "mw_allocation_name": (
-                            f"Apex R{index} - {team_name} - {category_key}"
-                        ),
-                        "mw_amount": amount,
-                        "mw_RoundId@odata.bind": bind("mw_rounds", round_id),
-                        "mw_TeamId@odata.bind": bind("mw_teams", team_id),
-                        "mw_CategoryId@odata.bind": bind(
-                            "mw_categories", category_id
-                        ),
-                    }
-                    if index < 3:
-                        payload["mw_submittedat"] = SUBMITTED_AT
-                    allocation_desired.append(
-                        ((round_id, team_id, category_id), payload)
-                    )
+        allocation_desired = build_allocations(round_ids, team_ids, category_map)
         sync_records(
             client,
             "mw_allocation",
@@ -528,16 +673,7 @@ def main():
             ),
         )
 
-        expected = {
-            "mw_simulation": 1,
-            "mw_round": 3,
-            "mw_category": 15,
-            "mw_team": 3,
-            "mw_teammember": len(members),
-            "mw_allocation": 45,
-            "mw_teamroundresult": 6,
-            "mw_weightsconfig": 1,
-        }
+        expected = build_expected_counts(len(members))
         actual = {
             "mw_simulation": sum(
                 1
@@ -597,6 +733,21 @@ def main():
                 1
                 for record in weights_records
                 if record.get("mw_weightsconfig_name") == "Apex Default Weights v1"
+            ),
+            "mw_configset": sum(
+                1
+                for record in config_set_records
+                if record.get("mw_version") == CONFIG_SET_VERSION
+            ),
+            "mw_weight": sum(
+                1
+                for record in weight_records
+                if record.get("_mw_configsetid_value") == config_set_id
+            ),
+            "mw_healthband": sum(
+                1
+                for record in health_band_records
+                if record.get("_mw_configsetid_value") == config_set_id
             ),
         }
         failures = []
