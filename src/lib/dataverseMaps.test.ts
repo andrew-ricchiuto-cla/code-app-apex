@@ -133,6 +133,49 @@ describe('Dataverse domain mappers', () => {
     })
   })
 
+  it('maps configuration numbers that Dataverse returns as runtime numbers', () => {
+    // Decimal/Integer columns arrive as JSON numbers at runtime even though
+    // the generated models declare them as strings.
+    const configSet = mapConfigSet({
+      mw_configsetid: 'config-set-id',
+      mw_configset_name: 'Apex Baseline',
+      mw_version: 'v1',
+      mw_status: 'Published',
+      mw_systemhealthbaseline: 52.5,
+      mw_publishedat: '2026-07-22T15:00:00Z',
+    } as unknown as Mw_configsets)
+    const weight = mapWeightRow({
+      mw_weightid: 'weight-id',
+      _mw_configsetid_value: 'config-set-id',
+      mw_eventkey: 'market-disruption',
+      mw_categorykey: 'ai-investment',
+      mw_value: 1.4,
+    } as unknown as Mw_weights)
+    const band = mapHealthBand({
+      mw_healthbandid: 'band-id',
+      _mw_configsetid_value: 'config-set-id',
+      mw_label: 'Yellow',
+      mw_minscore: 42.5,
+      mw_color: 'Yellow',
+      mw_displayorder: 2,
+    } as unknown as Mw_healthbands)
+
+    expect(configSet.systemHealthBaseline).toBe(52.5)
+    expect(weight.value).toBe(1.4)
+    expect(band.minScore).toBe(42.5)
+    expect(band.displayOrder).toBe(2)
+  })
+
+  it('maps null configuration numbers as invalid instead of crashing', () => {
+    const configSet = mapConfigSet({
+      mw_configsetid: 'config-set-id',
+      mw_status: 'Draft',
+      mw_systemhealthbaseline: null,
+    } as unknown as Mw_configsets)
+
+    expect(Number.isNaN(configSet.systemHealthBaseline)).toBe(true)
+  })
+
   it('maps missing configuration lookups without inventing identifiers', () => {
     const weight = {
       mw_weightid: 'weight-id',

@@ -34,8 +34,11 @@ function numberValue(value: string | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function configurationNumber(value: string | undefined): number {
-  if (value === undefined || value.trim() === '') return Number.NaN
+// Dataverse Decimal/Integer columns arrive as runtime numbers (or null when
+// empty) even though the generated models declare them as strings.
+function configurationNumber(value: string | number | null | undefined): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : Number.NaN
+  if (value === undefined || value === null || value.trim() === '') return Number.NaN
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : Number.NaN
 }
