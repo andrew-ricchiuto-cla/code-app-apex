@@ -557,19 +557,72 @@ describe('round lifecycle', () => {
     expect(dependencies.updateRound).not.toHaveBeenCalled()
   })
 
-  it('rejects Reveal when any required team submission is missing', async () => {
+  it('reveals a force-locked round scoring only the teams that submitted', async () => {
     vi.mocked(dependencies.listTeamSubmissions).mockResolvedValue([
       submissions[0]!,
     ])
 
-    await expect(
-      revealRound(
-        { round: round2, rounds: [round1, round2], teams },
-        dependencies,
+    await revealRound(
+      { round: round2, rounds: [round1, round2], teams },
+      dependencies,
+    )
+
+    expect(dependencies.createResult).toHaveBeenCalledTimes(1)
+    expect(dependencies.createResult).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: 'team-1' }),
+    )
+    expect(dependencies.updateRound).toHaveBeenCalledWith('round-2', {
+      status: 'Revealed',
+    })
+  })
+
+  it('carries forward the most recent revealed health for a team skipped earlier', async () => {
+    // Team 2 was skipped when round 2 was force-locked; revealing round 3 must
+    // use team-2's round-1 result, not reset it to the configuration baseline.
+    const round3: Round = { ...round1, id: 'round-3', index: 3, status: 'Locked' }
+    const revealedRound2: Round = { ...round2, status: 'Revealed' }
+    const created: TeamRoundResult[] = []
+    vi.mocked(dependencies.getRound).mockResolvedValue(round3)
+    vi.mocked(dependencies.createResult).mockImplementation(write => {
+      created.push({ id: `result-${write.teamId}`, ...write })
+      return Promise.resolve()
+    })
+    vi.mocked(dependencies.listResults).mockImplementation((roundId: string) =>
+      Promise.resolve(
+        roundId === 'round-1'
+          ? [
+              previousResult,
+              {
+                ...previousResult,
+                id: 'previous-result-2',
+                teamId: 'team-2',
+                newHealth: 58,
+              },
+            ]
+          : roundId === 'round-2'
+            ? [
+                {
+                  ...previousResult,
+                  id: 'round-2-result-1',
+                  roundId: 'round-2',
+                  newHealth: 70,
+                },
+              ]
+            : created,
       ),
-    ).rejects.toThrow(/Beta/)
-    expect(dependencies.createResult).not.toHaveBeenCalled()
-    expect(dependencies.updateRound).not.toHaveBeenCalled()
+    )
+
+    await revealRound(
+      { round: round3, rounds: [round1, revealedRound2, round3], teams },
+      dependencies,
+    )
+
+    expect(dependencies.createResult).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: 'team-1', previousHealth: 70 }),
+    )
+    expect(dependencies.createResult).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: 'team-2', previousHealth: 58 }),
+    )
   })
 
   it('rejects a submission for a team outside the round roster', async () => {

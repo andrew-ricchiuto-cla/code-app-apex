@@ -121,6 +121,7 @@ export function TeamWorkspace() {
   const {
     submission,
     isLoading: submissionLoading,
+    loadError: submissionLoadError,
     isSubmitting,
     submitError,
     warning,
@@ -177,7 +178,17 @@ export function TeamWorkspace() {
       </StateNotice>
     )
   } else if (currentRound.status === 'Open') {
-    workspaceContent = submission ? (
+    // Fail closed: without a submission-status answer, don't offer the form —
+    // it could invite a redundant submit against an already-locked allocation.
+    workspaceContent = submissionLoadError ? (
+      <div
+        role="alert"
+        className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800"
+      >
+        Could not confirm your team's submission status. Refresh the page to try
+        again.
+      </div>
+    ) : submission ? (
       <SubmittedAllocationCard
         submission={submission}
         categories={categories}

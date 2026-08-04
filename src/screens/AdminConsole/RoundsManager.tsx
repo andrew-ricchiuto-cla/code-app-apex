@@ -22,7 +22,7 @@ const STATUS_BADGE: Record<string, string> = {
 }
 
 export function RoundsManager({ configSets }: RoundsManagerProps) {
-  const { simulation, currentRound } = useSimulation()
+  const { simulation, currentRound, refresh } = useSimulation()
   const {
     rounds,
     isLoading,
@@ -73,11 +73,15 @@ export function RoundsManager({ configSets }: RoundsManagerProps) {
   async function handleActivateNext() {
     if (!nextPendingRound || !simulation) return
     await activateRound(nextPendingRound, simulation)
+    // The current round lives in SimulationContext; without this the Live Run
+    // tab keeps showing the previous round until a manual refresh.
+    refresh()
   }
 
   async function handleCompleteSimulation() {
     if (!simulation) return
     await completeSimulation(simulation)
+    refresh()
   }
 
   if (isLoading) {

@@ -16,6 +16,7 @@ const {
   mockRevealRound,
   mockAssignRoundConfiguration,
   mockActivateRound,
+  mockOpenAdministeredRound,
   mockListConfigSets,
   mockUseRoundAdmin,
   mockUseConfigurationAdmin,
@@ -30,6 +31,7 @@ const {
   mockRevealRound: vi.fn(),
   mockAssignRoundConfiguration: vi.fn(),
   mockActivateRound: vi.fn(),
+  mockOpenAdministeredRound: vi.fn(),
   mockListConfigSets: vi.fn(),
   mockUseRoundAdmin: vi.fn(),
   mockUseConfigurationAdmin: vi.fn(),
@@ -68,6 +70,7 @@ vi.mock('@/services/simulation/DataverseRoundLifecycle', () => ({
 
 vi.mock('@/services/rounds/RoundAdminService', () => ({
   activateRound: mockActivateRound,
+  openAdministeredRound: mockOpenAdministeredRound,
 }))
 
 vi.mock('@/services/rounds/DataverseRoundAdmin', () => ({
@@ -120,6 +123,7 @@ function renderAdminConsole({
   teams = mockTeams,
   teamsLoading = false,
   submissions = [],
+  submissionsError = null,
   rounds = [mockRound],
   refresh = vi.fn(),
 }: {
@@ -129,6 +133,7 @@ function renderAdminConsole({
   teams?: Team[]
   teamsLoading?: boolean
   submissions?: TeamSubmission[]
+  submissionsError?: Error | null
   rounds?: Round[]
   refresh?: () => void
 } = {}) {
@@ -145,7 +150,7 @@ function renderAdminConsole({
   mockUseRoundSubmissions.mockReturnValue({
     submissions,
     isLoading: false,
-    error: null,
+    error: submissionsError,
   })
   mockUseRounds.mockReturnValue({ rounds, isLoading: false })
 
@@ -161,6 +166,7 @@ describe('AdminConsole', () => {
     mockRevealRound.mockResolvedValue(undefined)
     mockAssignRoundConfiguration.mockResolvedValue(undefined)
     mockActivateRound.mockResolvedValue(undefined)
+    mockOpenAdministeredRound.mockResolvedValue(undefined)
     mockListConfigSets.mockResolvedValue(availableConfigSets)
     mockUseRoundAdmin.mockReturnValue({
       rounds: [mockRound],
@@ -320,7 +326,7 @@ describe('AdminConsole', () => {
     expect(mockUseRoundSubmissions).toHaveBeenLastCalledWith(mockRound.id, 1)
   })
 
-  it('opens a pending round through the lifecycle service and refreshes', async () => {
+  it('opens a pending round through the full administered open protocol', async () => {
     const refresh = vi.fn()
     const { user } = renderAdminConsole({
       currentRound: { ...mockRound, status: 'Pending' },
@@ -329,11 +335,11 @@ describe('AdminConsole', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open Round' }))
 
-    expect(mockOpenRound).toHaveBeenCalledWith(
+    expect(mockOpenAdministeredRound).toHaveBeenCalledWith(
       expect.objectContaining({ id: mockRound.id, status: 'Pending' }),
-      publishedConfig,
-      expect.objectContaining({ kind: 'test-dependencies' }),
+      expect.objectContaining({ kind: 'admin-test-dependencies' }),
     )
+    expect(mockOpenRound).not.toHaveBeenCalled()
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
@@ -395,7 +401,9 @@ describe('AdminConsole', () => {
 
   it('shows lifecycle errors and does not refresh', async () => {
     const refresh = vi.fn()
-    mockOpenRound.mockRejectedValue(new Error('Dataverse update failed'))
+    mockOpenAdministeredRound.mockRejectedValue(
+      new Error('Missing weight for new-event/reskilling.'),
+    )
     const { user } = renderAdminConsole({
       currentRound: { ...mockRound, status: 'Pending' },
       refresh,
@@ -403,8 +411,55 @@ describe('AdminConsole', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open Round' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Dataverse update failed')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Missing weight for new-event/reskilling.',
+    )
     expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('surfaces submission monitoring failures as an accessible error', () => {
+    renderAdminConsole({
+      currentRound: { ...mockRound, status: 'Open' },
+      submissionsError: new Error('Team submissions unavailable'),
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Team submissions unavailable')
+  })
+
+  it('reports the authoritative missing teams after a force lock', async () => {
+    // Pre-lock, Beta and Gamma are missing; Beta's in-flight submission commits
+    // during the command, so the authoritative post-lock report names only Gamma.
+    mockForceLockRound.mockResolvedValue({ missingTeams: [mockTeams[2]] })
+    const { user } = renderAdminConsole({
+      currentRound: { ...mockRound, status: 'Open' },
+      submissions: [buildSubmission('team-alpha')],
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Force Lock' }))
+    await user.click(screen.getByRole('button', { name: 'Confirm Force Lock' }))
+
+    const report = await screen.findByRole('status')
+    expect(report).toHaveTextContent('Team Gamma')
+    expect(report).not.toHaveTextContent('Team Beta')
+  })
+
+  it('keeps the selected tab across data refresh cycles', async () => {
+    const { user, rerender } = renderAdminConsole()
+    await user.click(screen.getByRole('tab', { name: 'Scoring' }))
+    expect(screen.getByRole('tab', { name: 'Scoring' })).toHaveAttribute(
+      'data-state',
+      'active',
+    )
+
+    mockUseTeams.mockReturnValue({ teams: mockTeams, isLoading: true })
+    rerender(<AdminConsole />)
+    mockUseTeams.mockReturnValue({ teams: mockTeams, isLoading: false })
+    rerender(<AdminConsole />)
+
+    expect(screen.getByRole('tab', { name: 'Scoring' })).toHaveAttribute(
+      'data-state',
+      'active',
+    )
   })
 
   it('offers only Published Config Sets for a pending round and persists selection', async () => {

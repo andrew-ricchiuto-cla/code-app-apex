@@ -105,6 +105,7 @@ function renderTeamWorkspace({
   updateAmount = vi.fn(),
   submission = null,
   submissionLoading = false,
+  submissionLoadError = null,
   isSubmitting = false,
   submitError = null,
   warning = null,
@@ -124,6 +125,7 @@ function renderTeamWorkspace({
   updateAmount?: (categoryId: string, amount: number) => void
   submission?: TeamSubmission | null
   submissionLoading?: boolean
+  submissionLoadError?: Error | null
   isSubmitting?: boolean
   submitError?: Error | null
   warning?: string | null
@@ -153,7 +155,7 @@ function renderTeamWorkspace({
   mockUseTeamSubmission.mockReturnValue({
     submission,
     isLoading: submissionLoading,
-    loadError: null,
+    loadError: submissionLoadError,
     isSubmitting,
     submitError,
     warning,
@@ -272,6 +274,18 @@ describe('TeamWorkspace', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent(/only while the round is Open/)
     expect(screen.getByRole('button', { name: 'Lock In Allocation' })).toBeInTheDocument()
+  })
+
+  it('fails closed when the submission status cannot be loaded', () => {
+    renderTeamWorkspace({
+      submissionLoadError: new Error('Dataverse unavailable'),
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /could not confirm your team's submission status/i,
+    )
+    expect(screen.queryByRole('button', { name: 'Lock In Allocation' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('AI Investment')).not.toBeInTheDocument()
   })
 
   it('shows the locked waiting state without editable controls', () => {

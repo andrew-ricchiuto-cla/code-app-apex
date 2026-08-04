@@ -302,10 +302,8 @@ function validateSubmissionIntegrity(
     }
   })
 
-  const missingTeams = missingSubmissionTeams(teams, submissions)
-  if (missingTeams.length > 0) {
-    errors.push(missingSubmissionMessage(missingTeams))
-  }
+  // Roster teams without a submission are NOT an error here: a force-locked
+  // round legitimately lacks them, and they are skipped (never scored).
   if (errors.length > 0) throw new Error(errors.join(' '))
 }
 
@@ -346,16 +344,21 @@ export async function revealRound(
   }
   const persistedRound = await revalidateRound(round, dependencies)
   assertLegalRoundTransition(persistedRound.status, 'Revealed')
-  const previousRound = [...rounds]
+  // All earlier revealed rounds, newest first: a team skipped in a force-locked
+  // round has no result there, so its health carries forward from the most
+  // recent round in which it was scored.
+  const previousRounds = [...rounds]
     .filter(candidate => candidate.index < round.index && candidate.status === 'Revealed')
-    .sort((left, right) => right.index - left.index)[0]
+    .sort((left, right) => right.index - left.index)
 
-  const [submissions, categories, currentResults, previousResults, configuration] =
+  const [submissions, categories, currentResults, previousResultsByRound, configuration] =
     await Promise.all([
       dependencies.listTeamSubmissions(round.id),
       dependencies.listCategories(round.id),
       dependencies.listResults(round.id),
-      previousRound ? dependencies.listResults(previousRound.id) : Promise.resolve([]),
+      Promise.all(
+        previousRounds.map(candidate => dependencies.listResults(candidate.id)),
+      ),
       loadScoringConfiguration(round.configSetId, dependencies),
     ])
 
@@ -370,9 +373,14 @@ export async function revealRound(
   const categoryNames = Object.fromEntries(
     categories.map(category => [category.id, category.name]),
   )
-  const previousByTeam = new Map(
-    previousResults.map(result => [result.teamId, result.newHealth]),
-  )
+  const previousByTeam = new Map<string, number>()
+  for (const results of previousResultsByRound) {
+    for (const result of results) {
+      if (!previousByTeam.has(result.teamId)) {
+        previousByTeam.set(result.teamId, result.newHealth)
+      }
+    }
+  }
   const currentByTeam = new Map(
     currentResults.map(result => [result.teamId, result]),
   )
@@ -380,12 +388,12 @@ export async function revealRound(
     submissions.map(submission => [submission.teamId, submission]),
   )
 
+  // Teams without a submission (force-locked round) are not scored — no
+  // manufactured result rows.
+  const submittedTeams = teams.filter(team => submissionByTeam.has(team.id))
   await Promise.all(
-    teams.map(async team => {
-      const submission = submissionByTeam.get(team.id)
-      if (!submission) {
-        throw new Error(missingSubmissionMessage([team]))
-      }
+    submittedTeams.map(async team => {
+      const submission = submissionByTeam.get(team.id)!
       const allocationMap = Object.fromEntries(
         submission.allocations.map(allocation => [
           allocation.categoryId,
@@ -421,7 +429,7 @@ export async function revealRound(
   const resultTeamIds = new Set(
     verifiedResults.map(result => result.teamId),
   )
-  const missingResultTeams = teams.filter(
+  const missingResultTeams = submittedTeams.filter(
     team => !resultTeamIds.has(team.id),
   )
   if (missingResultTeams.length > 0) {

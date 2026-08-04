@@ -306,6 +306,20 @@ describe('ConfigurationManager', () => {
     expect(onRefresh).toHaveBeenCalledTimes(1)
   })
 
+  it('blocks publish when no round requirements could be loaded', async () => {
+    defaultAdmin.loadRequiredPairs.mockResolvedValue([])
+    const { user, adminMock } = renderConfigurationManager()
+    await openDraftEditor(user)
+
+    await user.click(screen.getByRole('button', { name: 'Publish' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /no round categories are available/i,
+    )
+    expect(adminMock.saveDraft).not.toHaveBeenCalled()
+    expect(adminMock.publish).not.toHaveBeenCalled()
+  })
+
   it('does not publish when validation fails', async () => {
     const { user, adminMock } = renderConfigurationManager()
     await openDraftEditor(user)

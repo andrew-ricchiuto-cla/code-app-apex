@@ -73,15 +73,21 @@ function renderRoundsManager(
   simOverrides: Partial<{ simulation: Simulation | null; currentRound: Round | null }> = {},
 ) {
   const adminMock = { ...defaultActions, ...overrides }
+  const simRefresh = vi.fn()
   mockUseRoundAdmin.mockReturnValue(adminMock)
   mockUseSimulation.mockReturnValue({
     simulation: defaultSim,
     currentRound: revealedRound,
     isLoading: false,
-    refresh: vi.fn(),
+    refresh: simRefresh,
     ...simOverrides,
   })
-  return { user: userEvent.setup(), adminMock, ...render(<RoundsManager configSets={[]} />) }
+  return {
+    user: userEvent.setup(),
+    adminMock,
+    simRefresh,
+    ...render(<RoundsManager configSets={[]} />),
+  }
 }
 
 describe('RoundsManager', () => {
@@ -152,10 +158,11 @@ describe('RoundsManager', () => {
     expect(screen.getByRole('button', { name: /activate next round/i })).toBeInTheDocument()
   })
 
-  it('calls activateRound with the first Pending round and simulation', async () => {
-    const { user, adminMock } = renderRoundsManager()
+  it('calls activateRound with the first Pending round and refreshes the simulation', async () => {
+    const { user, adminMock, simRefresh } = renderRoundsManager()
     await user.click(screen.getByRole('button', { name: /activate next round/i }))
     expect(adminMock.activateRound).toHaveBeenCalledWith(pendingRound, defaultSim)
+    expect(simRefresh).toHaveBeenCalledTimes(1)
   })
 
   it('does not show Activate Next Round when no Pending rounds remain', () => {
@@ -182,10 +189,11 @@ describe('RoundsManager', () => {
     ).toBeInTheDocument()
   })
 
-  it('calls completeSimulation with simulation', async () => {
-    const { user, adminMock } = renderRoundsManager({ rounds: [revealedRound] })
+  it('calls completeSimulation with simulation and refreshes the simulation', async () => {
+    const { user, adminMock, simRefresh } = renderRoundsManager({ rounds: [revealedRound] })
     await user.click(screen.getByRole('button', { name: /complete simulation/i }))
     expect(adminMock.completeSimulation).toHaveBeenCalledWith(defaultSim)
+    expect(simRefresh).toHaveBeenCalledTimes(1)
   })
 
   it('does not show Complete Simulation while Pending rounds remain', () => {

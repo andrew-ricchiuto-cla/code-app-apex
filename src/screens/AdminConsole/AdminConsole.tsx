@@ -8,16 +8,18 @@ import { useRoundSubmissions } from '@/hooks/useRoundSubmissions'
 import { useRounds } from '@/hooks/useRounds'
 import { useTeams } from '@/hooks/useTeams'
 import { dataverseRoundAdmin } from '@/services/rounds/DataverseRoundAdmin'
-import { activateRound } from '@/services/rounds/RoundAdminService'
+import {
+  activateRound,
+  openAdministeredRound,
+} from '@/services/rounds/RoundAdminService'
 import { dataverseRoundLifecycle } from '@/services/simulation/DataverseRoundLifecycle'
 import {
   forceLockRound,
   lockRound,
-  openRound,
   revealRound,
   assignRoundConfiguration,
 } from '@/services/simulation/RoundLifecycle'
-import type { ConfigSet } from '@/types'
+import type { ConfigSet, Team } from '@/types'
 
 import { ConfigurationManager } from './ConfigurationManager'
 import { RoundManager } from './RoundManager'
@@ -30,6 +32,8 @@ export function AdminConsole() {
   const [configSets, setConfigSets] = useState<ConfigSet[]>([])
   const [configSetsError, setConfigSetsError] = useState<Error | null>(null)
   const [dataRefreshKey, setDataRefreshKey] = useState(0)
+  const [activeTab, setActiveTab] = useState('live-run')
+  const [forceLockReport, setForceLockReport] = useState<Team[] | null>(null)
   const { simulation, currentRound, isLoading: simLoading, refresh } = useSimulation()
   const { teams, isLoading: teamsLoading } = useTeams(
     simulation?.id ?? null,
@@ -39,10 +43,11 @@ export function AdminConsole() {
     simulation?.id ?? null,
     dataRefreshKey,
   )
-  const { submissions, isLoading: submissionsLoading } = useRoundSubmissions(
-    currentRound?.id ?? null,
-    dataRefreshKey,
-  )
+  const {
+    submissions,
+    isLoading: submissionsLoading,
+    error: submissionsError,
+  } = useRoundSubmissions(currentRound?.id ?? null, dataRefreshKey)
 
   useEffect(() => {
     let cancelled = false
@@ -88,6 +93,7 @@ export function AdminConsole() {
   const runAction = async (action: () => Promise<unknown>) => {
     setIsActioning(true)
     setActionError(null)
+    setForceLockReport(null)
     try {
       await action()
       refreshAll()
@@ -102,9 +108,7 @@ export function AdminConsole() {
     configSets.find(configSet => configSet.id === currentRound.configSetId) ?? null
 
   const handleOpenRound = () =>
-    runAction(() =>
-      openRound(currentRound, selectedConfigSet, dataverseRoundLifecycle),
-    )
+    runAction(() => openAdministeredRound(currentRound, dataverseRoundAdmin))
 
   const handleConfigurationChange = (configSetId: string) => {
     if (!configSetId) return
@@ -121,9 +125,13 @@ export function AdminConsole() {
     runAction(() => lockRound({ round: currentRound, teams }, dataverseRoundLifecycle))
 
   const handleForceLock = () =>
-    runAction(() =>
-      forceLockRound({ round: currentRound, teams }, dataverseRoundLifecycle),
-    )
+    runAction(async () => {
+      const result = await forceLockRound(
+        { round: currentRound, teams },
+        dataverseRoundLifecycle,
+      )
+      setForceLockReport(result.missingTeams)
+    })
 
   const handleRevealResults = () =>
     runAction(() =>
@@ -176,7 +184,7 @@ export function AdminConsole() {
       </header>
 
       <main className="mx-auto max-w-5xl p-8">
-        <Tabs defaultValue="live-run">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="live-run">Live Run</TabsTrigger>
             <TabsTrigger value="rounds">Rounds</TabsTrigger>
@@ -199,6 +207,24 @@ export function AdminConsole() {
                   className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800"
                 >
                   {configSetsError.message}
+                </div>
+              )}
+              {submissionsError && (
+                <div
+                  role="alert"
+                  className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-800"
+                >
+                  {submissionsError.message}
+                </div>
+              )}
+              {forceLockReport && forceLockReport.length > 0 && (
+                <div
+                  role="status"
+                  className="rounded-2xl border border-[#FBC55A] bg-[#FFF8E8] px-5 py-4 text-sm font-medium text-[#7a5200]"
+                >
+                  Round locked without submissions from:{' '}
+                  {forceLockReport.map(team => team.name).join(', ')}. These teams
+                  are not scored this round.
                 </div>
               )}
               <RoundManager

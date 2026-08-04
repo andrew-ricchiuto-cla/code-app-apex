@@ -214,6 +214,15 @@ function ConfigurationEditor({
   }
 
   async function handlePublish() {
+    // With zero known pairs, coverage validation would vacuously pass and the
+    // published version could never score a round — refuse instead.
+    if (requiredPairs.length === 0) {
+      setValidationErrors([
+        'No round categories are available to validate this configuration against. ' +
+          'Create rounds with categories before publishing.',
+      ])
+      return
+    }
     const input = buildInput()
     if (!validate(input)) return
     await onPublish(input, requiredPairs)
