@@ -318,7 +318,7 @@ describe('DataverseRoundAdmin', () => {
     expect(serviceMocks.allocations.create).toHaveBeenCalledTimes(1)
     expect(serviceMocks.allocations.create).toHaveBeenCalledWith({
       mw_allocation_name: `${roundId}:${teamId}:${categoryId}`,
-      mw_amount: '0',
+      mw_amount: 0,
       'mw_RoundId@odata.bind': `/mw_rounds(${roundId})`,
       'mw_TeamId@odata.bind': `/mw_teams(${teamId})`,
       'mw_CategoryId@odata.bind': `/mw_categories(${categoryId})`,

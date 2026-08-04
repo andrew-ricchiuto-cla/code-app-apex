@@ -198,7 +198,7 @@ export const dataverseRoundAdmin: RoundAdminDependencies = {
       await Mw_allocationsService.create({
         mw_allocation_name:
           `${normalizedRoundId}:${normalizedTeamId}:${normalizedCategoryId}`,
-        mw_amount: '0',
+        mw_amount: 0,
         'mw_RoundId@odata.bind': `/mw_rounds(${normalizedRoundId})`,
         'mw_TeamId@odata.bind': `/mw_teams(${normalizedTeamId})`,
         'mw_CategoryId@odata.bind':
