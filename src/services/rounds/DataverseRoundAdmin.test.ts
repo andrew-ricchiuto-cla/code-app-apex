@@ -70,7 +70,7 @@ describe('DataverseRoundAdmin', () => {
     })
   })
 
-  it('creates a round with normalized lookup binds and string numeric fields', async () => {
+  it('creates a round with normalized lookup binds and numeric fields', async () => {
     serviceMocks.rounds.create.mockResolvedValue({
       success: true,
       data: {
@@ -105,11 +105,11 @@ describe('DataverseRoundAdmin', () => {
 
     expect(serviceMocks.rounds.create).toHaveBeenCalledWith({
       mw_round_name: 'Retention shock',
-      mw_index: '2',
+      mw_index: 2,
       mw_eventkey: 'retention',
       mw_eventtitle: 'Retention shock',
       mw_eventdescription: 'Respond to attrition.',
-      mw_budget: '100',
+      mw_budget: 100,
       mw_status: 'Pending',
       'mw_SimulationId@odata.bind': `/mw_simulations(${simulationId})`,
       'mw_ConfigSetId@odata.bind': `/mw_configsets(${configSetId})`,
@@ -146,7 +146,7 @@ describe('DataverseRoundAdmin', () => {
       mw_category_name: 'Reskilling',
       mw_key: 'reskilling',
       mw_description: 'Invest in skills.',
-      mw_displayorder: '3',
+      mw_displayorder: 3,
       'mw_RoundId@odata.bind': `/mw_rounds(${roundId})`,
     })
 
@@ -155,7 +155,7 @@ describe('DataverseRoundAdmin', () => {
       configSetId: null,
     })
     expect(serviceMocks.rounds.update).toHaveBeenCalledWith(roundId, {
-      mw_budget: '125.5',
+      mw_budget: 125.5,
       'mw_ConfigSetId@odata.bind': null,
     })
 
@@ -173,7 +173,7 @@ describe('DataverseRoundAdmin', () => {
       mw_category_name: 'Automation',
       mw_key: 'automation',
       mw_description: 'Automate repeatable work.',
-      mw_displayorder: '4',
+      mw_displayorder: 4,
       'mw_RoundId@odata.bind': `/mw_rounds(${roundId})`,
     })
 

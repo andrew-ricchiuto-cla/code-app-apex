@@ -141,22 +141,22 @@ describe('DataverseConfigurationAdmin', () => {
       mw_configset_name: 'Working Copy',
       mw_version: '2.0',
       mw_status: 'Draft',
-      mw_systemhealthbaseline: '52.5',
+      mw_systemhealthbaseline: 52.5,
       mw_publishedat: null,
     })
     expect(serviceMocks.weights.create).toHaveBeenCalledWith({
       mw_weight_name: 'retention:reskilling',
       mw_eventkey: 'retention',
       mw_categorykey: 'reskilling',
-      mw_value: '1.25',
+      mw_value: 1.25,
       'mw_ConfigSetId@odata.bind': `/mw_configsets(${draftId})`,
     })
     expect(serviceMocks.healthBands.create).toHaveBeenCalledWith({
       mw_healthband_name: 'Red',
       mw_label: 'Red',
-      mw_minscore: '0',
+      mw_minscore: 0,
       mw_color: 'Red',
-      mw_displayorder: '1',
+      mw_displayorder: 1,
       'mw_ConfigSetId@odata.bind': `/mw_configsets(${draftId})`,
     })
   })
@@ -202,7 +202,7 @@ describe('DataverseConfigurationAdmin', () => {
     })
   })
 
-  it('updates and deletes configuration rows with string numeric fields', async () => {
+  it('updates and deletes configuration rows with numeric fields', async () => {
     await dataverseConfigurationAdmin.updateConfigSet(
       `{${draftId.toUpperCase()}}`,
       {
@@ -235,22 +235,22 @@ describe('DataverseConfigurationAdmin', () => {
 
     expect(serviceMocks.configSets.update).toHaveBeenCalledWith(draftId, {
       mw_status: 'Published',
-      mw_systemhealthbaseline: '57.75',
+      mw_systemhealthbaseline: 57.75,
       mw_publishedat: '2026-07-27T16:00:00.000Z',
     })
     expect(serviceMocks.weights.update).toHaveBeenCalledWith(weightId, {
       mw_weight_name: 'retention:reskilling',
       mw_eventkey: 'retention',
       mw_categorykey: 'reskilling',
-      mw_value: '1.5',
+      mw_value: 1.5,
       'mw_ConfigSetId@odata.bind': `/mw_configsets(${draftId})`,
     })
     expect(serviceMocks.healthBands.update).toHaveBeenCalledWith(bandId, {
       mw_healthband_name: 'Green',
       mw_label: 'Green',
-      mw_minscore: '75.25',
+      mw_minscore: 75.25,
       mw_color: 'Green',
-      mw_displayorder: '3',
+      mw_displayorder: 3,
       'mw_ConfigSetId@odata.bind': `/mw_configsets(${draftId})`,
     })
     expect(serviceMocks.weights.delete).toHaveBeenCalledWith(weightId)

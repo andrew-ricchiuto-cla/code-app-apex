@@ -6,6 +6,7 @@ import { Mw_simulationsService } from '@/generated/services/Mw_simulationsServic
 import { mapRound, mapSimulation } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
 import { mockRound3, mockSimulation } from '@/test/mockData'
+import { toError } from '@/lib/errors'
 
 interface SimulationContextValue {
   simulation: Simulation | null
@@ -50,7 +51,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         }
       } catch (cause) {
         if (cancelled) return
-        setError(cause instanceof Error ? cause : new Error(String(cause)))
+        setError(toError(cause))
         if (import.meta.env.DEV) {
           setSimulation(mockSimulation)
           setCurrentRound(mockRound3)

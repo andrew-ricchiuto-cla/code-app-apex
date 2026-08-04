@@ -6,6 +6,7 @@ import { Mw_teamroundresultsService } from '@/generated/services/Mw_teamroundres
 import { mapRound, mapTeamRoundResult } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
 import { mockAllRounds, mockAllTeamRoundResults } from '@/test/mockData'
+import { toError } from '@/lib/errors'
 
 /** Returns results for every revealed round in a simulation — used for the health trend chart. */
 export function useAllRoundResults(
@@ -46,7 +47,7 @@ export function useAllRoundResults(
       })
       .catch(cause => {
         if (cancelled) return
-        setError(cause instanceof Error ? cause : new Error(String(cause)))
+        setError(toError(cause))
         if (import.meta.env.DEV) {
           const roundIds = new Set(
             mockAllRounds

@@ -20,11 +20,14 @@ import { ConfigurationSourceUnavailableError } from '@/services/configuration/Co
 
 import type { ResultWrite, RoundLifecycleDependencies } from './RoundLifecycle'
 
+// Decimal columns must be written as JSON numbers: the generated models type
+// them as string, but Dataverse rejects string decimals (IEEE754Compatible is
+// false on the wire), and they arrive as runtime numbers on reads.
 function resultFields(result: ResultWrite) {
   return {
-    mw_previoushealth: result.previousHealth.toString(),
-    mw_newhealth: result.newHealth.toString(),
-    mw_delta: result.delta.toString(),
+    mw_previoushealth: result.previousHealth,
+    mw_newhealth: result.newHealth,
+    mw_delta: result.delta,
     mw_contributionsjson: JSON.stringify(result.contributions),
     mw_rationale: result.rationale,
   }
@@ -102,7 +105,10 @@ export const dataverseRoundLifecycle: RoundLifecycleDependencies = {
 
   async updateResult(resultId, result) {
     requireData(
-      await Mw_teamroundresultsService.update(resultId, resultFields(result)),
+      await Mw_teamroundresultsService.update(
+        resultId,
+        resultFields(result) as never,
+      ),
     )
   },
 

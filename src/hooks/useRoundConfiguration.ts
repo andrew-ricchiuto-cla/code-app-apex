@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { loadRoundConfiguration } from '@/services/simulation/RoundLifecycle'
 import { dataverseRoundLifecycle } from '@/services/simulation/DataverseRoundLifecycle'
 import type { ConfigSet, HealthBand } from '@/types'
+import { toError } from '@/lib/errors'
 
 export interface RoundConfigurationState {
   configSet: ConfigSet | null
@@ -57,7 +58,7 @@ export function useRoundConfiguration(
           isLoading: false,
           isFallback: false,
           warning: null,
-          error: cause instanceof Error ? cause : new Error(String(cause)),
+          error: toError(cause),
         })
       })
 

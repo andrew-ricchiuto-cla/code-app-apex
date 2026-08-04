@@ -31,21 +31,23 @@ function lookupBind(entitySet: string, id: string): string {
   return `/${entitySet}(${normalizeDataverseGuid(id)})`
 }
 
-function roundFields(input: RoundWrite): Record<string, string | null> {
-  const fields: Record<string, string | null> = {}
+// Numeric columns are written as JSON numbers even though the generated
+// models type them as string — Dataverse rejects string-formatted decimals.
+function roundFields(input: RoundWrite): Record<string, string | number | null> {
+  const fields: Record<string, string | number | null> = {}
   if (input.simulationId !== undefined) {
     fields['mw_SimulationId@odata.bind'] = lookupBind(
       'mw_simulations',
       input.simulationId,
     )
   }
-  if (input.index !== undefined) fields.mw_index = input.index.toString()
+  if (input.index !== undefined) fields.mw_index = input.index
   if (input.eventKey !== undefined) fields.mw_eventkey = input.eventKey
   if (input.eventTitle !== undefined) fields.mw_eventtitle = input.eventTitle
   if (input.eventDescription !== undefined) {
     fields.mw_eventdescription = input.eventDescription
   }
-  if (input.budget !== undefined) fields.mw_budget = input.budget.toString()
+  if (input.budget !== undefined) fields.mw_budget = input.budget
   if (input.status !== undefined) fields.mw_status = input.status
   if (input.configSetId !== undefined) {
     fields['mw_ConfigSetId@odata.bind'] = input.configSetId
@@ -62,12 +64,12 @@ function roundFields(input: RoundWrite): Record<string, string | null> {
 
 function categoryFields(
   input: CategoryDraftWrite,
-): Record<string, string> {
+): Record<string, string | number> {
   return {
     mw_category_name: input.name,
     mw_key: input.key,
     mw_description: input.description,
-    mw_displayorder: input.displayOrder.toString(),
+    mw_displayorder: input.displayOrder,
     'mw_RoundId@odata.bind': lookupBind('mw_rounds', input.roundId),
   }
 }

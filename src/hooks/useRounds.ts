@@ -5,6 +5,7 @@ import { Mw_roundsService } from '@/generated/services/Mw_roundsService'
 import { mapRound } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
 import { mockAllRounds } from '@/test/mockData'
+import { toError } from '@/lib/errors'
 
 export function useRounds(
   simulationId: string | null,
@@ -31,7 +32,7 @@ export function useRounds(
       })
       .catch(cause => {
         if (cancelled) return
-        setError(cause instanceof Error ? cause : new Error(String(cause)))
+        setError(toError(cause))
         if (import.meta.env.DEV) {
           setRounds(mockAllRounds.filter(round => round.simulationId === simulationId))
         }

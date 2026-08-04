@@ -11,6 +11,7 @@ import {
   type RequiredConfigurationPair,
 } from '@/services/configuration/ConfigurationAdminService'
 import { dataverseRoundAdmin } from '@/services/rounds/DataverseRoundAdmin'
+import { toError } from '@/lib/errors'
 
 export interface ConfigurationDetails {
   weights: WeightRow[]
@@ -45,7 +46,7 @@ export function useConfigurationAdmin(): UseConfigurationAdminResult {
     try {
       return await fn()
     } catch (cause) {
-      setCommandError(cause instanceof Error ? cause : new Error(String(cause)))
+      setCommandError(toError(cause))
       throw cause
     } finally {
       setIsActioning(false)

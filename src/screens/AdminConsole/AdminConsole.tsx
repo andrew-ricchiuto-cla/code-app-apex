@@ -25,6 +25,7 @@ import { ConfigurationManager } from './ConfigurationManager'
 import { RoundManager } from './RoundManager'
 import { RoundsManager } from './RoundsManager'
 import { SubmissionMonitor } from './SubmissionMonitor'
+import { toError } from '@/lib/errors'
 
 export function AdminConsole() {
   const [isActioning, setIsActioning] = useState(false)
@@ -59,7 +60,7 @@ export function AdminConsole() {
       })
       .catch(cause => {
         if (cancelled) return
-        setConfigSetsError(cause instanceof Error ? cause : new Error(String(cause)))
+        setConfigSetsError(toError(cause))
       })
     return () => {
       cancelled = true
@@ -98,7 +99,7 @@ export function AdminConsole() {
       await action()
       refreshAll()
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause : new Error(String(cause)))
+      setActionError(toError(cause))
     } finally {
       setIsActioning(false)
     }

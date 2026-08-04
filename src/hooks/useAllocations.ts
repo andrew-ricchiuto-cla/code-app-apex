@@ -6,6 +6,7 @@ import { Mw_categoriesService } from '@/generated/services/Mw_categoriesService'
 import { mapAllocation, mapCategory } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
 import { mockAllocations, mockAllocationsRound3, mockCategories, mockCategoriesRound2, mockCategoriesRound3 } from '@/test/mockData'
+import { toError } from '@/lib/errors'
 
 const ALL_CATEGORIES = [...mockCategories, ...mockCategoriesRound2, ...mockCategoriesRound3]
 const ALL_ALLOCATIONS = [...mockAllocations, ...mockAllocationsRound3]
@@ -48,7 +49,7 @@ export function useAllocations(
       })
       .catch(cause => {
         if (cancelled) return
-        setError(cause instanceof Error ? cause : new Error(String(cause)))
+        setError(toError(cause))
         if (import.meta.env.DEV) {
           setCategories(ALL_CATEGORIES.filter(category => category.roundId === roundId))
           setAllocations(

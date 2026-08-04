@@ -169,13 +169,13 @@ describe('DataverseTeamSubmissions', () => {
     expect(serviceMocks.allocations.update).toHaveBeenCalledWith(
       existingAllocationId,
       {
-        mw_amount: '60',
+        mw_amount: 60,
         mw_submittedat: submission.submittedAt,
       },
     )
     expect(serviceMocks.allocations.create).toHaveBeenCalledWith({
       mw_allocation_name: `${roundId}:${teamId}:${secondCategoryId}`,
-      mw_amount: '40',
+      mw_amount: 40,
       mw_submittedat: submission.submittedAt,
       'mw_RoundId@odata.bind': `/mw_rounds(${roundId})`,
       'mw_TeamId@odata.bind': `/mw_teams(${teamId})`,

@@ -6,6 +6,7 @@ import { Mw_teamsService } from '@/generated/services/Mw_teamsService'
 import { mapTeam, mapTeamMember } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
 import { mockTeams, mockTeamMembers } from '@/test/mockData'
+import { toError } from '@/lib/errors'
 
 interface UseMyTeamResult {
   team: Team | null
@@ -40,7 +41,7 @@ export function useMyTeam(teamId: string | null): UseMyTeamResult {
       })
       .catch(cause => {
         if (cancelled) return
-        setError(cause instanceof Error ? cause : new Error(String(cause)))
+        setError(toError(cause))
         if (import.meta.env.DEV) {
           setTeam(mockTeams.find(item => item.id === teamId) ?? null)
           setMembers(mockTeamMembers.filter(member => member.teamId === teamId))

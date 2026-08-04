@@ -19,28 +19,29 @@ import type {
   WeightWrite,
 } from './ConfigurationAdminService'
 
+// Numeric columns are written as JSON numbers even though the generated
+// models type them as string — Dataverse rejects string-formatted decimals.
 function configSetCreateFields(
   input: ConfigSetCreate,
-): Record<string, string | null> {
+): Record<string, string | number | null> {
   return {
     mw_configset_name: input.name,
     mw_version: input.version,
     mw_status: input.status,
-    mw_systemhealthbaseline: input.systemHealthBaseline.toString(),
+    mw_systemhealthbaseline: input.systemHealthBaseline,
     mw_publishedat: input.publishedAt,
   }
 }
 
 function configSetUpdateFields(
   changes: ConfigSetChanges,
-): Record<string, string | null> {
-  const fields: Record<string, string | null> = {}
+): Record<string, string | number | null> {
+  const fields: Record<string, string | number | null> = {}
   if (changes.name !== undefined) fields.mw_configset_name = changes.name
   if (changes.version !== undefined) fields.mw_version = changes.version
   if (changes.status !== undefined) fields.mw_status = changes.status
   if (changes.systemHealthBaseline !== undefined) {
-    fields.mw_systemhealthbaseline =
-      changes.systemHealthBaseline.toString()
+    fields.mw_systemhealthbaseline = changes.systemHealthBaseline
   }
   if (changes.publishedAt !== undefined) {
     fields.mw_publishedat = changes.publishedAt
@@ -48,25 +49,27 @@ function configSetUpdateFields(
   return fields
 }
 
-function weightFields(input: WeightWrite): Record<string, string> {
+function weightFields(input: WeightWrite): Record<string, string | number> {
   const configSetId = normalizeDataverseGuid(input.configSetId)
   return {
     mw_weight_name: `${input.eventKey}:${input.categoryKey}`,
     mw_eventkey: input.eventKey,
     mw_categorykey: input.categoryKey,
-    mw_value: input.value.toString(),
+    mw_value: input.value,
     'mw_ConfigSetId@odata.bind': `/mw_configsets(${configSetId})`,
   }
 }
 
-function healthBandFields(input: HealthBandWrite): Record<string, string> {
+function healthBandFields(
+  input: HealthBandWrite,
+): Record<string, string | number> {
   const configSetId = normalizeDataverseGuid(input.configSetId)
   return {
     mw_healthband_name: input.label,
     mw_label: input.label,
-    mw_minscore: input.minScore.toString(),
+    mw_minscore: input.minScore,
     mw_color: input.color,
-    mw_displayorder: input.displayOrder.toString(),
+    mw_displayorder: input.displayOrder,
     'mw_ConfigSetId@odata.bind': `/mw_configsets(${configSetId})`,
   }
 }

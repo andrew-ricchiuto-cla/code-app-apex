@@ -5,6 +5,7 @@ import { Mw_teamroundresultsService } from '@/generated/services/Mw_teamroundres
 import { mapTeamRoundResult } from '@/lib/dataverseMaps'
 import { requireData } from '@/lib/powerAppsData'
 import { mockAllTeamRoundResults } from '@/test/mockData'
+import { toError } from '@/lib/errors'
 
 export function useRoundResults(roundId: string | null, refreshKey?: string | number) {
   const [results, setResults] = useState<TeamRoundResult[]>([])
@@ -27,7 +28,7 @@ export function useRoundResults(roundId: string | null, refreshKey?: string | nu
       })
       .catch(cause => {
         if (cancelled) return
-        setError(cause instanceof Error ? cause : new Error(String(cause)))
+        setError(toError(cause))
         if (import.meta.env.DEV) {
           setResults(mockAllTeamRoundResults.filter(result => result.roundId === roundId))
         }

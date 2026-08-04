@@ -10,6 +10,7 @@ import {
   completeSimulation as completeSimulationOp,
 } from '@/services/rounds/RoundAdminService'
 import { mockAllRounds } from '@/test/mockData'
+import { toError } from '@/lib/errors'
 
 export interface UseRoundAdminResult {
   rounds: Round[]
@@ -49,7 +50,7 @@ export function useRoundAdmin(simulationId: string | null): UseRoundAdminResult 
       })
       .catch(cause => {
         if (cancelled) return
-        setLoadError(cause instanceof Error ? cause : new Error(String(cause)))
+        setLoadError(toError(cause))
         if (import.meta.env.DEV) {
           setRounds(mockAllRounds.filter(r => r.simulationId === simulationId))
         }
@@ -70,7 +71,7 @@ export function useRoundAdmin(simulationId: string | null): UseRoundAdminResult 
       setTick(t => t + 1)
       return result
     } catch (cause) {
-      setCommandError(cause instanceof Error ? cause : new Error(String(cause)))
+      setCommandError(toError(cause))
       throw cause
     } finally {
       setIsActioning(false)

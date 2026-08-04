@@ -73,6 +73,20 @@ describe('DataverseRoundLifecycle', () => {
     expect(serviceMocks.results.update).not.toHaveBeenCalled()
   })
 
+  it('writes result decimal fields as JSON numbers', async () => {
+    serviceMocks.results.create.mockResolvedValue({ success: true, data: {} })
+
+    await dataverseRoundLifecycle.createResult(result)
+
+    expect(serviceMocks.results.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mw_previoushealth: 50,
+        mw_newhealth: 60,
+        mw_delta: 10,
+      }),
+    )
+  })
+
   it('binds a normalized Config Set lookup with exact generated casing', async () => {
     serviceMocks.rounds.update.mockResolvedValue({ success: true, data: {} })
 

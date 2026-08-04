@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import type { TeamSubmission } from '@/types'
 import { dataverseRoundLifecycle } from '@/services/simulation/DataverseRoundLifecycle'
+import { toError } from '@/lib/errors'
 
 interface UseRoundSubmissionsResult {
   submissions: TeamSubmission[]
@@ -32,7 +33,7 @@ export function useRoundSubmissions(
       })
       .catch(cause => {
         if (cancelled) return
-        setError(cause instanceof Error ? cause : new Error(String(cause)))
+        setError(toError(cause))
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)

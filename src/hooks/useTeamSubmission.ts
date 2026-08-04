@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { TeamSubmission, TeamSubmissionAllocation } from '@/types'
 import { dataverseTeamSubmissions } from '@/services/submissions/DataverseTeamSubmissions'
 import { submitTeamAllocation } from '@/services/submissions/TeamSubmissionService'
+import { toError } from '@/lib/errors'
 
 export interface UseTeamSubmissionResult {
   submission: TeamSubmission | null
@@ -46,7 +47,7 @@ export function useTeamSubmission(
       })
       .catch(cause => {
         if (cancelled) return
-        setLoadError(cause instanceof Error ? cause : new Error(String(cause)))
+        setLoadError(toError(cause))
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
@@ -70,7 +71,7 @@ export function useTeamSubmission(
         setSubmittedByTeammate(!outcome.won)
         setWarning(outcome.warning)
       } catch (cause) {
-        setSubmitError(cause instanceof Error ? cause : new Error(String(cause)))
+        setSubmitError(toError(cause))
       } finally {
         setIsSubmitting(false)
       }

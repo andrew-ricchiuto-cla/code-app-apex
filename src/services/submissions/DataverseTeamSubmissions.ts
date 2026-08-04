@@ -114,15 +114,16 @@ export const dataverseTeamSubmissions: TeamSubmissionDependencies = {
           top: 1,
         }),
       )[0]
+      // mw_amount is a decimal column: write a JSON number, not a string.
       const fields = {
-        mw_amount: allocation.amount.toString(),
+        mw_amount: allocation.amount,
         mw_submittedat: submission.submittedAt,
       }
       if (existing) {
         requireData(
           await Mw_allocationsService.update(
             normalizeDataverseGuid(existing.mw_allocationid),
-            fields,
+            fields as never,
           ),
         )
       } else {
