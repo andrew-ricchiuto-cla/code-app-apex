@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { scoreRound } from './ScoringEngine'
+import { PROVISIONAL_IMPACT_SCALE, scoreRound } from './ScoringEngine'
 
 const base = {
   previousHealth: 50,
@@ -11,6 +11,23 @@ const base = {
 }
 
 describe('scoreRound', () => {
+  it('uses the provisional impact scale', () => {
+    expect(PROVISIONAL_IMPACT_SCALE).toBe(20)
+  })
+
+  it('calculates weighted impact using the provisional scale', () => {
+    const result = scoreRound({
+      previousHealth: 50,
+      budget: 100,
+      allocations: { catA: 100 },
+      eventWeights: { catA: 1.5 },
+    })
+
+    expect(result.newHealth).toBe(80)
+    expect(result.delta).toBe(30)
+    expect(result.contributions[0]?.weightedImpact).toBe(30)
+  })
+
   it('returns newHealth in [0, 100]', () => {
     const { newHealth } = scoreRound(base)
     expect(newHealth).toBeGreaterThanOrEqual(0)

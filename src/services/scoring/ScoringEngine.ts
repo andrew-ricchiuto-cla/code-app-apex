@@ -5,14 +5,20 @@ import type {
 } from './types'
 
 /**
- * Stub scoring engine.
+ * Provisional scoring engine.
  *
- * STUB FORMULA: delta = Σ (amount / budget × weight) × 20
+ * PROVISIONAL FORMULA: delta = Σ (amount / budget × weight) × PROVISIONAL_IMPACT_SCALE
  * This caps the max delta at ~20 points per round.
  *
  * Replace the body of this function with the real formula from the Excel model.
  * The signature is stable — callers will not need to change.
  */
+/**
+ * Temporary calibration until stakeholders provide the approved formula.
+ * It yields roughly a 20-point swing when the full budget has neutral weight.
+ */
+export const PROVISIONAL_IMPACT_SCALE = 20
+
 export function scoreRound(input: ScoringInput): ScoringResult {
   const {
     previousHealth,
@@ -26,7 +32,7 @@ export function scoreRound(input: ScoringInput): ScoringResult {
     ([categoryId, amount]) => {
       const weight = eventWeights[categoryId] ?? 1.0
       const proportion = budget > 0 ? amount / budget : 0
-      const weightedImpact = proportion * weight * 20
+      const weightedImpact = proportion * weight * PROVISIONAL_IMPACT_SCALE
 
       return {
         categoryId,
