@@ -5,20 +5,21 @@ import type {
 } from './types'
 
 /**
+ * Temporary calibration until stakeholders provide the approved formula.
+ * A full-budget allocation with neutral weight (1.0) yields a 20-point impact.
+ */
+export const PROVISIONAL_IMPACT_SCALE = 20
+
+/**
  * Provisional scoring engine.
  *
- * PROVISIONAL FORMULA: delta = Σ (amount / budget × weight) × PROVISIONAL_IMPACT_SCALE
- * This caps the max delta at ~20 points per round.
+ * PROVISIONAL FORMULA: delta = Σ (amount / budget × weight) × PROVISIONAL_IMPACT_SCALE.
+ * The 20-point scale is calibrated for a full-budget allocation with neutral weights;
+ * configured weights can produce larger or negative deltas.
  *
  * Replace the body of this function with the real formula from the Excel model.
  * The signature is stable — callers will not need to change.
  */
-/**
- * Temporary calibration until stakeholders provide the approved formula.
- * It yields roughly a 20-point swing when the full budget has neutral weight.
- */
-export const PROVISIONAL_IMPACT_SCALE = 20
-
 export function scoreRound(input: ScoringInput): ScoringResult {
   const {
     previousHealth,
