@@ -13,11 +13,13 @@ import { fmt1 } from "@/lib/format";
 import { useGame, useTeamResults } from "@/lib/store";
 
 export function PlayPage() {
-  const { state, dispatch } = useGame();
-  const [teamId, setTeamId] = useState(state.teams[0]?.id ?? "");
+  const { state, dispatch, role, myTeamKey } = useGame();
+  const isTeamRole = role === "team" && myTeamKey !== null;
+  const [teamId, setTeamId] = useState(myTeamKey ?? state.teams[0]?.id ?? "");
   const [round, setRound] = useState(1);
 
-  const team = state.teams.find((t) => t.id === teamId) ?? state.teams[0];
+  const effectiveTeamId = isTeamRole ? myTeamKey : teamId;
+  const team = state.teams.find((t) => t.id === effectiveTeamId) ?? state.teams[0];
   const results = useTeamResults(team?.id ?? "");
 
   const effectiveRound = Math.min(round, state.currentRound);
@@ -47,18 +49,24 @@ export function PlayPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={team.id} onValueChange={setTeamId}>
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {state.teams.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {isTeamRole ? (
+          <Badge variant="outline" className="border-primary/40 text-primary h-8 px-3 text-sm">
+            {team.name}
+          </Badge>
+        ) : (
+          <Select value={team.id} onValueChange={setTeamId}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {state.teams.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={String(effectiveRound)} onValueChange={(v) => setRound(Number(v))}>
           <SelectTrigger className="w-56">
             <SelectValue />
@@ -93,15 +101,19 @@ export function PlayPage() {
           )}
         </div>
         {submitted ? (
-          <Button
-            variant="outline"
-            onClick={() => {
-              dispatch({ type: "setSubmitted", teamId: team.id, round: effectiveRound, submitted: false });
-              toast.info(`${team.name} round ${effectiveRound} unlocked for editing`);
-            }}
-          >
-            Unlock round
-          </Button>
+          role === "facilitator" ? (
+            <Button
+              variant="outline"
+              onClick={() => {
+                dispatch({ type: "setSubmitted", teamId: team.id, round: effectiveRound, submitted: false });
+                toast.info(`${team.name} round ${effectiveRound} unlocked for editing`);
+              }}
+            >
+              Unlock round
+            </Button>
+          ) : (
+            <Badge variant="secondary">Locked — ask the facilitator to unlock</Badge>
+          )
         ) : (
           <Button
             disabled={!canSubmit}

@@ -59,5 +59,16 @@ Then, for every deploy:
 npm run build && npx pa app push
 ```
 
-Game state persists in the browser (localStorage) with JSON export/import under
-Facilitator → Game → Data.
+## Storage modes
+
+- **Shared game (Dataverse)** — teams play from their own devices. The facilitator creates a
+  game from the start screen; each team joins it and plays as themselves. Only decisions and
+  the model config are stored (tables `mw_apexgame`, `mw_apexteam`, `mw_apexteamround` in the
+  ApexV2 solution); every device recomputes results with the engine, so a facilitator
+  coefficient change re-scores the game for everyone within seconds. Writes are debounced and
+  a 5-second poll merges other devices' changes, skipping rows being edited locally.
+  Players need the **Apex Player** security role (global create/read/write on the three
+  tables) plus access to the app.
+- **Local sandbox** — single-device localStorage mode with JSON export/import under
+  Facilitator → Game → Data. Used automatically outside the Power Apps runtime (e.g.
+  `npm run dev`); ideal for facilitator prep and coefficient tuning.

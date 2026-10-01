@@ -341,7 +341,8 @@ function ChoicesEditor({ config, update }: { config: EngineConfig; update: Confi
 }
 
 export function FacilitatorPage() {
-  const { state, dispatch } = useGame();
+  const { state, dispatch, session } = useGame();
+  const isShared = session.mode === "shared";
   const config = state.config;
   const [importText, setImportText] = useState("");
   const importDialogClose = useRef<HTMLButtonElement>(null);
@@ -387,17 +388,19 @@ export function FacilitatorPage() {
                 <Label className="text-xs">Game name</Label>
                 <Input className="w-64" value={state.gameName} onChange={(e) => dispatch({ type: "setGameName", name: e.target.value })} />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Teams</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  className="w-20"
-                  value={state.teams.length}
-                  onChange={(e) => dispatch({ type: "setTeamCount", count: Number(e.target.value) || 1 })}
-                />
-              </div>
+              {!isShared && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Teams</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    className="w-20"
+                    value={state.teams.length}
+                    onChange={(e) => dispatch({ type: "setTeamCount", count: Number(e.target.value) || 1 })}
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-2 pb-2">
                 <Label className="text-xs">Under-the-hood panel</Label>
                 <Switch checked={state.underHood} onCheckedChange={(v) => dispatch({ type: "setUnderHood", value: v })} />
@@ -410,7 +413,7 @@ export function FacilitatorPage() {
             </div>
             <p className="text-muted-foreground text-xs">
               Disable the under-the-hood panel before running the exercise with participants; it exposes the full scoring
-              mechanics.
+              mechanics.{isShared && " Shared game: team count is fixed at creation; import and reset are local-sandbox features — create a new shared game instead."}
             </p>
           </CardContent>
         </Card>
@@ -432,7 +435,9 @@ export function FacilitatorPage() {
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline">Import game JSON</Button>
+                <Button variant="outline" disabled={isShared} title={isShared ? "Import replaces the whole session — local sandbox only" : undefined}>
+                  Import game JSON
+                </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
@@ -460,7 +465,9 @@ export function FacilitatorPage() {
             </Dialog>
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="destructive">Reset game</Button>
+                <Button variant="destructive" disabled={isShared} title={isShared ? "Shared games can't be reset in place — create a new game instead" : undefined}>
+                  Reset game
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>

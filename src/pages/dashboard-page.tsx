@@ -7,7 +7,7 @@ import { fmt1, teamColor } from "@/lib/format";
 import { useAllResults, useGame } from "@/lib/store";
 
 export function DashboardPage() {
-  const { state, dispatch } = useGame();
+  const { state, dispatch, role } = useGame();
   const resultsByTeam = useAllResults();
   const theme = state.config.roundThemes.find((t) => t.round === state.currentRound);
   const unsubmitted = state.teams.filter((t) => !t.submitted[state.currentRound - 1]);
@@ -36,22 +36,26 @@ export function DashboardPage() {
               <>Waiting on: {unsubmitted.map((t) => t.name).join(", ")}</>
             )}
           </p>
-          <Button
-            variant="outline"
-            disabled={state.currentRound <= 1}
-            onClick={() => dispatch({ type: "setCurrentRound", round: state.currentRound - 1 })}
-          >
-            Back a round
-          </Button>
-          <Button
-            disabled={isLastRound}
-            onClick={() => {
-              dispatch({ type: "setCurrentRound", round: state.currentRound + 1 });
-              toast.success(`Advanced to round ${state.currentRound + 1}`);
-            }}
-          >
-            {unsubmitted.length > 0 ? "Advance anyway" : "Advance round"}
-          </Button>
+          {role === "facilitator" && (
+            <>
+              <Button
+                variant="outline"
+                disabled={state.currentRound <= 1}
+                onClick={() => dispatch({ type: "setCurrentRound", round: state.currentRound - 1 })}
+              >
+                Back a round
+              </Button>
+              <Button
+                disabled={isLastRound}
+                onClick={() => {
+                  dispatch({ type: "setCurrentRound", round: state.currentRound + 1 });
+                  toast.success(`Advanced to round ${state.currentRound + 1}`);
+                }}
+              >
+                {unsubmitted.length > 0 ? "Advance anyway" : "Advance round"}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 

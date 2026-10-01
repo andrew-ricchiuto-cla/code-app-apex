@@ -1,18 +1,43 @@
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
+import { StartScreen } from "@/components/start-screen";
 import { DashboardPage } from "@/pages/dashboard-page";
 import { FacilitatorPage } from "@/pages/facilitator-page";
 import { PlayPage } from "@/pages/play-page";
 import { ResultsPage } from "@/pages/results-page";
 import { GameProvider, useGame } from "@/lib/store";
+import { loadSession, saveSession, type Session } from "@/lib/session";
 import { LOOP_META } from "@/lib/loops";
 
 const TAB_TRIGGER_CLASS =
   "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm px-4";
 
+function SyncBadge() {
+  const { syncStatus } = useGame();
+  if (syncStatus === "local") return <Badge variant="outline" className="border-white/30 text-white">Local sandbox</Badge>;
+  const look =
+    syncStatus === "live"
+      ? { dot: "bg-emerald-400", label: "Live" }
+      : syncStatus === "syncing"
+        ? { dot: "bg-amber-400 animate-pulse", label: "Syncing…" }
+        : { dot: "bg-red-400", label: "Sync error" };
+  return (
+    <Badge variant="outline" className="border-white/30 text-white">
+      <span className={`mr-1.5 size-2 rounded-full ${look.dot}`} />
+      {look.label}
+    </Badge>
+  );
+}
+
 function Shell() {
-  const { state } = useGame();
+  const { state, session, role, myTeamKey, leaveSession } = useGame();
   const theme = state.config.roundThemes.find((t) => t.round === state.currentRound);
+  const isTeam = role === "team";
+  const myTeamName = myTeamKey ? (state.teams.find((t) => t.id === myTeamKey)?.name ?? myTeamKey) : null;
+
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
       <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 px-6 py-6 text-white shadow-lg">
@@ -39,7 +64,7 @@ function Shell() {
             </div>
           </div>
         </div>
-        <div className="relative mt-4 flex flex-wrap gap-2">
+        <div className="relative mt-4 flex flex-wrap items-center gap-2">
           {LOOP_META.map((loop) => (
             <span
               key={loop.key}
@@ -49,11 +74,26 @@ function Shell() {
               {loop.label}
             </span>
           ))}
+          <span className="grow" />
+          <SyncBadge />
+          {session.mode === "shared" && (
+            <Badge variant="outline" className="border-white/30 text-white">
+              {isTeam ? `Playing as ${myTeamName}` : "Facilitator"}
+            </Badge>
+          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-xs text-indigo-200 hover:bg-white/10 hover:text-white"
+            onClick={leaveSession}
+          >
+            Switch session
+          </Button>
         </div>
         <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400 via-orange-400/70 to-transparent" />
       </header>
 
-      <Tabs defaultValue="dashboard">
+      <Tabs defaultValue={isTeam ? "play" : "dashboard"}>
         <TabsList className="bg-card h-11 gap-1 border p-1 shadow-sm">
           <TabsTrigger value="dashboard" className={TAB_TRIGGER_CLASS}>
             Dashboard
@@ -64,9 +104,11 @@ function Shell() {
           <TabsTrigger value="results" className={TAB_TRIGGER_CLASS}>
             Results
           </TabsTrigger>
-          <TabsTrigger value="facilitator" className={TAB_TRIGGER_CLASS}>
-            Facilitator
-          </TabsTrigger>
+          {!isTeam && (
+            <TabsTrigger value="facilitator" className={TAB_TRIGGER_CLASS}>
+              Facilitator
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="dashboard" className="mt-4">
           <DashboardPage />
@@ -77,20 +119,39 @@ function Shell() {
         <TabsContent value="results" className="mt-4">
           <ResultsPage />
         </TabsContent>
-        <TabsContent value="facilitator" className="mt-4">
-          <FacilitatorPage />
-        </TabsContent>
+        {!isTeam && (
+          <TabsContent value="facilitator" className="mt-4">
+            <FacilitatorPage />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
 }
 
 function App() {
+  const [session, setSession] = useState<Session | null>(() => loadSession());
+
+  const start = (next: Session) => {
+    saveSession(next);
+    setSession(next);
+  };
+  const leave = () => {
+    saveSession(null);
+    setSession(null);
+  };
+
   return (
-    <GameProvider>
-      <Shell />
+    <>
+      {session === null ? (
+        <StartScreen onStart={start} />
+      ) : (
+        <GameProvider key={session.mode === "shared" ? session.gameId : "local"} session={session} onLeave={leave}>
+          <Shell />
+        </GameProvider>
+      )}
       <Toaster position="bottom-right" />
-    </GameProvider>
+    </>
   );
 }
 
