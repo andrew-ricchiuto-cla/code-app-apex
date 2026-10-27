@@ -15,7 +15,8 @@ export type DecisionStatus =
   | "TOO MANY INITIATIVES"
   | "OVER CAPITAL"
   | "OVER LEADERSHIP CAPACITY"
-  | "ROUND 4 OPTION USED EARLY";
+  | "ROUND 4 OPTION USED EARLY"
+  | "EVIDENCE REVIEW REQUIRED";
 
 /** The seven 0-100 loop/signal indices. */
 export interface LoopState {
@@ -79,6 +80,13 @@ export interface WorkforceAction {
   immediateMarginPp: number;
   lagK: number;
   lagEc: number;
+  /** Lagged Control / Owner Confidence damage. The workbook applies these only to the
+   *  Round 4 terminal projection, not to the next playable round. */
+  lagC: number;
+  lagOc: number;
+  /** false = exact workbook parity (C/OC lag only in the terminal projection);
+   *  true = also apply them to the next playable round. */
+  applyControlOcLagInPlay: boolean;
 }
 
 export interface EventRule {
@@ -86,22 +94,71 @@ export interface EventRule {
   label: string;
 }
 
+/** Event rules. "Prior" credit requires the relevant initiative in the previous round
+ *  (preparation); "current" credit is a smaller same-round response. Readiness tests use
+ *  the pre-event state = prior state + lagged effects (no current-round immediate effects). */
 export interface EventRules {
-  r2AiBase: EventRule & { m: number };
-  r2AiMitigate: EventRule & { m: number };
-  r2AiAvoid: EventRule & { m: number };
-  r2PriceBase: EventRule & { marginPp: number; pricePp: number };
-  r2PriceMitigate: EventRule & { pricePp: number };
-  r3AttritionBase: EventRule & { k: number };
-  r3AttritionMitigate: EventRule & { k: number };
-  r3AttritionHirePenalty: EventRule & { k: number };
-  r3CapacityBase: EventRule & { f: number };
-  r3CapacityFull: EventRule & { f: number };
-  r3CapacityPartial: EventRule & { f: number };
-  r4DemandBase: EventRule & { m: number };
-  r4DemandUnready: EventRule & { m: number };
-  r4OwnerBase: EventRule & { c: number; lcAdj: number };
-  r4OwnerAvoid: EventRule & { c: number; lcAdj: number };
+  r2Ai: EventRule & {
+    m: number;
+    readyThreshold: number;
+    readyCredit: number;
+    priorCredit: number;
+    currentCredit: number;
+  };
+  r2Price: EventRule & { marginPp: number; pricePp: number; valueThreshold: number; valuePriceCredit: number };
+  r3Attrition: EventRule & {
+    k: number;
+    ecThreshold: number;
+    priorCredit: number;
+    currentCredit: number;
+    unintegratedHirePenalty: number;
+  };
+  r3Capacity: EventRule & {
+    f: number;
+    controlThreshold: number;
+    priorSharedCredit: number;
+    priorRightsCredit: number;
+    currentSharedCredit: number;
+    currentRightsCredit: number;
+  };
+  r4Demand: EventRule & {
+    readyThreshold: number;
+    fluidityThreshold: number;
+    fullReadyM: number;
+    valueAndCapabilityM: number;
+    oneReadyM: number;
+    lowReadinessM: number;
+  };
+  r4Owner: EventRule & { c: number; lcAdj: number; evidenceC: number; evidenceLcAdj: number };
+}
+
+export interface ModerateCredibility {
+  enabled: boolean;
+  /** Margin ≥ highMarginThreshold and end-of-round OC ≥ this → full adjustment. */
+  fullOcThreshold: number;
+  /** Margin ≥ lowMarginThreshold and end-of-round OC ≥ this → partial adjustment. */
+  partialOcThreshold: number;
+  fullAdj: number;
+  partialAdj: number;
+}
+
+export interface TerminalBlend {
+  enabled: boolean;
+  /** Final-round raw health = currentWeight × round raw + terminalWeight × projected terminal raw. */
+  currentWeight: number;
+  terminalWeight: number;
+}
+
+export interface HealthBand {
+  min: number;
+  label: string;
+  interpretation: string;
+}
+
+export interface HealthIndex {
+  midpoint: number;
+  sensitivity: number;
+  bands: HealthBand[]; // ascending by min
 }
 
 export interface Band {
@@ -125,7 +182,11 @@ export interface RoundTheme {
   primaryEvent: string;
 }
 
+/** Bumped whenever the model changes shape; games stored with another version are retired. */
+export const CONFIG_VERSION = 2;
+
 export interface EngineConfig {
+  configVersion: number;
   base: LoopState & {
     revenue: number;
     margin: number;
@@ -187,11 +248,14 @@ export interface EngineConfig {
     capacityFluidityWeight: number;
     pipelineLowBelow: number;
     pipelineHighAt: number;
-    /** The workbook Engine does NOT count the custom action toward the initiative
-     *  count, although the Participant_IO field guide says it should. false = exact
-     *  Excel parity (default); true = documented intent. */
+    /** The Oct 7 workbook counts a named custom action toward the initiative limit. */
     countCustomActionAsInitiative: boolean;
   };
+  /** Share of an initiative's modeled effect realized on its 1st, 2nd, 3rd, 4th+ selection. */
+  repeatFactors: number[];
+  moderateCredibility: ModerateCredibility;
+  terminal: TerminalBlend;
+  healthIndex: HealthIndex;
   executionBands: Band[]; // prior-round C -> execution factor (bands use `<`)
   absorptionBands: Band[]; // LC committed -> absorption factor (bands use `<=`)
   responseReserve: {
@@ -261,7 +325,8 @@ export interface PriorRoundContext {
   executionFactor: number; // prior X
   changeFactor: number; // prior Y
   lcReserve: number; // prior unused LC
-  preEventK: number; // prior-round pre-event K (AI readiness gate)
+  postEffectK: number; // prior prev+immediate+lagged K (AI readiness gate, Engine AT)
+  repeatFactors: number[]; // prior per-slot repeat factors (Engine CT:CW)
 }
 
 export interface RoundInput {
@@ -270,6 +335,8 @@ export interface RoundInput {
   prev: LoopState & { revenue: number; margin: number; mix: number };
   availableCapital: number;
   prior: PriorRoundContext | null; // null in round 1
+  /** Decisions from all earlier rounds (oldest first) — drives repeat-initiative factors. */
+  history?: RoundDecisions[];
 }
 
 export interface EventChannelDetail {
@@ -300,10 +367,14 @@ export interface RoundResult {
   absorptionFactor: number;
   changeFactor: number;
   responseReserve: number;
+  repeatFactors: number[]; // per initiative slot; 0 for empty slots
   // stage vectors
   immediate: EffectVector;
   lagged: EffectVector;
+  /** prev + immediate + lagged, before events (unclamped). */
   preEvent: LoopState;
+  /** Event readiness: clamp(prev + lagged) — excludes this round's immediate effects. */
+  readiness: LoopState;
   events: {
     m: EventChannelDetail;
     k: EventChannelDetail;
@@ -314,6 +385,8 @@ export interface RoundResult {
     winPp: number; // broad-campaign win-rate adjustment (not mitigated)
   };
   ocToC: number;
+  /** Next-capital adjustment from distribution posture (credibility-adjusted for Moderate). */
+  postureCapitalAdj: number;
   out: LoopState;
   // outcomes
   capabilityLoop: number;
@@ -329,7 +402,20 @@ export interface RoundResult {
   mix: number;
   nextCapital: number;
   cashScore: number;
+  /** Geometric mean of M, V, Cash, Capability loop, C for this round (Engine BY). */
+  rawHealth: number;
+  /** Projected post-simulation state from this round's lagged consequences (Engine CX:DM). */
+  terminal: {
+    nextLagged: EffectVector;
+    state: { m: number; v: number; k: number; f: number; c: number };
+    capabilityLoop: number;
+    rawHealth: number;
+  };
+  /** Raw health after the final-round terminal blend (Engine DN). */
+  finalRawHealth: number;
+  /** Participant-facing System Health Index (Engine DO). */
   systemHealth: number;
+  healthBand: string;
   pipeline: Pipeline;
   narrativeComplete: boolean;
   changeLoadBand: "SUSTAINABLE" | "STRETCHED" | "SATURATED" | "OVER CAPACITY";

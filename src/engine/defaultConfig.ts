@@ -1,8 +1,8 @@
-// Default model configuration — every value transcribed from the workbook
+// Default model configuration — every value transcribed from the Oct 7 workbook
 // (Round_0_Base + Control_Panel tabs). Facilitators can edit a copy of this
 // at runtime; the engine never reads constants from anywhere else.
 
-import type { EffectVector, EngineConfig, Initiative } from "./types";
+import { CONFIG_VERSION, type EffectVector, type EngineConfig, type Initiative } from "./types";
 
 const zero: EffectVector = { m: 0, v: 0, k: 0, f: 0, c: 0, ec: 0, oc: 0, marginPp: 0, mixPp: 0 };
 
@@ -32,6 +32,7 @@ export const INITIATIVE_SCORECARD = "Add enterprise cross-sell scorecard";
 export const INITIATIVE_DECISION_RIGHTS = "Clarify enterprise decision rights";
 
 export const defaultConfig: EngineConfig = {
+  configVersion: CONFIG_VERSION,
   base: {
     m: 50,
     v: 45,
@@ -100,7 +101,32 @@ export const defaultConfig: EngineConfig = {
     capacityFluidityWeight: 0.35,
     pipelineLowBelow: 45,
     pipelineHighAt: 65,
-    countCustomActionAsInitiative: false,
+    countCustomActionAsInitiative: true,
+  },
+  repeatFactors: [1, 0.6, 0.3, 0.15],
+  moderateCredibility: {
+    enabled: true,
+    fullOcThreshold: 55,
+    partialOcThreshold: 45,
+    fullAdj: 15,
+    partialAdj: 8,
+  },
+  terminal: {
+    enabled: true,
+    currentWeight: 0.7,
+    terminalWeight: 0.3,
+  },
+  healthIndex: {
+    midpoint: 50,
+    sensitivity: 1.25,
+    bands: [
+      { min: 0, label: "Severe pressure", interpretation: "The enterprise system is materially impaired" },
+      { min: 40, label: "Vulnerable", interpretation: "The system is exposed and lacks sufficient resilience" },
+      { min: 50, label: "Stable but constrained", interpretation: "The enterprise can perform but important constraints remain" },
+      { min: 60, label: "Strengthening", interpretation: "The system is improving but still contains material weaknesses" },
+      { min: 70, label: "Strong and sustainable", interpretation: "The loops reinforce performance with manageable exposure" },
+      { min: 85, label: "Exceptional", interpretation: "Broad strength with limited unresolved system constraints" },
+    ],
   },
   executionBands: [
     { max: 40, factor: 0.75, label: "Fragmented adoption and active workarounds" },
@@ -225,28 +251,70 @@ export const defaultConfig: EngineConfig = {
     { name: "Moderate", nextCapitalAdj: 15, immediateOcAdj: -5, interpretation: "Creates future investment; requires credible rationale" },
   ],
   workforceAction: {
-    capitalReleased: 20,
+    capitalReleased: 12,
     lc: 3,
-    immediateMarginPp: 1.5,
-    lagK: -8,
-    lagEc: -5,
+    immediateMarginPp: 1,
+    lagK: -12,
+    lagEc: -8,
+    lagC: -4,
+    lagOc: -6,
+    applyControlOcLagInPlay: false,
   },
   events: {
-    r2AiBase: { enabled: true, label: "Competitor AI win", m: -8 },
-    r2AiMitigate: { enabled: true, label: "Focused industry play or strategic partnership active", m: 5 },
-    r2AiAvoid: { enabled: true, label: "Value and Capability both ≥ 60", m: 8 },
-    r2PriceBase: { enabled: true, label: "Compliance pricing pressure", marginPp: -0.5, pricePp: -0.02 },
-    r2PriceMitigate: { enabled: true, label: "Value > 60 halves price-realization loss", pricePp: 0.01 },
-    r3AttritionBase: { enabled: true, label: "Scarce-talent attrition", k: -6 },
-    r3AttritionMitigate: { enabled: true, label: "Reskilling active and EC > 50", k: 4 },
-    r3AttritionHirePenalty: { enabled: true, label: "Hiring active without integration action", k: -2 },
-    r3CapacityBase: { enabled: true, label: "Local capacity resistance", f: -7 },
-    r3CapacityFull: { enabled: true, label: "Shared capacity active and Control ≥ 60", f: 7 },
-    r3CapacityPartial: { enabled: true, label: "Decision rights active", f: 3.5 },
-    r4DemandBase: { enabled: true, label: "Advisory demand surge", m: 10 },
-    r4DemandUnready: { enabled: true, label: "Value or Capability below 60", m: -6 },
-    r4OwnerBase: { enabled: true, label: "Owner confidence challenge", c: -4, lcAdj: -1 },
-    r4OwnerAvoid: { enabled: true, label: "Leading-evidence trigger met", c: 4, lcAdj: 1 },
+    r2Ai: {
+      enabled: true,
+      label: "Competitor AI win",
+      m: -8,
+      readyThreshold: 60,
+      readyCredit: 6,
+      priorCredit: 5,
+      currentCredit: 3,
+    },
+    r2Price: {
+      enabled: true,
+      label: "Compliance pricing pressure",
+      marginPp: -0.5,
+      pricePp: -0.02,
+      valueThreshold: 60,
+      valuePriceCredit: 0.01,
+    },
+    r3Attrition: {
+      enabled: true,
+      label: "Scarce-talent attrition",
+      k: -6,
+      ecThreshold: 50,
+      priorCredit: 4,
+      currentCredit: 2,
+      unintegratedHirePenalty: -2,
+    },
+    r3Capacity: {
+      enabled: true,
+      label: "Local capacity resistance",
+      f: -7,
+      controlThreshold: 60,
+      priorSharedCredit: 5,
+      priorRightsCredit: 3.5,
+      currentSharedCredit: 2.5,
+      currentRightsCredit: 1.75,
+    },
+    r4Demand: {
+      enabled: true,
+      label: "Advisory demand surge",
+      readyThreshold: 60,
+      fluidityThreshold: 55,
+      fullReadyM: 10,
+      valueAndCapabilityM: 6,
+      oneReadyM: 4,
+      lowReadinessM: 2,
+    },
+    r4Owner: {
+      enabled: true,
+      label: "Owner confidence challenge",
+      c: -4,
+      lcAdj: -1,
+      evidenceC: 4,
+      evidenceLcAdj: 1,
+    },
   },
   customBands: {
     capital: [0, 55],
