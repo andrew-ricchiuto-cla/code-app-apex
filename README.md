@@ -38,7 +38,7 @@ code changes, and all scores recompute instantly.
 ## Develop
 
 ```bash
-npm install
+npm ci          # install locked dependencies after cloning
 npm run dev      # local dev server
 npm test         # golden regression tests (vitest)
 npm run build    # type-check + production build
@@ -46,17 +46,26 @@ npm run build    # type-check + production build
 
 ## Deploy to Power Platform
 
-One-time init (opens a Microsoft sign-in; environment ID is the GUID in your
-make.powerapps.com URL):
+`power.config.json` targets the existing **Apex Simulation** code app in
+**Enterprise Architecture Roadmap Dev**:
+
+- Environment ID: `b242d458-565e-e01e-b2f0-00fe9b365e15`
+- Environment URL: `https://org8c828ba2.crm.dynamics.com/`
+- App ID: `8caf5180-7c95-4c60-a00a-2d6085faed19`
+
+The app is already initialized. For PAC operations, reuse an authenticated profile
+for this environment and verify it with `pac org who`. If sign-in is needed, use
+the standard Microsoft sign-in dialog (never device-code authentication):
 
 ```bash
-npx pa app init -n 'Apex' -e <environment-id>
+pac auth create --name apex-v2 --environment https://org8c828ba2.crm.dynamics.com/
+pac org who
 ```
 
 Then, for every deploy:
 
 ```bash
-npm run build && npx pa app push
+npm run build && pac code push --environment b242d458-565e-e01e-b2f0-00fe9b365e15
 ```
 
 ## Storage modes

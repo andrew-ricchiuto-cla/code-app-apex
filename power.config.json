@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "appId": "afdf196f-ddaa-4407-9ce0-5ac28bfb11ef",
-  "appDisplayName": "Apex",
+  "appId": "8caf5180-7c95-4c60-a00a-2d6085faed19",
+  "appDisplayName": "Apex Simulation",
   "region": "prod",
   "appType": "CodeApp",
-  "environmentId": "50b383ee-e3db-ed10-983d-376a576cd404",
+  "environmentId": "b242d458-565e-e01e-b2f0-00fe9b365e15",
   "description": " ",
   "buildPath": "./dist",
   "buildEntryPoint": "index.html",
