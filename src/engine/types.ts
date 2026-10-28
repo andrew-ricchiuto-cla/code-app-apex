@@ -316,7 +316,14 @@ export interface RoundDecisions {
   strategicOption: string; // "None" or option name
   evidenceTriggerMet: EvidenceTrigger;
   customAction: CustomAction | null;
+  /** Player-proposed custom action; the facilitator prices it into customAction. Ignored by the engine. */
+  customProposal?: CustomProposal | null;
   narrative: Narrative;
+}
+
+export interface CustomProposal {
+  name: string;
+  description: string;
 }
 
 /** Everything the engine needs about the *prior* round to run the current one. */

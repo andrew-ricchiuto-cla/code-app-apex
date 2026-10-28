@@ -32,37 +32,44 @@ export function customBandViolations(config: EngineConfig, decisions: RoundDecis
 
 const STATUS_FIXES: Record<string, string> = {
   "CHECK INTENSITY": "Every selected initiative needs an intensity, and intensity needs an initiative.",
-  "DUPLICATE INITIATIVE": "The same initiative is selected in two slots.",
-  "TOO MANY INITIATIVES": "The portfolio exceeds the active-initiative limit (the strategic option counts).",
+  "DUPLICATE INITIATIVE": "The same initiative is selected twice.",
+  "TOO MANY INITIATIVES": "The portfolio exceeds the active-initiative limit (the strategic option and an approved custom action count).",
   "OVER CAPITAL": "Committed capital exceeds available capital.",
-  "OVER LEADERSHIP CAPACITY": "Committed LC exceeds available LC.",
+  "OVER LEADERSHIP CAPACITY": "Committed leadership capacity exceeds what's available.",
   "ROUND 4 OPTION USED EARLY": "Strategic options are only available in round 4.",
+  "EVIDENCE REVIEW REQUIRED": "The facilitator hasn't ruled on the Round 4 evidence trigger yet.",
 };
+
+/** Statuses a player can't fix themselves — they don't block submission. */
+export const FACILITATOR_STATUSES = new Set(["EVIDENCE REVIEW REQUIRED"]);
+
+export const statusExplanation = (status: string) => STATUS_FIXES[status] ?? "";
 
 export function roundChecks(config: EngineConfig, decisions: RoundDecisions, result: RoundResult): CheckMessage[] {
   const messages: CheckMessage[] = [];
-  if (result.status !== "OK") {
-    messages.push({ level: "error", text: `${result.status} — ${STATUS_FIXES[result.status] ?? ""}` });
+  if (result.status !== "OK" && !FACILITATOR_STATUSES.has(result.status)) {
+    messages.push({ level: "error", text: STATUS_FIXES[result.status] ?? result.status });
   }
   for (const violation of customBandViolations(config, decisions)) {
     messages.push({ level: "error", text: violation });
   }
-  if (result.status === "OK" && result.changeLoadBand === "SATURATED") {
+  const ok = result.status === "OK" || FACILITATOR_STATUSES.has(result.status);
+  if (ok && result.changeLoadBand === "SATURATED") {
     messages.push({
       level: "warning",
-      text: `Change load is saturated (${result.lcCommitted} LC): only ${Math.round(result.absorptionFactor * 100)}% of adoption-heavy effects will be realized, and no headroom becomes next-round response reserve.`,
+      text: `Change load is saturated (${result.lcCommitted} LC): only ${Math.round(result.absorptionFactor * 100)}% of adoption-heavy effects will land, and nothing is left to cushion the next shock.`,
     });
   }
-  if (result.status === "OK" && result.changeLoadBand === "STRETCHED") {
+  if (ok && result.changeLoadBand === "STRETCHED") {
     messages.push({
       level: "info",
-      text: `Change load is stretched (${result.lcCommitted} LC): adoption-heavy effects are realized at ${Math.round(result.absorptionFactor * 100)}%.`,
+      text: `Change load is stretched (${result.lcCommitted} LC): adoption-heavy effects land at ${Math.round(result.absorptionFactor * 100)}%.`,
     });
   }
   if (!result.narrativeComplete) {
     messages.push({
       level: "info",
-      text: "Decision narrative incomplete — fill in the hypothesis, leading indicator, and reconsider trigger.",
+      text: "Rationale incomplete — add your hypothesis, leading indicator, and reconsider trigger.",
     });
   }
   return messages;
