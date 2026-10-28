@@ -18,7 +18,9 @@ export interface Mw_apexgamesBase {
   mw_apexgameid: string;
   mw_configjson?: string;
   mw_currentround?: number;
+  mw_facilitatorsjson?: string;
   mw_name?: string;
+  mw_roundphase?: number;
   mw_underhood?: boolean;
   overriddencreatedon?: string;
   statecode: Mw_apexgamesstatecode;
@@ -31,6 +33,7 @@ export interface Mw_apexgames extends Mw_apexgamesBase {
   createdon?: string;
   modifiedon?: string;
   mw_underhoodname?: string;
+  ownerid: string;
   statecodename?: string;
   statuscodename?: string;
   versionnumber?: number;
@@ -42,6 +45,10 @@ export interface Mw_apexgames extends Mw_apexgamesBase {
   _modifiedby_value?: string;
   modifiedonbehalfby?: object;
   _modifiedonbehalfby_value?: string;
-  organizationid?: object;
-  _organizationid_value?: string;
+  owningbusinessunit?: object;
+  _owningbusinessunit_value?: string;
+  owningteam?: object;
+  _owningteam_value?: string;
+  owninguser?: object;
+  _owninguser_value?: string;
 }
