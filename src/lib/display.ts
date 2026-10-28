@@ -1,5 +1,6 @@
 // Non-component display helpers shared by both surfaces.
 
+import { healthIndex } from "@/engine";
 import type { EffectVector, EngineConfig, LoopState, RoundResult } from "@/engine";
 import type { ChannelKey } from "./content";
 import type { GameState } from "./store";
@@ -20,10 +21,21 @@ export interface LoopRow {
 
 type Snapshot = LoopState & { capabilityLoop: number; cashScore: number };
 
-export function loopRows(config: EngineConfig, result: RoundResult, prev: Snapshot | null): LoopRow[] {
+/** The company everyone inherits at the start of Round 1, scored the way the engine scores a round. */
+export function baselineSnapshot(config: EngineConfig): Snapshot & { systemHealth: number } {
   const p = config.params;
-  const base = config.base;
-  const before = prev ?? { ...base, capabilityLoop: p.capabilityDepthWeight * base.k + p.capacityFluidityWeight * base.f, cashScore: p.cashScoreBase };
+  const b = config.base;
+  const capabilityLoop = p.capabilityDepthWeight * b.k + p.capacityFluidityWeight * b.f;
+  const cashScore = Math.max(
+    p.scoreMin,
+    Math.min(p.scoreMax, p.cashScoreBase + p.cashMarginCoeff * (b.margin * 100 - p.cashMarginRefPp) + p.cashCapitalCoeff * (b.round1Capital - p.nextCapitalBase)),
+  );
+  const raw = Math.pow(Math.max(1, b.m) * Math.max(1, b.v) * Math.max(1, cashScore) * Math.max(1, capabilityLoop) * Math.max(1, b.c), 0.2);
+  return { m: b.m, v: b.v, k: b.k, f: b.f, c: b.c, ec: b.ec, oc: b.oc, capabilityLoop, cashScore, systemHealth: healthIndex(config, raw) };
+}
+
+export function loopRows(config: EngineConfig, result: RoundResult, prev: Snapshot | null): LoopRow[] {
+  const before = prev ?? baselineSnapshot(config);
   return [
     { key: "m", label: "Market", before: before.m, after: result.out.m, barClass: "bg-market" },
     { key: "v", label: "Value", before: before.v, after: result.out.v, barClass: "bg-value" },

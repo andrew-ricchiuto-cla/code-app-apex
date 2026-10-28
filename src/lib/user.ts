@@ -13,10 +13,10 @@ let cached: Promise<CurrentUser | null> | null = null;
 
 export function getCurrentUser(timeoutMs = 3000): Promise<CurrentUser | null> {
   if (!cached) {
-    cached = (async () => {
+    const lookup = (async (): Promise<CurrentUser | null> => {
       try {
         const { getContext } = await import("@microsoft/power-apps/app");
-        const context = await Promise.race([getContext(), new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))]);
+        const context = await getContext();
         if (!context) return null;
         const upn = (context.user.userPrincipalName ?? "").trim().toLowerCase();
         return { upn, name: context.user.fullName ?? upn, objectId: context.user.objectId ?? "" };
@@ -24,6 +24,8 @@ export function getCurrentUser(timeoutMs = 3000): Promise<CurrentUser | null> {
         return null;
       }
     })();
+    // The SDK never settles outside the Power Apps host, so bound the whole lookup.
+    cached = Promise.race([lookup, new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))]);
   }
   return cached;
 }

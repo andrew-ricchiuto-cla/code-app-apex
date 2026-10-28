@@ -156,7 +156,7 @@ function SubmissionTracker({
   resultsByTeam: Map<string, RoundResult[]>;
   onOpenTeam: (teamId: string) => void;
 }) {
-  const { dispatch } = useGame();
+  const { state, dispatch } = useGame();
   return (
     <Card>
       <CardHeader>
@@ -213,7 +213,7 @@ function SubmissionTracker({
                     <Button size="sm" variant="ghost" onClick={() => onOpenTeam(team.id)}>
                       Open
                     </Button>
-                    {isSubmitted && (
+                    {isSubmitted && state.roundPhase === PHASE.Open && (
                       <Button
                         size="sm"
                         variant="outline"
