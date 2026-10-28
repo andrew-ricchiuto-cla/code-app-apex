@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HealthIndexBadge } from "@/components/game-ui";
 import { UnderTheHood } from "@/components/under-the-hood";
-import { emptyRuling, isRevealed } from "@/lib/game";
+import { emptyRuling, isRevealed, PHASE } from "@/lib/game";
 import { teamColor } from "@/lib/format";
 import { useGame, useTeamResults } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -87,7 +87,7 @@ export function TeamsPage({ teamId, onSelectTeam }: { teamId: string | null; onS
               </div>
               <div>
                 {selected.submitted[shownRound - 1] ? <Badge>Submitted</Badge> : <Badge variant="secondary">Not submitted</Badge>}{" "}
-                {selected.submitted[shownRound - 1] && shownRound === state.currentRound && (
+                {selected.submitted[shownRound - 1] && shownRound === state.currentRound && state.roundPhase === PHASE.Open && (
                   <Button
                     size="sm"
                     variant="outline"

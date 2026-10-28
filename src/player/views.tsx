@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { HealthChart } from "@/components/health-chart";
 import { HealthIndexBadge, LoopBars } from "@/components/game-ui";
-import { loopRows, priorSnapshot } from "@/lib/display";
+import { baselineSnapshot, loopRows, priorSnapshot } from "@/lib/display";
 import type { EngineConfig, RoundResult } from "@/engine";
 import { HOW_IT_WORKS, LOOPS_PRIMER, TENSIONS } from "@/lib/content";
 import { fmt1, money, pct, signed, teamColor } from "@/lib/format";
@@ -89,7 +89,7 @@ export function RoundReveal({
   teamCount: number;
 }) {
   const result = results[round - 1];
-  const prevIndex = round > 1 ? results[round - 2].systemHealth : null;
+  const prevIndex = round > 1 ? results[round - 2].systemHealth : baselineSnapshot(config).systemHealth;
   const theme = config.roundThemes.find((t) => t.round === round);
   const notes = [
     ...result.events.m.notes,
@@ -110,7 +110,7 @@ export function RoundReveal({
             Round {round} results{isFinal && " · final"}
           </div>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-6">
-            <HealthIndexBadge value={result.systemHealth} band={result.healthBand} delta={prevIndex === null ? null : result.systemHealth - prevIndex} size="lg" />
+            <HealthIndexBadge value={result.systemHealth} band={result.healthBand} delta={result.systemHealth - prevIndex} size="lg" />
             <div className="text-right">
               <div className="text-muted-foreground text-xs">Rank this round</div>
               <div className="font-mono text-4xl font-black">
@@ -298,13 +298,14 @@ export function Leaderboard({
 
 export function CompanyHistory({ config, team, results, throughRound }: { config: EngineConfig; team: TeamState; results: RoundResult[]; throughRound: number }) {
   const b = config.base;
+  const start = baselineSnapshot(config);
   const rows: { label: string; start: string; value: (r: RoundResult) => string }[] = [
-    { label: "System Health Index", start: "≈50", value: (r) => fmt1(r.systemHealth) },
+    { label: "System Health Index", start: fmt1(start.systemHealth), value: (r) => fmt1(r.systemHealth) },
     { label: "Market", start: fmt1(b.m), value: (r) => fmt1(r.out.m) },
     { label: "Value", start: fmt1(b.v), value: (r) => fmt1(r.out.v) },
-    { label: "Capability", start: fmt1(config.params.capabilityDepthWeight * b.k + config.params.capacityFluidityWeight * b.f), value: (r) => fmt1(r.capabilityLoop) },
+    { label: "Capability", start: fmt1(start.capabilityLoop), value: (r) => fmt1(r.capabilityLoop) },
     { label: "Control", start: fmt1(b.c), value: (r) => fmt1(r.out.c) },
-    { label: "Cash score", start: fmt1(config.params.cashScoreBase), value: (r) => fmt1(r.cashScore) },
+    { label: "Cash score", start: fmt1(start.cashScore), value: (r) => fmt1(r.cashScore) },
     { label: "Employee confidence", start: fmt1(b.ec), value: (r) => fmt1(r.out.ec) },
     { label: "Owner confidence", start: fmt1(b.oc), value: (r) => fmt1(r.out.oc) },
     { label: "Revenue", start: money(b.revenue), value: (r) => money(r.revenue) },

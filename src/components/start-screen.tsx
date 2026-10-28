@@ -68,7 +68,7 @@ export function StartScreen({ onStart }: Props) {
       )}
       {user === null && (
         <p className="text-muted-foreground text-center text-xs">
-          Running outside Power Apps — shared multi-device games are available in the deployed app. Both doors below use this device's sandbox.
+          Running outside Power Apps — shared multi-device games are available in the deployed app. Both doors use this device's sandbox.
         </p>
       )}
     </div>

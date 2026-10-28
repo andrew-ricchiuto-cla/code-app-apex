@@ -161,7 +161,8 @@ export function PlayerApp() {
             {revealedThrough < 1 ? (
               <Card>
                 <CardContent className="text-muted-foreground py-10 text-center text-sm">
-                  Your company record fills in as rounds are revealed. You start with Market 50, Value 45, Capability depth 52, Fluidity 42, Control 48.
+                  Your company record fills in as rounds are revealed. You start with Market {state.config.base.m}, Value {state.config.base.v}, Capability depth{" "}
+                  {state.config.base.k}, Fluidity {state.config.base.f}, Control {state.config.base.c}.
                 </CardContent>
               </Card>
             ) : (

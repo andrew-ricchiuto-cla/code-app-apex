@@ -83,7 +83,6 @@ export function FacilitatorConsole() {
           </div>
           <div className="flex items-center gap-2">
             <SyncBadge />
-            {session.mode === "local" && <Badge variant="outline">This device only</Badge>}
             <Button size="sm" variant="outline" onClick={() => setPresenting(true)}>
               Present
             </Button>
