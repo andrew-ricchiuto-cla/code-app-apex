@@ -17,6 +17,7 @@ export interface Mw_apexteamroundsBase {
   importsequencenumber?: number;
   mw_apexteamroundid: string;
   mw_decisionsjson?: string;
+  mw_facilitatorjson?: string;
   mw_gameid?: string;
   mw_name?: string;
   mw_round?: number;
@@ -33,6 +34,7 @@ export interface Mw_apexteamrounds extends Mw_apexteamroundsBase {
   createdon?: string;
   modifiedon?: string;
   mw_submittedname?: string;
+  ownerid: string;
   statecodename?: string;
   statuscodename?: string;
   versionnumber?: number;
@@ -44,6 +46,10 @@ export interface Mw_apexteamrounds extends Mw_apexteamroundsBase {
   _modifiedby_value?: string;
   modifiedonbehalfby?: object;
   _modifiedonbehalfby_value?: string;
-  organizationid?: object;
-  _organizationid_value?: string;
+  owningbusinessunit?: object;
+  _owningbusinessunit_value?: string;
+  owningteam?: object;
+  _owningteam_value?: string;
+  owninguser?: object;
+  _owninguser_value?: string;
 }

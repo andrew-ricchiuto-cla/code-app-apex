@@ -30,6 +30,7 @@ export interface Mw_apexteamsBase {
 export interface Mw_apexteams extends Mw_apexteamsBase {
   createdon?: string;
   modifiedon?: string;
+  ownerid: string;
   statecodename?: string;
   statuscodename?: string;
   versionnumber?: number;
@@ -41,6 +42,10 @@ export interface Mw_apexteams extends Mw_apexteamsBase {
   _modifiedby_value?: string;
   modifiedonbehalfby?: object;
   _modifiedonbehalfby_value?: string;
-  organizationid?: object;
-  _organizationid_value?: string;
+  owningbusinessunit?: object;
+  _owningbusinessunit_value?: string;
+  owningteam?: object;
+  _owningteam_value?: string;
+  owninguser?: object;
+  _owninguser_value?: string;
 }
