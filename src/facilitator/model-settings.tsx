@@ -1,31 +1,21 @@
-import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { defaultConfig } from "@/engine";
 import type { EffectVector, EngineConfig, EventRules, InitiativeVariant } from "@/engine";
-import { exportGame, freshGame, importGame, useGame } from "@/lib/store";
+import { useGame } from "@/lib/store";
 
 type ConfigUpdater = (fn: (draft: EngineConfig) => void) => void;
 
-function NumField({
+export function NumField({
   label,
   value,
   onChange,
@@ -300,6 +290,8 @@ function ChoicesEditor({ config, update }: { config: EngineConfig; update: Confi
               ["immediateMarginPp", "Immediate margin pp"],
               ["lagK", "Lag K"],
               ["lagEc", "Lag EC"],
+              ["lagC", "Lag C"],
+              ["lagOc", "Lag OC"],
             ] as const
           ).map(([field, label]) => (
             <NumField
@@ -310,6 +302,13 @@ function ChoicesEditor({ config, update }: { config: EngineConfig; update: Confi
               onChange={(n) => update((draft) => (draft.workforceAction[field] = n))}
             />
           ))}
+          <div className="flex items-center gap-2 pb-2">
+            <Label className="text-xs">Apply C/OC lag in play (workbook: terminal only)</Label>
+            <Switch
+              checked={config.workforceAction.applyControlOcLagInPlay}
+              onCheckedChange={(v) => update((draft) => (draft.workforceAction.applyControlOcLagInPlay = v))}
+            />
+          </div>
         </CardContent>
       </Card>
       <Card>
@@ -340,12 +339,9 @@ function ChoicesEditor({ config, update }: { config: EngineConfig; update: Confi
   );
 }
 
-export function FacilitatorPage() {
-  const { state, dispatch, session } = useGame();
-  const isShared = session.mode === "shared";
+export function ModelSettings() {
+  const { state, dispatch } = useGame();
   const config = state.config;
-  const [importText, setImportText] = useState("");
-  const importDialogClose = useRef<HTMLButtonElement>(null);
 
   const update: ConfigUpdater = (fn) => {
     const draft = structuredClone(config);
@@ -356,153 +352,103 @@ export function FacilitatorPage() {
   const baseKeys = ["m", "v", "k", "f", "c", "ec", "oc"] as const;
 
   return (
-    <Tabs defaultValue="game" className="space-y-4">
-      <TabsList className="bg-card border shadow-sm">
-        {(
-          [
-            ["game", "Game"],
-            ["parameters", "Parameters"],
-            ["initiatives", "Initiatives"],
-            ["events", "Events"],
-            ["choices", "Choices & bands"],
-          ] as const
-        ).map(([value, label]) => (
-          <TabsTrigger
-            key={value}
-            value={value}
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            {label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+    <Tabs defaultValue="parameters" className="space-y-4">
+      <Alert className="border-amber-400/60">
+        <AlertTitle>Edits re-score the live game</AlertTitle>
+        <AlertDescription>
+          Every change recalculates all teams' results immediately on every device — including rounds already revealed. Defaults are the Oct 7 workbook.
+        </AlertDescription>
+      </Alert>
+      <div className="flex flex-wrap items-center gap-2">
+        <TabsList className="bg-card border shadow-sm">
+          {(
+            [
+              ["parameters", "Parameters"],
+              ["realism", "Realism & scoring"],
+              ["initiatives", "Initiatives"],
+              ["events", "Events"],
+              ["choices", "Choices & bands"],
+            ] as const
+          ).map(([value, label]) => (
+            <TabsTrigger key={value} value={value} className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            update((draft) => Object.assign(draft, structuredClone(defaultConfig)));
+            toast.success("Model reset to Oct 7 workbook defaults (decisions kept)");
+          }}
+        >
+          Reset model to workbook defaults
+        </Button>
+      </div>
 
-      <TabsContent value="game" className="space-y-3">
+      <TabsContent value="realism" className="space-y-3">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Session</CardTitle>
+            <CardTitle className="text-base">Repeat-initiative returns</CardTitle>
+            <CardDescription>Share of modeled effect on the 1st, 2nd, 3rd, and 4th+ selection of the same initiative.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs">Game name</Label>
-                <Input className="w-64" value={state.gameName} onChange={(e) => dispatch({ type: "setGameName", name: e.target.value })} />
-              </div>
-              {!isShared && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Teams</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={12}
-                    className="w-20"
-                    value={state.teams.length}
-                    onChange={(e) => dispatch({ type: "setTeamCount", count: Number(e.target.value) || 1 })}
-                  />
-                </div>
-              )}
-              <div className="flex items-center gap-2 pb-2">
-                <Label className="text-xs">Under-the-hood panel</Label>
-                <Switch checked={state.underHood} onCheckedChange={(v) => dispatch({ type: "setUnderHood", value: v })} />
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {state.teams.map((team) => (
-                <Input key={team.id} value={team.name} onChange={(e) => dispatch({ type: "renameTeam", teamId: team.id, name: e.target.value })} />
-              ))}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Disable the under-the-hood panel before running the exercise with participants; it exposes the full scoring
-              mechanics.{isShared && " Shared game: team count is fixed at creation; import and reset are local-sandbox features — create a new shared game instead."}
-            </p>
+          <CardContent className="flex flex-wrap gap-4">
+            {config.repeatFactors.map((f, i) => (
+              <NumField key={i} label={`Selection ${i + 1}${i === config.repeatFactors.length - 1 ? "+" : ""}`} className="w-24" value={f} onChange={(n) => update((d) => (d.repeatFactors[i] = n))} />
+            ))}
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Data</CardTitle>
-            <CardDescription>The game auto-saves in this browser. Export to move or back up a session.</CardDescription>
+            <CardTitle className="text-base">Credibility-adjusted Moderate distribution</CardTitle>
+            <CardDescription>Moderate earns renewal capital only when margin and end-of-round owner confidence make reinvestment credible.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={async () => {
-                await navigator.clipboard.writeText(exportGame(state));
-                toast.success("Game JSON copied to clipboard");
-              }}
-            >
-              Copy game JSON
-            </Button>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" disabled={isShared} title={isShared ? "Import replaces the whole session — local sandbox only" : undefined}>
-                  Import game JSON
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Import game</DialogTitle>
-                  <DialogDescription>Paste a previously exported game JSON. This replaces the current session.</DialogDescription>
-                </DialogHeader>
-                <Textarea rows={12} value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="{ ... }" />
-                <DialogFooter>
-                  <Button
-                    onClick={() => {
-                      try {
-                        dispatch({ type: "replace", state: importGame(importText) });
-                        setImportText("");
-                        toast.success("Game imported");
-                        importDialogClose.current?.click();
-                      } catch (err) {
-                        toast.error(err instanceof Error ? err.message : "Import failed");
-                      }
-                    }}
-                  >
-                    Import
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="destructive" disabled={isShared} title={isShared ? "Shared games can't be reset in place — create a new game instead" : undefined}>
-                  Reset game
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Reset the game?</DialogTitle>
-                  <DialogDescription>
-                    All team decisions and submissions are erased and the model configuration returns to the workbook
-                    defaults. Copy the game JSON first if you might want it back.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      dispatch({ type: "replace", state: freshGame(state.teams.length) });
-                      toast.success("Game reset to defaults");
-                    }}
-                  >
-                    Reset everything
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Button
-              variant="outline"
-              onClick={() => {
-                update((draft) => Object.assign(draft, structuredClone(defaultConfig)));
-                toast.success("Model configuration reset to workbook defaults (decisions kept)");
-              }}
-            >
-              Reset config only
-            </Button>
+          <CardContent className="flex flex-wrap items-end gap-4">
+            <div className="flex items-center gap-2 pb-2">
+              <Label className="text-xs">Enabled</Label>
+              <Switch checked={config.moderateCredibility.enabled} onCheckedChange={(v) => update((d) => (d.moderateCredibility.enabled = v))} />
+            </div>
+            <NumField label="Full OC threshold" value={config.moderateCredibility.fullOcThreshold} onChange={(n) => update((d) => (d.moderateCredibility.fullOcThreshold = n))} />
+            <NumField label="Partial OC threshold" value={config.moderateCredibility.partialOcThreshold} onChange={(n) => update((d) => (d.moderateCredibility.partialOcThreshold = n))} />
+            <NumField label="Full capital adj" value={config.moderateCredibility.fullAdj} onChange={(n) => update((d) => (d.moderateCredibility.fullAdj = n))} />
+            <NumField label="Partial capital adj" value={config.moderateCredibility.partialAdj} onChange={(n) => update((d) => (d.moderateCredibility.partialAdj = n))} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Terminal sustainability</CardTitle>
+            <CardDescription>Final-round raw health = current weight × final round + terminal weight × projected post-simulation state.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-end gap-4">
+            <div className="flex items-center gap-2 pb-2">
+              <Label className="text-xs">Enabled</Label>
+              <Switch checked={config.terminal.enabled} onCheckedChange={(v) => update((d) => (d.terminal.enabled = v))} />
+            </div>
+            <NumField label="Current weight" value={config.terminal.currentWeight} onChange={(n) => update((d) => (d.terminal.currentWeight = n))} />
+            <NumField label="Terminal weight" value={config.terminal.terminalWeight} onChange={(n) => update((d) => (d.terminal.terminalWeight = n))} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">System Health Index</CardTitle>
+            <CardDescription>Index = midpoint + sensitivity × (raw − midpoint), bounded 0–100. Bands label the index for participants.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-4">
+              <NumField label="Midpoint" value={config.healthIndex.midpoint} onChange={(n) => update((d) => (d.healthIndex.midpoint = n))} />
+              <NumField label="Sensitivity" value={config.healthIndex.sensitivity} onChange={(n) => update((d) => (d.healthIndex.sensitivity = n))} />
+            </div>
+            <div className="flex flex-wrap gap-4">
+              {config.healthIndex.bands.map((band, i) => (
+                <div key={i} className="flex items-end gap-2">
+                  <NumField label={`${band.label} from`} className="w-20" value={band.min} onChange={(n) => update((d) => (d.healthIndex.bands[i].min = n))} />
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </TabsContent>
-
       <TabsContent value="parameters" className="space-y-3">
         <Card>
           <CardHeader>

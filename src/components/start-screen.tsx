@@ -1,4 +1,5 @@
-// Session picker: local sandbox, join a shared game, or create one.
+// Landing: two clearly separate doors — players join their team, facilitators
+// open the console. Outside Power Apps both doors use the local sandbox.
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -7,96 +8,46 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { detectPowerHost, type Session } from "@/lib/session";
 import type { SharedGameSummary } from "@/lib/dataverse-store";
+import { PHASE_LABEL } from "@/lib/game";
+import { teamColor } from "@/lib/format";
 import { LOOP_META } from "@/lib/loops";
+import type { Session } from "@/lib/session";
+import { peekLocalTeams } from "@/lib/store";
+import { useCurrentUser } from "@/lib/user";
+import { cn } from "@/lib/utils";
 
 interface Props {
   onStart: (session: Session) => void;
 }
 
 export function StartScreen({ onStart }: Props) {
-  const [hostAvailable, setHostAvailable] = useState<boolean | null>(null);
+  const user = useCurrentUser();
+  const shared = !!user;
   const [games, setGames] = useState<SharedGameSummary[] | null>(null);
-  const [gameId, setGameId] = useState("");
-  const [joinRole, setJoinRole] = useState<"facilitator" | "team">("team");
-  const [teams, setTeams] = useState<{ teamKey: string; name: string }[]>([]);
-  const [teamKey, setTeamKey] = useState("");
-  const [newName, setNewName] = useState("Apex Simulation");
-  const [newTeamCount, setNewTeamCount] = useState(6);
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    void detectPowerHost().then((ok) => {
-      if (cancelled) return;
-      setHostAvailable(ok);
-      if (ok) {
-        void import("@/lib/dataverse-store")
-          .then((dv) => dv.listSharedGames())
-          .then((list) => {
-            if (cancelled) return;
-            setGames(list);
-            if (list.length > 0) setGameId(list[0].id);
-          })
-          .catch(() => !cancelled && setGames([]));
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!gameId) return;
+    if (!shared) return;
     let cancelled = false;
     void import("@/lib/dataverse-store")
-      .then((dv) => dv.listGameTeams(gameId))
-      .then((list) => {
-        if (cancelled) return;
-        setTeams(list);
-        setTeamKey((prev) => (list.some((t) => t.teamKey === prev) ? prev : (list[0]?.teamKey ?? "")));
-      })
-      .catch(() => !cancelled && setTeams([]));
+      .then((dv) => dv.listSharedGames())
+      .then((list) => !cancelled && setGames(list))
+      .catch(() => !cancelled && setGames([]));
     return () => {
       cancelled = true;
     };
-  }, [gameId]);
-
-  const join = () => {
-    const game = games?.find((g) => g.id === gameId);
-    if (!game) return;
-    if (joinRole === "team" && !teamKey) return;
-    onStart({
-      mode: "shared",
-      gameId: game.id,
-      gameName: game.name,
-      role: joinRole,
-      teamKey: joinRole === "team" ? teamKey : null,
-    });
-  };
-
-  const create = async () => {
-    setBusy(true);
-    try {
-      const dv = await import("@/lib/dataverse-store");
-      const id = await dv.createSharedGame(newName.trim() || "Apex Simulation", newTeamCount);
-      toast.success("Shared game created");
-      onStart({ mode: "shared", gameId: id, gameName: newName.trim() || "Apex Simulation", role: "facilitator", teamKey: null });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not create the game");
-      setBusy(false);
-    }
-  };
+  }, [shared]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-8">
-      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 px-6 py-8 text-center text-white shadow-lg">
-        <h1 className="text-4xl font-black tracking-tight">
+    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-8">
+      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 px-6 py-10 text-center text-white shadow-lg">
+        <h1 className="text-5xl font-black tracking-tight">
           APEX<span className="text-amber-400">.</span>
         </h1>
         <p className="mt-1 text-xs font-semibold tracking-[0.25em] text-indigo-200 uppercase">The Five Loop Investment Game</p>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-indigo-100">
+          Run a $2.5B enterprise for four rounds. Balance five interdependent loops — one weak loop pulls everything down.
+        </p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {LOOP_META.map((loop) => (
             <span key={loop.key} className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/15">
@@ -105,126 +56,227 @@ export function StartScreen({ onStart }: Props) {
             </span>
           ))}
         </div>
-        <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-amber-400 via-orange-400/70 to-transparent" />
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Join a shared game
-            {hostAvailable === false && <Badge variant="outline">unavailable outside Power Apps</Badge>}
-            {hostAvailable === null && <Badge variant="outline">checking…</Badge>}
-          </CardTitle>
-          <CardDescription>Play from your own device — decisions sync through Dataverse for everyone in the game.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {hostAvailable && games === null && <p className="text-muted-foreground text-sm">Loading games…</p>}
-          {hostAvailable && games !== null && games.length === 0 && (
-            <p className="text-muted-foreground text-sm">No shared games yet — create one below.</p>
-          )}
-          {hostAvailable && games !== null && games.length > 0 && (
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Game</Label>
-                <Select value={gameId} onValueChange={setGameId}>
-                  <SelectTrigger className="w-64">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {games.map((g) => (
-                      <SelectItem key={g.id} value={g.id}>
-                        {g.name} · round {g.currentRound}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Join as</Label>
-                <Select value={joinRole} onValueChange={(v) => setJoinRole(v as "facilitator" | "team")}>
-                  <SelectTrigger className="w-36">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="team">Team</SelectItem>
-                    <SelectItem value="facilitator">Facilitator</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {joinRole === "team" && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Team</Label>
-                  <Select value={teamKey} onValueChange={setTeamKey}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams.map((t) => (
-                        <SelectItem key={t.teamKey} value={t.teamKey}>
-                          {t.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              <Button onClick={join} disabled={joinRole === "team" && !teamKey}>
-                Join game
-              </Button>
-            </div>
-          )}
-          {hostAvailable === false && (
-            <p className="text-muted-foreground text-sm">
-              Shared games need the Power Apps runtime. Open the deployed app (apps.powerapps.com or the Power Apps
-              mobile app) — or use the local sandbox below for single-device play.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      {user === undefined ? (
+        <p className="text-muted-foreground text-center text-sm">Connecting…</p>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <PlayerDoor shared={shared} games={games} onStart={onStart} />
+          <FacilitatorDoor shared={shared} games={games} upn={user?.upn ?? ""} onStart={onStart} />
+        </div>
+      )}
+      {user === null && (
+        <p className="text-muted-foreground text-center text-xs">
+          Running outside Power Apps — shared multi-device games are available in the deployed app. Both doors below use this device's sandbox.
+        </p>
+      )}
+    </div>
+  );
+}
 
-      {hostAvailable && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create a shared game</CardTitle>
-            <CardDescription>Facilitator only — sets up the game, teams, and all four rounds in Dataverse.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-end gap-3">
+function DoorCard({ tone, title, subtitle, children }: { tone: "player" | "facilitator"; title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <Card className={cn("overflow-hidden border-t-8", tone === "player" ? "border-t-indigo-600" : "border-t-amber-400 bg-slate-950 text-slate-100")}>
+      <CardHeader>
+        <div className={cn("text-xs font-bold tracking-widest uppercase", tone === "player" ? "text-indigo-600" : "text-amber-400")}>
+          {tone === "player" ? "Players" : "Facilitators"}
+        </div>
+        <CardTitle className="text-2xl">{title}</CardTitle>
+        <CardDescription className={tone === "facilitator" ? "text-slate-400" : undefined}>{subtitle}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">{children}</CardContent>
+    </Card>
+  );
+}
+
+function TeamPicker({ teams, value, onChange }: { teams: { teamKey: string; name: string }[]; value: string; onChange: (k: string) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {teams.map((t, i) => (
+        <button
+          key={t.teamKey}
+          onClick={() => onChange(t.teamKey)}
+          className={cn(
+            "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-medium transition",
+            value === t.teamKey ? "border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600" : "hover:border-indigo-300",
+          )}
+        >
+          <span className="size-3 rounded-full" style={{ background: teamColor(i) }} />
+          {t.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PlayerDoor({ shared, games, onStart }: { shared: boolean; games: SharedGameSummary[] | null; onStart: (s: Session) => void }) {
+  const [gameId, setGameId] = useState("");
+  const [teams, setTeams] = useState<{ teamKey: string; name: string }[]>(() => (shared ? [] : peekLocalTeams()));
+  const [teamKey, setTeamKey] = useState("");
+  const activeGame = games?.find((g) => g.id === gameId) ?? null;
+
+  useEffect(() => {
+    if (!shared || !gameId) return;
+    let cancelled = false;
+    void import("@/lib/dataverse-store")
+      .then((dv) => dv.listGameTeams(gameId))
+      .then((list) => !cancelled && setTeams(list))
+      .catch(() => !cancelled && setTeams([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [shared, gameId]);
+
+  return (
+    <DoorCard tone="player" title="Join your team" subtitle="Make decisions with your team and see results when your facilitator reveals each round.">
+      {shared && (
+        <div className="space-y-2">
+          <Label className="text-xs">1. Choose your game</Label>
+          {games === null ? (
+            <p className="text-muted-foreground text-sm">Loading games…</p>
+          ) : games.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No games are running yet. Your facilitator will create one.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {games.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => {
+                    setGameId(g.id);
+                    setTeamKey("");
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm",
+                    gameId === g.id ? "border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600" : "hover:border-indigo-300",
+                  )}
+                >
+                  <span className="font-medium">{g.name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    Round {g.currentRound} · {PHASE_LABEL[g.roundPhase]}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {(!shared || gameId) && (
+        <div className="space-y-2">
+          <Label className="text-xs">{shared ? "2. Choose your team" : "Choose a team to practice as"}</Label>
+          <TeamPicker teams={teams} value={teamKey} onChange={setTeamKey} />
+        </div>
+      )}
+      <Button
+        size="lg"
+        className="w-full bg-indigo-600 hover:bg-indigo-700"
+        disabled={!teamKey || (shared && !activeGame)}
+        onClick={() =>
+          onStart(
+            shared && activeGame
+              ? { mode: "shared", gameId: activeGame.id, gameName: activeGame.name, role: "team", teamKey }
+              : { mode: "local", role: "team", teamKey },
+          )
+        }
+      >
+        {shared ? "Join as player" : "Practice as this team"}
+      </Button>
+    </DoorCard>
+  );
+}
+
+function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; games: SharedGameSummary[] | null; upn: string; onStart: (s: Session) => void }) {
+  const [name, setName] = useState("Apex Simulation");
+  const [teamCount, setTeamCount] = useState(6);
+  const [busy, setBusy] = useState(false);
+  const mine = (games ?? []).filter((g) => g.facilitators.map((f) => f.toLowerCase()).includes(upn));
+
+  const create = async () => {
+    setBusy(true);
+    try {
+      const dv = await import("@/lib/dataverse-store");
+      const gameName = name.trim() || "Apex Simulation";
+      const id = await dv.createSharedGame(gameName, teamCount, upn);
+      toast.success("Game created — you're its facilitator");
+      onStart({ mode: "shared", gameId: id, gameName, role: "facilitator", teamKey: null });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not create the game");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <DoorCard tone="facilitator" title="Facilitate a session" subtitle="Brief the room, open and close rounds, rule on evidence and custom actions, reveal results.">
+      {shared && (
+        <div className="space-y-2">
+          <Label className="text-xs text-slate-300">Games you facilitate</Label>
+          {games === null ? (
+            <p className="text-sm text-slate-400">Loading…</p>
+          ) : mine.length === 0 ? (
+            <p className="text-sm text-slate-400">None yet. Create one below, or ask a game's creator to add {upn || "you"} as a co-facilitator.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {mine.map((g) => (
+                <div key={g.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm">
+                  <div>
+                    <div className="font-medium">{g.name}</div>
+                    <div className="text-xs text-slate-400">
+                      Round {g.currentRound} · {PHASE_LABEL[g.roundPhase]}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="bg-amber-400 text-amber-950 hover:bg-amber-300"
+                    onClick={() => onStart({ mode: "shared", gameId: g.id, gameName: g.name, role: "facilitator", teamKey: null })}
+                  >
+                    Open console
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {shared && (
+        <div className="space-y-2 rounded-lg border border-slate-700 p-3">
+          <div className="text-sm font-semibold">Create a new game</div>
+          <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Game name</Label>
-              <Input className="w-64" value={newName} onChange={(e) => setNewName(e.target.value)} />
+              <Label className="text-xs text-slate-300">Game name</Label>
+              <Input className="w-56 border-slate-700 bg-slate-900" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Teams</Label>
+              <Label className="text-xs text-slate-300">Teams</Label>
               <Input
                 type="number"
                 min={1}
                 max={12}
-                className="w-20"
-                value={newTeamCount}
-                onChange={(e) => setNewTeamCount(Math.min(12, Math.max(1, Number(e.target.value) || 1)))}
+                className="w-20 border-slate-700 bg-slate-900"
+                value={teamCount}
+                onChange={(e) => setTeamCount(Math.min(12, Math.max(1, Number(e.target.value) || 1)))}
               />
             </div>
-            <Button onClick={() => void create()} disabled={busy}>
+            <Button className="bg-amber-400 text-amber-950 hover:bg-amber-300" disabled={busy || !upn} onClick={() => void create()}>
               {busy ? "Creating…" : "Create game"}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Local sandbox</CardTitle>
-          <CardDescription>
-            Single-device mode — everything stays in this browser. Good for facilitator prep, coefficient tuning, and
-            offline demos.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button variant="outline" onClick={() => onStart({ mode: "local" })}>
-            Open local sandbox
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          Prep &amp; practice <Badge className="bg-slate-800 text-slate-300">this device only</Badge>
+        </div>
+        <p className="text-xs text-slate-400">A private sandbox for rehearsing, tuning coefficients, or running a single-screen demo.</p>
+        <Button
+          variant="outline"
+          className="border-amber-400/60 bg-transparent text-amber-300 hover:bg-amber-400/10"
+          onClick={() => onStart({ mode: "local", role: "facilitator", teamKey: null })}
+        >
+          Open sandbox console
+        </Button>
+      </div>
+    </DoorCard>
   );
 }

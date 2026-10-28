@@ -84,11 +84,11 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
           </Badge>
           {shDelta !== null && (
             <Badge className={shDelta >= 0 ? "bg-cash text-white" : ""} variant={shDelta >= 0 ? "default" : "destructive"}>
-              System Health {signed(shDelta, 2)}
+              System Health Index {signed(shDelta, 2)}
             </Badge>
           )}
         </CardTitle>
-        <CardDescription>Live engine trace — the six stages exactly as the model computes them.</CardDescription>
+        <CardDescription>Engine trace for this team-round — every number maps to a cell in the Oct 7 workbook. Facilitator only.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <section>
@@ -114,6 +114,16 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
               hint="execution × change"
             />
             <Stat label="Response reserve" value={`${result.responseReserve} tokens`} hint={`each mitigates ${pct(config.responseReserve.mitigationPerToken, 0)} of a negative event`} />
+            {result.repeatFactors.some((f) => f > 0 && f < 1) && (
+              <Stat
+                label="Repeat returns"
+                value={result.repeatFactors
+                  .filter((f) => f > 0)
+                  .map((f) => pct(f, 0))
+                  .join(" · ")}
+                hint="diminishing returns on repeated initiatives"
+              />
+            )}
           </div>
         </section>
         <Separator />
@@ -179,6 +189,10 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
           {eventNotes.length > 0 && (
             <div className="bg-control/10 ring-control/25 mt-2 rounded-md p-2.5 ring-1">
               <div className="text-control mb-1 text-xs font-bold tracking-wide uppercase">External events this round</div>
+              <p className="text-muted-foreground mb-1 text-xs">
+                Readiness tested on prior state + lagged effects: V {fmt1(result.readiness.v)} · K {fmt1(result.readiness.k)} · F{" "}
+                {fmt1(result.readiness.f)} · C {fmt1(result.readiness.c)} · EC {fmt1(result.readiness.ec)}
+              </p>
               <ul className="text-foreground/80 list-inside list-disc text-xs">
                 {eventNotes.map((note, i) => (
                   <li key={i}>{note}</li>
@@ -214,13 +228,13 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
           <StageHeading n={5} title="Cash and capital renewal" />
           <div className="flex flex-wrap gap-5">
             <Stat label="Margin" value={pct(result.margin, 2)} />
-            <Stat label="Next capital" value={fmt1(result.nextCapital)} hint={`base ${config.params.nextCapitalBase} + posture + margin + ${pct(config.params.unusedCapitalCarry, 0)} unused`} />
+            <Stat label="Next capital" value={fmt1(result.nextCapital)} hint={`base ${config.params.nextCapitalBase} + posture ${signed(result.postureCapitalAdj, 0)} + margin + ${pct(config.params.unusedCapitalCarry, 0)} unused`} />
             <Stat label="Cash score" value={fmt1(result.cashScore)} hint="economic strength, not cash on hand" />
           </div>
         </section>
         <Separator />
         <section>
-          <StageHeading n={6} title="System Health — geometric mean" />
+          <StageHeading n={6} title="System Health — geometric mean, then index" />
           <div className="flex flex-wrap items-end gap-5">
             <Stat label="Market" value={fmt1(result.out.m)} valueClass="text-market text-base" />
             <Stat label="Value" value={fmt1(result.out.v)} valueClass="text-value text-base" />
@@ -232,11 +246,21 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
             />
             <Stat label="Control" value={fmt1(result.out.c)} valueClass="text-control text-base" />
             <Stat label="Cash score" value={fmt1(result.cashScore)} valueClass="text-cash text-base" />
-            <div className="rounded-lg bg-gradient-to-r from-indigo-50 to-violet-50 px-3 py-1.5 ring-1 ring-indigo-200/60">
-              <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">System Health</div>
-              <div className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text font-mono text-3xl font-black text-transparent">
-                {fmt1(result.systemHealth)}
-              </div>
+            <Stat label="Raw health" value={fmt2(result.rawHealth)} />
+            {result.round === config.totalRounds && config.terminal.enabled && (
+              <>
+                <Stat label="Terminal raw" value={fmt2(result.terminal.rawHealth)} hint="projected next-round consequences" />
+                <Stat
+                  label="Final raw"
+                  value={fmt2(result.finalRawHealth)}
+                  hint={`${pct(config.terminal.currentWeight, 0)} R${result.round} + ${pct(config.terminal.terminalWeight, 0)} terminal`}
+                />
+              </>
+            )}
+            <div className="bg-primary/10 ring-primary/30 rounded-lg px-3 py-1.5 ring-1">
+              <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">System Health Index</div>
+              <div className="text-primary font-mono text-3xl font-black">{fmt1(result.systemHealth)}</div>
+              <div className="text-muted-foreground text-xs">{result.healthBand}</div>
             </div>
             <Stat
               label="Pipeline"
