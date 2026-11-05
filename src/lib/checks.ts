@@ -2,6 +2,7 @@
 // scoring but the facilitator wants surfaced before submission.
 
 import type { EngineConfig, RoundDecisions, RoundResult } from "@/engine";
+import { NARRATIVE_FIELDS } from "./content";
 
 export interface CheckMessage {
   level: "error" | "warning" | "info";
@@ -33,7 +34,7 @@ export function customBandViolations(config: EngineConfig, decisions: RoundDecis
 const STATUS_FIXES: Record<string, string> = {
   "CHECK INTENSITY": "Every selected initiative needs an intensity, and intensity needs an initiative.",
   "DUPLICATE INITIATIVE": "The same initiative is selected twice.",
-  "TOO MANY INITIATIVES": "The portfolio exceeds the active-initiative limit (the strategic option and an approved custom action count).",
+  "TOO MANY INITIATIVES": "The portfolio exceeds the active-initiative limit (the strategic option counts).",
   "OVER CAPITAL": "Committed capital exceeds available capital.",
   "OVER LEADERSHIP CAPACITY": "Committed leadership capacity exceeds what's available.",
   "ROUND 4 OPTION USED EARLY": "Strategic options are only available in round 4.",
@@ -55,11 +56,17 @@ export function roundChecks(config: EngineConfig, decisions: RoundDecisions, res
   }
   // No change-load / absorption warnings here: these checks are shown to players
   // before they submit, and those warnings preview the scored outcome.
-  if (!result.narrativeComplete) {
+  const missing = missingNarrative(decisions);
+  if (missing.length > 0) {
     messages.push({
-      level: "info",
-      text: "Rationale incomplete — add your hypothesis, leading indicator, and reconsider trigger.",
+      level: "error",
+      text: `Complete your rationale before submitting: ${missing.map((f) => f.label.toLowerCase()).join(", ")}.`,
     });
   }
   return messages;
+}
+
+/** Required rationale fields the team hasn't filled in. Submission is blocked until this is empty. */
+export function missingNarrative(decisions: RoundDecisions) {
+  return NARRATIVE_FIELDS.filter((f) => f.required && decisions.narrative[f.key].trim() === "");
 }

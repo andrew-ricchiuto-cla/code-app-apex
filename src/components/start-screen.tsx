@@ -206,7 +206,7 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
   };
 
   return (
-    <DoorCard tone="facilitator" title="Facilitate a session" subtitle="Brief the room, open and close rounds, rule on evidence and custom actions, reveal results.">
+    <DoorCard tone="facilitator" title="Facilitate a session" subtitle="Brief the room, open and close rounds, rule on Round 4 evidence, reveal results.">
       {shared && (
         <div className="space-y-2">
           <Label className="text-xs">Games you facilitate</Label>

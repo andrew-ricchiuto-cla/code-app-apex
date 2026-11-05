@@ -7,12 +7,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { HealthChart } from "@/components/health-chart";
 import { HealthIndexBadge, LoopBars } from "@/components/game-ui";
 import { baselineSnapshot, loopRows, priorSnapshot } from "@/lib/display";
-import type { EngineConfig, RoundResult } from "@/engine";
+import type { EngineConfig, RoundDecisions, RoundResult } from "@/engine";
 import { HOW_IT_WORKS, LOOPS_PRIMER, TENSIONS } from "@/lib/content";
+import type { FacilitatorRuling } from "@/lib/game";
 import { fmt1, money, pct, signed, teamColor } from "@/lib/format";
 import { LOOP_META } from "@/lib/loops";
 import type { GameState, TeamState } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { DecisionSummary } from "./decide";
 
 export function RoundBriefing({ config, round, result, waitingText }: { config: EngineConfig; round: number; result: RoundResult; waitingText?: string }) {
   const theme = config.roundThemes.find((t) => t.round === round);
@@ -50,56 +52,24 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-interface Driver {
-  source: string;
-  loop: string;
-  value: number;
-}
-
-function drivers(result: RoundResult): Driver[] {
-  const loops: { key: "m" | "v" | "k" | "f" | "c"; label: string }[] = [
-    { key: "m", label: "Market" },
-    { key: "v", label: "Value" },
-    { key: "k", label: "Capability depth" },
-    { key: "f", label: "Fluidity" },
-    { key: "c", label: "Control" },
-  ];
-  const eventTotal = { m: result.events.m.total, v: 0, k: result.events.k.total, f: result.events.f.total, c: result.events.c.total };
-  const out: Driver[] = [];
-  for (const { key, label } of loops) {
-    out.push({ source: "This round's choices", loop: label, value: result.immediate[key] });
-    out.push({ source: "Earlier choices arriving", loop: label, value: result.lagged[key] });
-    out.push({ source: "External event", loop: label, value: eventTotal[key] });
-  }
-  if (result.ocToC !== 0) out.push({ source: "Low owner confidence", loop: "Control", value: result.ocToC });
-  return out.filter((d) => Math.abs(d.value) >= 0.5).sort((a, b) => Math.abs(b.value) - Math.abs(a.value)).slice(0, 5);
-}
-
 export function RoundReveal({
   config,
   round,
   results,
   rank,
   teamCount,
+  choices,
 }: {
   config: EngineConfig;
   round: number;
   results: RoundResult[];
   rank: number;
   teamCount: number;
+  /** When set (looking back at an earlier round), shows what the team chose that round. */
+  choices?: { decisions: RoundDecisions; ruling: FacilitatorRuling };
 }) {
   const result = results[round - 1];
   const prevIndex = round > 1 ? results[round - 2].systemHealth : baselineSnapshot(config).systemHealth;
-  const theme = config.roundThemes.find((t) => t.round === round);
-  const notes = [
-    ...result.events.m.notes,
-    ...result.events.k.notes,
-    ...result.events.f.notes,
-    ...result.events.c.notes,
-    ...result.events.marginPp.notes,
-    ...result.events.pricePp.notes,
-  ];
-  const top = drivers(result);
   const isFinal = round === config.totalRounds;
 
   return (
@@ -127,6 +97,17 @@ export function RoundReveal({
         </div>
       </Card>
 
+      {choices && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Your choices in Round {round}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DecisionSummary config={config} round={round} decisions={choices.decisions} ruling={choices.ruling} />
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -138,57 +119,6 @@ export function RoundReveal({
           </CardContent>
         </Card>
 
-        <Card className="border-control/40">
-          <CardHeader>
-            <CardTitle>What happened: {theme?.theme}</CardTitle>
-            <CardDescription>{theme?.primaryEvent}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {notes.length === 0 ? (
-              <p className="text-muted-foreground">No external event hit the company this round.</p>
-            ) : (
-              <ul className="list-inside list-disc space-y-1">
-                {notes.map((n, i) => (
-                  <li key={i}>{n}</li>
-                ))}
-              </ul>
-            )}
-            {result.responseReserve > 0 && notes.length > 0 && (
-              <p className="text-cash text-xs font-medium">
-                Leadership headroom you kept last round softened negative event effects by {pct(config.responseReserve.mitigationPerToken * result.responseReserve, 0)}.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>What moved your loops</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {top.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Little movement this round.</p>
-            ) : (
-              <ul className="space-y-1.5 text-sm">
-                {top.map((d, i) => (
-                  <li key={i} className="flex justify-between gap-3">
-                    <span>
-                      <span className="text-muted-foreground">{d.source}:</span> {d.loop}
-                    </span>
-                    <span className={cn("font-mono font-semibold", d.value >= 0 ? "text-cash" : "text-destructive")}>{signed(d.value)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {result.executionFactor * result.changeFactor < 1 && (
-              <p className="text-muted-foreground mt-3 text-xs">
-                Only {pct(result.executionFactor * result.changeFactor, 0)} of your initiatives' adoption-heavy effects landed, given your Control and change load.
-              </p>
-            )}
-          </CardContent>
-        </Card>
         <Card>
           <CardHeader>
             <CardTitle>The business</CardTitle>
@@ -296,29 +226,46 @@ export function Leaderboard({
   );
 }
 
+interface RecordRow {
+  label: string;
+  start: number;
+  value: (r: RoundResult) => number;
+  format: (n: number) => string;
+  formatDelta: (d: number) => string;
+}
+
+const loopFmt = { format: fmt1, formatDelta: (d: number) => signed(d) };
+const pctFmt = { format: (n: number) => pct(n, 1), formatDelta: (d: number) => `${d >= 0 ? "+" : ""}${(d * 100).toFixed(1)} pp` };
+
 export function CompanyHistory({ config, team, results, throughRound }: { config: EngineConfig; team: TeamState; results: RoundResult[]; throughRound: number }) {
   const b = config.base;
   const start = baselineSnapshot(config);
-  const rows: { label: string; start: string; value: (r: RoundResult) => string }[] = [
-    { label: "System Health Index", start: fmt1(start.systemHealth), value: (r) => fmt1(r.systemHealth) },
-    { label: "Market", start: fmt1(b.m), value: (r) => fmt1(r.out.m) },
-    { label: "Value", start: fmt1(b.v), value: (r) => fmt1(r.out.v) },
-    { label: "Capability", start: fmt1(start.capabilityLoop), value: (r) => fmt1(r.capabilityLoop) },
-    { label: "Control", start: fmt1(b.c), value: (r) => fmt1(r.out.c) },
-    { label: "Cash score", start: fmt1(start.cashScore), value: (r) => fmt1(r.cashScore) },
-    { label: "Employee confidence", start: fmt1(b.ec), value: (r) => fmt1(r.out.ec) },
-    { label: "Owner confidence", start: fmt1(b.oc), value: (r) => fmt1(r.out.oc) },
-    { label: "Revenue", start: money(b.revenue), value: (r) => money(r.revenue) },
-    { label: "Growth", start: pct(b.baselineGrowth, 1), value: (r) => pct(r.growth, 1) },
-    { label: "Margin", start: pct(b.margin, 1), value: (r) => pct(r.margin, 1) },
-    { label: "Advisory + AI mix", start: pct(b.mix, 1), value: (r) => pct(r.mix, 1) },
+  const rows: RecordRow[] = [
+    { label: "System Health Index", start: start.systemHealth, value: (r) => r.systemHealth, ...loopFmt },
+    { label: "Market", start: b.m, value: (r) => r.out.m, ...loopFmt },
+    { label: "Value", start: b.v, value: (r) => r.out.v, ...loopFmt },
+    { label: "Capability", start: start.capabilityLoop, value: (r) => r.capabilityLoop, ...loopFmt },
+    { label: "Control", start: b.c, value: (r) => r.out.c, ...loopFmt },
+    { label: "Cash score", start: start.cashScore, value: (r) => r.cashScore, ...loopFmt },
+    { label: "Employee confidence", start: b.ec, value: (r) => r.out.ec, ...loopFmt },
+    { label: "Owner confidence", start: b.oc, value: (r) => r.out.oc, ...loopFmt },
+    {
+      label: "Revenue",
+      start: b.revenue,
+      value: (r) => r.revenue,
+      format: money,
+      formatDelta: (d) => `${d >= 0 ? "+" : "−"}$${Math.abs(Math.round(d)).toLocaleString("en-US")}M`,
+    },
+    { label: "Growth", start: b.baselineGrowth, value: (r) => r.growth, ...pctFmt },
+    { label: "Margin", start: b.margin, value: (r) => r.margin, ...pctFmt },
+    { label: "Advisory + AI mix", start: b.mix, value: (r) => r.mix, ...pctFmt },
   ];
   const shown = results.slice(0, Math.max(0, throughRound));
   return (
     <Card>
       <CardHeader>
         <CardTitle>{team.name} — company record</CardTitle>
-        <CardDescription>Starting position and every revealed round.</CardDescription>
+        <CardDescription>Starting position and every revealed round. Change is shown against the previous column.</CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto">
         <Table>
@@ -337,10 +284,84 @@ export function CompanyHistory({ config, team, results, throughRound }: { config
             {rows.map((row) => (
               <TableRow key={row.label}>
                 <TableCell className="font-medium">{row.label}</TableCell>
-                <TableCell className="text-muted-foreground text-right font-mono">{row.start}</TableCell>
-                {shown.map((r) => (
-                  <TableCell key={r.round} className="text-right font-mono">
-                    {row.value(r)}
+                <TableCell className="text-muted-foreground text-right font-mono">{row.format(row.start)}</TableCell>
+                {shown.map((r, i) => {
+                  const value = row.value(r);
+                  const delta = value - (i === 0 ? row.start : row.value(shown[i - 1]));
+                  const flat = Math.abs(delta) < 0.0005 * Math.max(1, Math.abs(value));
+                  return (
+                    <TableCell key={r.round} className="text-right font-mono">
+                      {row.format(value)}
+                      <span
+                        className={cn("ml-1.5 text-xs", flat ? "text-muted-foreground" : delta > 0 ? "text-emerald-600" : "text-red-600")}
+                      >
+                        {flat ? "±0" : row.formatDelta(delta)}
+                      </span>
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** What the team chose in each revealed round, side by side. */
+export function DecisionHistory({ config, team, throughRound }: { config: EngineConfig; team: TeamState; throughRound: number }) {
+  const rounds = Array.from({ length: Math.max(0, throughRound) }, (_, i) => i + 1);
+  if (rounds.length === 0) return null;
+  const hasFinal = rounds.includes(config.totalRounds);
+  const initiativesFor = (round: number) => team.decisions[round - 1].initiatives.filter((c) => c.name !== "None" && c.name !== "");
+  const rows: { label: string; cell: (round: number) => React.ReactNode }[] = [
+    {
+      label: "Initiatives",
+      cell: (round) => {
+        const list = initiativesFor(round);
+        return list.length === 0 ? (
+          <span className="text-muted-foreground">None</span>
+        ) : (
+          <ul className="space-y-1">
+            {list.map((c) => (
+              <li key={c.name}>
+                {c.name} <span className="text-muted-foreground">· {c.intensity}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      },
+    },
+    { label: "Distribution", cell: (round) => team.decisions[round - 1].distribution },
+    { label: "Workforce reduction", cell: (round) => (team.decisions[round - 1].workforceReduction ? "Yes" : "No") },
+    ...(hasFinal ? [{ label: "Strategic option", cell: (round: number) => (round === config.totalRounds ? team.decisions[round - 1].strategicOption : "—") }] : []),
+    { label: "Hypothesis", cell: (round) => team.decisions[round - 1].narrative.hypothesis || "—" },
+    { label: "Leading indicator", cell: (round) => team.decisions[round - 1].narrative.leadingIndicator || "—" },
+  ];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{team.name} — decisions by round</CardTitle>
+        <CardDescription>What your team chose in each revealed round.</CardDescription>
+      </CardHeader>
+      <CardContent className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-40">Decision</TableHead>
+              {rounds.map((r) => (
+                <TableHead key={r}>Round {r}</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.label}>
+                <TableCell className="align-top font-medium">{row.label}</TableCell>
+                {rounds.map((r) => (
+                  <TableCell key={r} className="max-w-72 align-top text-sm whitespace-normal">
+                    {row.cell(r)}
                   </TableCell>
                 ))}
               </TableRow>

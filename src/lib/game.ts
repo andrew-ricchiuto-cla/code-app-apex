@@ -16,6 +16,10 @@ export const PHASE_LABEL: Record<RoundPhase, string> = {
 
 export type CustomStatus = "pending" | "approved" | "rejected";
 
+/** Player custom-action proposals (and the facilitator pricing queue). Off for now; when false,
+ *  proposals are hidden everywhere and never scored, even if old rows contain one. */
+export const CUSTOM_ACTIONS_ENABLED = false;
+
 /** Facilitator-only inputs for one team-round. Players can see the outcome but never edit it. */
 export interface FacilitatorRuling {
   evidence: EvidenceTrigger;
@@ -42,7 +46,7 @@ export const zeroCustom = (name = ""): CustomAction => ({
   mixPp: 0,
 });
 
-export const hasCustomProposal = (d: RoundDecisions) => (d.customProposal?.name ?? "").trim() !== "";
+export const hasCustomProposal = (d: RoundDecisions) => CUSTOM_ACTIONS_ENABLED && (d.customProposal?.name ?? "").trim() !== "";
 
 /** Player decisions + facilitator ruling → what the engine scores. */
 export function effectiveDecisions(d: RoundDecisions, ruling: FacilitatorRuling | undefined): RoundDecisions {
