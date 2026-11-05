@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SyncBadge } from "@/components/sync-badge";
-import { LemonadeTour } from "@/components/lemonade-tour";
+import { copyTourLink, useTour } from "@/lib/tour";
 import { pendingRulings, PHASE_LABEL } from "@/lib/game";
 import { useGame } from "@/lib/store";
 import { isFacilitator, useCurrentUser } from "@/lib/user";
@@ -33,7 +33,7 @@ export function FacilitatorConsole() {
   const [page, setPage] = useState<NavKey>("run");
   const [teamId, setTeamId] = useState<string | null>(null);
   const [presenting, setPresenting] = useState(false);
-  const [tour, setTour] = useState(false);
+  const { openTour } = useTour();
 
   if (session.mode === "shared") {
     if (user === undefined) return <div className="text-muted-foreground p-10 text-center text-sm">Checking facilitator access…</div>;
@@ -60,7 +60,6 @@ export function FacilitatorConsole() {
   return (
     <div className="bg-background text-foreground min-h-screen">
       {presenting && <PresentMode onClose={() => setPresenting(false)} />}
-      <LemonadeTour open={tour} onOpenChange={setTour} />
       <header className="bg-navy text-white shadow-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-4">
@@ -78,8 +77,11 @@ export function FacilitatorConsole() {
           </div>
           <div className="flex items-center gap-2">
             <SyncBadge />
-            <Button size="sm" variant="ghost" className="text-white/80 hover:bg-white/10 hover:text-white" onClick={() => setTour(true)}>
+            <Button size="sm" variant="ghost" className="text-white/80 hover:bg-white/10 hover:text-white" onClick={openTour}>
               🍋 Walkthrough
+            </Button>
+            <Button size="sm" variant="ghost" className="text-white/80 hover:bg-white/10 hover:text-white" title="Copy a link that opens the app straight into the Lemonade Stand walkthrough" onClick={() => void copyTourLink()}>
+              🔗 Share walkthrough
             </Button>
             <Button size="sm" className="bg-white text-navy hover:bg-riptide/20" onClick={() => setPresenting(true)}>
               Present

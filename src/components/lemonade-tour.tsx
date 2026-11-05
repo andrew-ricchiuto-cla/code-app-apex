@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { copyTourLink } from "@/lib/tour-link";
 import { cn } from "@/lib/utils";
 
 type LoopKey = "market" | "value" | "capability" | "control" | "cash";
@@ -100,10 +101,15 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
               <DialogTitle className="text-xl font-black">🍋 The Lemonade Stand</DialogTitle>
               <DialogDescription className="text-white/70">Same rules as Apex. Smaller stakes. More lemons.</DialogDescription>
             </div>
-            <div className="hidden gap-1 sm:flex">
-              {STEPS.map((s, i) => (
-                <span key={s} title={s} className={cn("h-1.5 w-6 rounded-full", i <= step ? "bg-saffron" : "bg-white/20")} />
-              ))}
+            <div className="flex flex-col items-end gap-2">
+              <div className="hidden gap-1 sm:flex">
+                {STEPS.map((s, i) => (
+                  <span key={s} title={s} className={cn("h-1.5 w-6 rounded-full", i <= step ? "bg-saffron" : "bg-white/20")} />
+                ))}
+              </div>
+              <Button size="sm" variant="ghost" className="mr-6 h-6 px-2 text-xs text-white/70 hover:bg-white/10 hover:text-white" onClick={() => void copyTourLink()}>
+                🔗 Copy link
+              </Button>
             </div>
           </div>
         </div>
