@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import type { EngineConfig, InitiativeChoice, Intensity, RoundDecisions, RoundResult } from "@/engine";
 import { FACILITATOR_STATUSES, missingNarrative, roundChecks } from "@/lib/checks";
-import { NARRATIVE_FIELDS, POSTURE_PLAIN } from "@/lib/content";
+import { narrativeFieldsFor, POSTURE_PLAIN } from "@/lib/content";
 import { CUSTOM_ACTIONS_ENABLED, hasCustomProposal, type FacilitatorRuling } from "@/lib/game";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +73,7 @@ export function DecideFlow({ config, round, decisions, ruling, result, history, 
 
       {step === "initiatives" && <InitiativeCatalog config={config} decisions={decisions} history={history} onChange={onChange} />}
       {step === "enterprise" && <EnterpriseChoices config={config} round={round} decisions={decisions} ruling={ruling} onChange={onChange} />}
-      {step === "rationale" && <Rationale decisions={decisions} onChange={onChange} />}
+      {step === "rationale" && <Rationale round={round} decisions={decisions} onChange={onChange} />}
       {step === "review" && <Review config={config} round={round} decisions={decisions} ruling={ruling} result={result} onSubmit={onSubmit} />}
 
       <div className="flex justify-between">
@@ -365,9 +365,9 @@ export function CustomStatusBadge({ ruling }: { ruling: FacilitatorRuling }) {
   return <Badge variant="secondary">Awaiting facilitator</Badge>;
 }
 
-function Rationale({ decisions, onChange }: { decisions: RoundDecisions; onChange: (d: RoundDecisions) => void }) {
+function Rationale({ round, decisions, onChange }: { round: number; decisions: RoundDecisions; onChange: (d: RoundDecisions) => void }) {
   const n = decisions.narrative;
-  const missing = new Set(missingNarrative(decisions).map((f) => f.key));
+  const missing = new Set(missingNarrative(decisions, round).map((f) => f.key));
   return (
     <Card>
       <CardHeader>
@@ -378,7 +378,7 @@ function Rationale({ decisions, onChange }: { decisions: RoundDecisions; onChang
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {NARRATIVE_FIELDS.map((f) => (
+        {narrativeFieldsFor(round).map((f) => (
           <div key={f.key} className="space-y-1">
             <Label>
               {f.label} {f.required && <span className="text-destructive">*</span>}
@@ -386,7 +386,7 @@ function Rationale({ decisions, onChange }: { decisions: RoundDecisions; onChang
             <Textarea
               rows={2}
               placeholder={f.prompt}
-              value={n[f.key]}
+              value={n[f.key] ?? ""}
               aria-invalid={missing.has(f.key) || undefined}
               onChange={(e) => onChange({ ...decisions, narrative: { ...n, [f.key]: e.target.value } })}
             />
@@ -436,6 +436,14 @@ export function DecisionSummary({ config, round, decisions, ruling }: { config: 
           <dd className="flex items-center gap-2">
             {decisions.customProposal!.name} <CustomStatusBadge ruling={ruling} />
           </dd>
+        </>
+      )}
+      <dt className="text-muted-foreground">Diagnosis</dt>
+      <dd className="whitespace-pre-wrap">{decisions.narrative.diagnosis || "—"}</dd>
+      {round > 1 && (
+        <>
+          <dt className="text-muted-foreground">Learning since prior round</dt>
+          <dd className="whitespace-pre-wrap">{decisions.narrative.learning || "—"}</dd>
         </>
       )}
       <dt className="text-muted-foreground">Hypothesis</dt>

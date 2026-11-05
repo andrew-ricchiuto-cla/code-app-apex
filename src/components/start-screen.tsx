@@ -13,7 +13,8 @@ import { PHASE_LABEL } from "@/lib/game";
 import { teamColor } from "@/lib/format";
 import { LOOP_META } from "@/lib/loops";
 import type { Session } from "@/lib/session";
-import { peekLocalTeams } from "@/lib/store";
+import { canJoinTeam, isMember } from "@/lib/people";
+import { peekLocalTeams, type TeamSummary } from "@/lib/store";
 import { useCurrentUser } from "@/lib/user";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +64,7 @@ export function StartScreen({ onStart }: Props) {
         <p className="text-muted-foreground text-center text-sm">Connecting…</p>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
-          <PlayerDoor shared={shared} games={games} onStart={onStart} />
+          <PlayerDoor shared={shared} games={games} upn={user?.upn} onStart={onStart} />
           <FacilitatorDoor shared={shared} games={games} upn={user?.upn ?? ""} onStart={onStart} />
         </div>
       )}
@@ -91,29 +92,44 @@ function DoorCard({ tone, title, subtitle, children }: { tone: "player" | "facil
   );
 }
 
-function TeamPicker({ teams, value, onChange }: { teams: { teamKey: string; name: string }[]; value: string; onChange: (k: string) => void }) {
+function TeamPicker({ teams, value, onChange, upn }: { teams: TeamSummary[]; value: string; onChange: (k: string) => void; upn?: string }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {teams.map((t, i) => (
-        <button
-          key={t.teamKey}
-          onClick={() => onChange(t.teamKey)}
-          className={cn(
-            "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-medium transition",
-            value === t.teamKey ? "border-navy bg-riptide/15 ring-2 ring-navy" : "hover:border-riptide",
-          )}
-        >
-          <span className="size-3 rounded-full" style={{ background: teamColor(i) }} />
-          {t.name}
-        </button>
-      ))}
+      {teams.map((t, i) => {
+        const allowed = canJoinTeam(t, upn);
+        const isCaptain = !!upn && t.captainUpn === upn;
+        const mine = !!upn && isMember(t, upn);
+        return (
+          <button
+            key={t.teamKey}
+            disabled={!allowed}
+            title={allowed ? undefined : "This team has an assigned roster"}
+            onClick={() => onChange(t.teamKey)}
+            className={cn(
+              "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-medium transition disabled:opacity-40",
+              value === t.teamKey ? "border-navy bg-riptide/15 ring-2 ring-navy" : "hover:border-riptide",
+              mine && value !== t.teamKey && "border-riptide",
+            )}
+          >
+            <span className="size-3 shrink-0 rounded-full" style={{ background: teamColor(i) }} />
+            <span className="min-w-0 flex-1 truncate">{t.name}</span>
+            {isCaptain ? (
+              <span className="text-saffron" title="You're the captain">
+                ★
+              </span>
+            ) : mine ? (
+              <span className="text-muted-foreground text-[10px]">YOU</span>
+            ) : null}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function PlayerDoor({ shared, games, onStart }: { shared: boolean; games: SharedGameSummary[] | null; onStart: (s: Session) => void }) {
+function PlayerDoor({ shared, games, upn, onStart }: { shared: boolean; games: SharedGameSummary[] | null; upn?: string; onStart: (s: Session) => void }) {
   const [gameId, setGameId] = useState("");
-  const [teams, setTeams] = useState<{ teamKey: string; name: string }[]>(() => (shared ? [] : peekLocalTeams()));
+  const [teams, setTeams] = useState<TeamSummary[]>(() => (shared ? [] : peekLocalTeams()));
   const [teamKey, setTeamKey] = useState("");
   const activeGame = games?.find((g) => g.id === gameId) ?? null;
 
@@ -122,12 +138,17 @@ function PlayerDoor({ shared, games, onStart }: { shared: boolean; games: Shared
     let cancelled = false;
     void import("@/lib/dataverse-store")
       .then((dv) => dv.listGameTeams(gameId))
-      .then((list) => !cancelled && setTeams(list))
+      .then((list) => {
+        if (cancelled) return;
+        setTeams(list);
+        const mine = list.filter((t) => upn && isMember(t, upn));
+        if (mine.length === 1) setTeamKey(mine[0].teamKey);
+      })
       .catch(() => !cancelled && setTeams([]));
     return () => {
       cancelled = true;
     };
-  }, [shared, gameId]);
+  }, [shared, gameId, upn]);
 
   return (
     <DoorCard tone="player" title="Join your team" subtitle="Make decisions with your team and see results when your facilitator reveals each round.">
@@ -165,7 +186,10 @@ function PlayerDoor({ shared, games, onStart }: { shared: boolean; games: Shared
       {(!shared || gameId) && (
         <div className="space-y-2">
           <Label className="text-xs">{shared ? "2. Choose your team" : "Choose a team to practice as"}</Label>
-          <TeamPicker teams={teams} value={teamKey} onChange={setTeamKey} />
+          <TeamPicker teams={teams} value={teamKey} onChange={setTeamKey} upn={shared ? upn : undefined} />
+          {shared && teams.some((t) => t.members.length > 0) && !teams.some((t) => upn && isMember(t, upn)) && (
+            <p className="text-muted-foreground text-xs">You aren't on a team roster for this game. Ask your facilitator to add you.</p>
+          )}
         </div>
       )}
       <Button

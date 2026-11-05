@@ -301,6 +301,10 @@ export interface CustomAction {
 }
 
 export interface Narrative {
+  /** What constraint the team is trying to address this round. */
+  diagnosis?: string;
+  /** What the team learned since the prior round (Round 2 onward). */
+  learning?: string;
   hypothesis: string;
   leadingIndicator: string;
   exposedLoop: string;

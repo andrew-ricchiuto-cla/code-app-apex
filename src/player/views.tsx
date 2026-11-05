@@ -336,6 +336,8 @@ export function DecisionHistory({ config, team, throughRound }: { config: Engine
     { label: "Distribution", cell: (round) => team.decisions[round - 1].distribution },
     { label: "Workforce reduction", cell: (round) => (team.decisions[round - 1].workforceReduction ? "Yes" : "No") },
     ...(hasFinal ? [{ label: "Strategic option", cell: (round: number) => (round === config.totalRounds ? team.decisions[round - 1].strategicOption : "—") }] : []),
+    { label: "Diagnosis", cell: (round) => team.decisions[round - 1].narrative.diagnosis || "—" },
+    { label: "Learning since prior round", cell: (round) => (round > 1 ? team.decisions[round - 1].narrative.learning || "—" : "—") },
     { label: "Hypothesis", cell: (round) => team.decisions[round - 1].narrative.hypothesis || "—" },
     { label: "Leading indicator", cell: (round) => team.decisions[round - 1].narrative.leadingIndicator || "—" },
   ];

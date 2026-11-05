@@ -1,8 +1,10 @@
+import { createContext, useContext, useState, type ComponentProps } from "react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -14,6 +16,23 @@ import type { EffectVector, EngineConfig, EventRules, InitiativeVariant } from "
 import { useGame } from "@/lib/store";
 
 type ConfigUpdater = (fn: (draft: EngineConfig) => void) => void;
+
+/** Model settings are view-only until the facilitator clicks Edit. */
+const EditingContext = createContext(false);
+
+function EditSwitch(props: ComponentProps<typeof Switch>) {
+  const editing = useContext(EditingContext);
+  return <Switch {...props} disabled={!editing || props.disabled} />;
+}
+
+/** Number of leaf values that differ between two configs. */
+function countChanges(a: unknown, b: unknown): number {
+  if (typeof a !== "object" || a === null || typeof b !== "object" || b === null) return Object.is(a, b) ? 0 : 1;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  let n = 0;
+  for (const k of keys) n += countChanges((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]);
+  return n;
+}
 
 export function NumField({
   label,
@@ -28,6 +47,7 @@ export function NumField({
   step?: string;
   className?: string;
 }) {
+  const editing = useContext(EditingContext);
   return (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
@@ -35,6 +55,7 @@ export function NumField({
         type="number"
         step={step}
         className={className}
+        disabled={!editing}
         value={Number.isFinite(value) ? value : 0}
         onChange={(e) => onChange(Number(e.target.value) || 0)}
       />
@@ -63,6 +84,7 @@ function VariantRow({
   variant: InitiativeVariant;
   onChange: (fn: (v: InitiativeVariant) => void) => void;
 }) {
+  const editing = useContext(EditingContext);
   const cell = (value: number, set: (v: InitiativeVariant, n: number) => void) => (
     <TableCell className="p-1">
       <Input
@@ -70,6 +92,7 @@ function VariantRow({
         step="any"
         className="h-8 w-16 px-1 text-right font-mono text-xs"
         value={value}
+        disabled={!editing}
         onChange={(e) => onChange((v) => set(v, Number(e.target.value) || 0))}
       />
     </TableCell>
@@ -193,7 +216,7 @@ function EventsEditor({ config, update }: { config: EngineConfig; update: Config
             </div>
             <div className="flex items-center gap-2">
               <Label className="text-xs">Enabled</Label>
-              <Switch
+              <EditSwitch
                 checked={rule.enabled}
                 onCheckedChange={(v) => update((draft) => (draft.events[key].enabled = v))}
               />
@@ -304,7 +327,7 @@ function ChoicesEditor({ config, update }: { config: EngineConfig; update: Confi
           ))}
           <div className="flex items-center gap-2 pb-2">
             <Label className="text-xs">Apply C/OC lag in play (workbook: terminal only)</Label>
-            <Switch
+            <EditSwitch
               checked={config.workforceAction.applyControlOcLagInPlay}
               onCheckedChange={(v) => update((draft) => (draft.workforceAction.applyControlOcLagInPlay = v))}
             />
@@ -341,24 +364,68 @@ function ChoicesEditor({ config, update }: { config: EngineConfig; update: Confi
 
 export function ModelSettings() {
   const { state, dispatch } = useGame();
-  const config = state.config;
+  const [draft, setDraft] = useState<EngineConfig | null>(null);
+  const [confirm, setConfirm] = useState<"save" | "discard" | null>(null);
+  const editing = draft !== null;
+  const config = draft ?? state.config;
+  const changes = draft ? countChanges(state.config, draft) : 0;
 
   const update: ConfigUpdater = (fn) => {
-    const draft = structuredClone(config);
-    fn(draft);
-    dispatch({ type: "setConfig", config: draft });
+    if (!draft) return;
+    const next = structuredClone(draft);
+    fn(next);
+    setDraft(next);
+  };
+
+  const save = () => {
+    if (draft) dispatch({ type: "setConfig", config: draft });
+    setDraft(null);
+    setConfirm(null);
+    toast.success(`Model saved — ${changes} setting${changes === 1 ? "" : "s"} changed. All teams re-scored.`);
+  };
+  const discard = () => {
+    setDraft(null);
+    setConfirm(null);
   };
 
   const baseKeys = ["m", "v", "k", "f", "c", "ec", "oc"] as const;
 
   return (
+    <EditingContext.Provider value={editing}>
     <Tabs defaultValue="parameters" className="space-y-4">
-      <Alert className="border-control/60">
-        <AlertTitle>Edits re-score the live game</AlertTitle>
-        <AlertDescription>
-          Every change recalculates all teams' results immediately on every device — including rounds already revealed. Defaults are the Oct 7 workbook.
-        </AlertDescription>
-      </Alert>
+      {editing ? (
+        <Alert className="border-saffron bg-saffron/15 sticky top-2 z-20 shadow-md">
+          <AlertTitle className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              Editing the model{" "}
+              <Badge variant="outline" className="ml-1">
+                {changes === 0 ? "no changes yet" : `${changes} unsaved change${changes === 1 ? "" : "s"}`}
+              </Badge>
+            </span>
+            <span className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => (changes > 0 ? setConfirm("discard") : discard())}>
+                Cancel
+              </Button>
+              <Button size="sm" disabled={changes === 0} onClick={() => setConfirm("save")}>
+                Save changes
+              </Button>
+            </span>
+          </AlertTitle>
+          <AlertDescription>Nothing is applied until you save. Saving recalculates every team's results immediately, including rounds already revealed.</AlertDescription>
+        </Alert>
+      ) : (
+        <Alert className="border-control/60">
+          <AlertTitle className="flex flex-wrap items-center justify-between gap-2">
+            <span>Model settings are view-only</span>
+            <Button size="sm" onClick={() => setDraft(structuredClone(state.config))}>
+              Edit model
+            </Button>
+          </AlertTitle>
+          <AlertDescription>
+            Defaults are the Oct 7 workbook. Changes re-score the live game for every team, so edits require Edit → Save.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <TabsList className="bg-card border shadow-sm">
           {(
@@ -375,18 +442,44 @@ export function ModelSettings() {
             </TabsTrigger>
           ))}
         </TabsList>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            update((draft) => Object.assign(draft, structuredClone(defaultConfig)));
-            toast.success("Model reset to Oct 7 workbook defaults (decisions kept)");
-          }}
-        >
-          Reset model to workbook defaults
-        </Button>
+        {editing && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              update((d) => Object.assign(d, structuredClone(defaultConfig)));
+              toast.info("Workbook defaults loaded into your edits — Save to apply");
+            }}
+          >
+            Reset to workbook defaults
+          </Button>
+        )}
       </div>
 
+      <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{confirm === "save" ? "Save model changes?" : "Discard your changes?"}</DialogTitle>
+            <DialogDescription>
+              {confirm === "save"
+                ? `${changes} setting${changes === 1 ? "" : "s"} will change. Every team's results — including rounds already revealed — will be recalculated on all devices.`
+                : `You have ${changes} unsaved change${changes === 1 ? "" : "s"}. The model will stay as it was.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirm(null)}>
+              {confirm === "save" ? "Keep editing" : "Keep editing"}
+            </Button>
+            {confirm === "save" ? (
+              <Button onClick={save}>Save changes</Button>
+            ) : (
+              <Button variant="destructive" onClick={discard}>
+                Discard changes
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <TabsContent value="realism" className="space-y-3">
         <Card>
           <CardHeader>
@@ -407,7 +500,7 @@ export function ModelSettings() {
           <CardContent className="flex flex-wrap items-end gap-4">
             <div className="flex items-center gap-2 pb-2">
               <Label className="text-xs">Enabled</Label>
-              <Switch checked={config.moderateCredibility.enabled} onCheckedChange={(v) => update((d) => (d.moderateCredibility.enabled = v))} />
+              <EditSwitch checked={config.moderateCredibility.enabled} onCheckedChange={(v) => update((d) => (d.moderateCredibility.enabled = v))} />
             </div>
             <NumField label="Full OC threshold" value={config.moderateCredibility.fullOcThreshold} onChange={(n) => update((d) => (d.moderateCredibility.fullOcThreshold = n))} />
             <NumField label="Partial OC threshold" value={config.moderateCredibility.partialOcThreshold} onChange={(n) => update((d) => (d.moderateCredibility.partialOcThreshold = n))} />
@@ -423,7 +516,7 @@ export function ModelSettings() {
           <CardContent className="flex flex-wrap items-end gap-4">
             <div className="flex items-center gap-2 pb-2">
               <Label className="text-xs">Enabled</Label>
-              <Switch checked={config.terminal.enabled} onCheckedChange={(v) => update((d) => (d.terminal.enabled = v))} />
+              <EditSwitch checked={config.terminal.enabled} onCheckedChange={(v) => update((d) => (d.terminal.enabled = v))} />
             </div>
             <NumField label="Current weight" value={config.terminal.currentWeight} onChange={(n) => update((d) => (d.terminal.currentWeight = n))} />
             <NumField label="Terminal weight" value={config.terminal.terminalWeight} onChange={(n) => update((d) => (d.terminal.terminalWeight = n))} />
@@ -581,7 +674,7 @@ export function ModelSettings() {
             />
             <div className="flex items-center gap-2 pb-2">
               <Label className="text-xs">OC consequence enabled</Label>
-              <Switch checked={config.ocConsequence.enabled} onCheckedChange={(v) => update((d) => (d.ocConsequence.enabled = v))} />
+              <EditSwitch checked={config.ocConsequence.enabled} onCheckedChange={(v) => update((d) => (d.ocConsequence.enabled = v))} />
             </div>
             <NumField label="OC concern threshold" value={config.ocConsequence.concernThreshold} onChange={(n) => update((d) => (d.ocConsequence.concernThreshold = n))} />
             <NumField label="OC crisis threshold" value={config.ocConsequence.crisisThreshold} onChange={(n) => update((d) => (d.ocConsequence.crisisThreshold = n))} />
@@ -603,5 +696,6 @@ export function ModelSettings() {
         <ChoicesEditor config={config} update={update} />
       </TabsContent>
     </Tabs>
+    </EditingContext.Provider>
   );
 }

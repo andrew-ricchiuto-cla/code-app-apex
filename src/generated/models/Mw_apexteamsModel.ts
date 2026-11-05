@@ -16,7 +16,9 @@ export type Mw_apexteamsstatuscode = keyof typeof Mw_apexteamsstatuscode;
 export interface Mw_apexteamsBase {
   importsequencenumber?: number;
   mw_apexteamid: string;
+  mw_captainupn?: string;
   mw_gameid?: string;
+  mw_membersjson?: string;
   mw_name?: string;
   mw_sortorder?: number;
   mw_teamkey?: string;

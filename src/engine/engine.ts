@@ -771,6 +771,8 @@ export function emptyDecisions(): RoundDecisions {
     evidenceTriggerMet: "Not assessed",
     customAction: null,
     narrative: {
+      diagnosis: "",
+      learning: "",
       hypothesis: "",
       leadingIndicator: "",
       exposedLoop: "None",
