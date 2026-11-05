@@ -48,7 +48,7 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
           run: () => setClock(round, PHASE.Closed, "Submissions closed"),
         };
       case PHASE.Closed:
-        return { label: `Reveal Round ${round} results`, run: () => setClock(round, PHASE.Revealed, `Round ${round} revealed to players`) };
+        return { label: `Reveal Round ${round} results`, run: () => setClock(round, PHASE.Revealed, `Round ${round} revealed to participants`) };
       default:
         return complete ? null : { label: `Start Round ${round + 1}`, run: () => setClock(round + 1, PHASE.Briefing, `Round ${round + 1} briefing`) };
     }
@@ -138,10 +138,10 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
 
 function PhaseGuidance({ phase, round, total }: { phase: RoundPhase; round: number; total: number }) {
   const text: Record<RoundPhase, string> = {
-    0: `Players see the Round ${round} briefing and their resources but can't edit yet. Brief the room (Present mode helps), then open decisions.`,
-    1: `Teams are choosing. Watch the tracker${CUSTOM_ACTIONS_ENABLED ? "; price custom actions as they come in" : ""}. Players can't see any scores.`,
+    0: `Participants see the Round ${round} briefing and their resources but can't edit yet. Brief the room (Present mode helps), then open decisions.`,
+    1: `Teams are choosing. Watch the tracker${CUSTOM_ACTIONS_ENABLED ? "; price custom actions as they come in" : ""}. Participants can't see any scores.`,
     2: `Decisions are locked.${round === total ? " Rule on each team's evidence trigger" : CUSTOM_ACTIONS_ENABLED ? " Resolve any custom actions" : ""}, then reveal.`,
-    3: round === total ? "Final results are visible to players. Use Results for the debrief." : "Players now see their results and the leaderboard. Debrief, then start the next round.",
+    3: round === total ? "Final results are visible to participants. Use Results for the debrief." : "Participants now see their results and the leaderboard. Debrief, then start the next round.",
   };
   return <p className="text-muted-foreground text-sm">{text[phase]}</p>;
 }
@@ -256,7 +256,7 @@ function RulingsQueue({ round }: { round: number }) {
     <Card className="border-primary/40">
       <CardHeader>
         <CardTitle>Facilitator rulings</CardTitle>
-        <CardDescription>Only you can make these calls. Players see the outcome, not the controls.</CardDescription>
+        <CardDescription>Only you can make these calls. Participants see the outcome, not the controls.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {evidenceTeams.length > 0 && (
@@ -403,7 +403,7 @@ function LiveStandings({ teams, round, resultsByTeam }: { teams: TeamState[]; ro
         <CardTitle className="flex items-center gap-2">
           Live standings <Badge variant="outline">facilitator only</Badge>
         </CardTitle>
-        <CardDescription>Provisional Round {round} index from current drafts. Players can't see this until you reveal.</CardDescription>
+        <CardDescription>Provisional Round {round} index from current drafts. Participants can't see this until you reveal.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-3">
         {rows.map(({ team, index, r }) => (

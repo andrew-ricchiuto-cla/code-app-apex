@@ -165,7 +165,7 @@ export function GameSetup() {
           <CardHeader>
             <CardTitle>Facilitators</CardTitle>
             <CardDescription>
-              Only these people can open this game's Facilitator Console. Everyone else joins as a player. Add co-facilitators by work email.
+              Only these people can open this game's Facilitator Console. Everyone else joins as a participant. Add co-facilitators by work email.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">

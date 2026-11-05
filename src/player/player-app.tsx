@@ -64,7 +64,7 @@ export function PlayerApp() {
                 <h1 className="text-2xl font-black tracking-tight">
                   APEX<span className="text-saffron">.</span>
                 </h1>
-                <span className="text-[11px] font-semibold tracking-[0.25em] text-white/70 uppercase">Player</span>
+                <span className="text-[11px] font-semibold tracking-[0.25em] text-white/70 uppercase">Participant</span>
               </div>
               <div className="mt-1 flex items-center gap-2 text-lg font-bold">
                 <span className="size-3 rounded-full ring-2 ring-white/50" style={{ background: color }} />

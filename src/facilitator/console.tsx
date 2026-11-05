@@ -41,7 +41,7 @@ export function FacilitatorConsole() {
           <h2 className="text-xl font-bold">Facilitator access required</h2>
           <p className="text-muted-foreground text-sm">
             {user ? <>You're signed in as {user.upn}, which isn't a facilitator on “{state.gameName}”.</> : "Your identity couldn't be confirmed."} Ask the game's
-            creator to add you under Game setup → Facilitators, or join as a player.
+            creator to add you under Game setup → Facilitators, or join as a participant.
           </p>
           <Button onClick={leaveSession}>Back to start</Button>
         </div>

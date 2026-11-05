@@ -82,7 +82,7 @@ function DoorCard({ tone, title, subtitle, children }: { tone: "player" | "facil
     <Card className={cn("overflow-hidden border-t-8", tone === "player" ? "border-t-riptide" : "border-t-saffron")}>
       <CardHeader>
         <div className={cn("text-xs font-bold tracking-widest uppercase", tone === "player" ? "text-navy" : "text-navy")}>
-          {tone === "player" ? "Players" : "Facilitators"}
+          {tone === "player" ? "Participants" : "Facilitators"}
         </div>
         <CardTitle className="text-2xl">{title}</CardTitle>
         <CardDescription>{subtitle}</CardDescription>
@@ -204,7 +204,7 @@ function PlayerDoor({ shared, games, upn, onStart }: { shared: boolean; games: S
           )
         }
       >
-        {shared ? "Join as player" : "Practice as this team"}
+        {shared ? "Join as participant" : "Practice as this team"}
       </Button>
     </DoorCard>
   );
