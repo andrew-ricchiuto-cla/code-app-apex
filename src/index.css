@@ -8,6 +8,11 @@
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
+    --color-navy: var(--cla-navy);
+    --color-riptide: var(--cla-riptide);
+    --color-celadon: var(--cla-celadon);
+    --color-scarlett: var(--cla-scarlett);
+    --color-saffron: var(--cla-saffron);
     --color-market: var(--loop-market);
     --color-value: var(--loop-value);
     --color-capability: var(--loop-capability);
@@ -54,28 +59,36 @@
 }
 
 :root {
-    --background: oklch(0.975 0.008 286);
-    --foreground: oklch(0.19 0.025 282);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.19 0.025 282);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.19 0.025 282);
-    --primary: oklch(0.511 0.23 277);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.945 0.02 285);
-    --secondary-foreground: oklch(0.34 0.1 280);
-    --muted: oklch(0.955 0.012 286);
-    --muted-foreground: oklch(0.49 0.025 283);
-    --accent: oklch(0.93 0.035 284);
-    --accent-foreground: oklch(0.32 0.11 280);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.9 0.015 285);
-    --input: oklch(0.9 0.015 285);
-    --ring: oklch(0.6 0.17 277);
-    --loop-market: oklch(0.546 0.215 263);
-    --loop-value: oklch(0.558 0.25 302);
-    --loop-capability: oklch(0.6 0.11 184);
-    --loop-control: oklch(0.666 0.157 58);
+    /* CLA brand palette */
+    --cla-navy: #2e334e;
+    --cla-riptide: #7dd2d3;
+    --cla-celadon: #e2e868;
+    --cla-scarlett: #ee5340;
+    --cla-saffron: #fbc55a;
+
+    --background: #f6f7f9;
+    --foreground: #1f2338;
+    --card: #ffffff;
+    --card-foreground: #1f2338;
+    --popover: #ffffff;
+    --popover-foreground: #1f2338;
+    --primary: var(--cla-navy);
+    --primary-foreground: #ffffff;
+    --secondary: #eceef3;
+    --secondary-foreground: var(--cla-navy);
+    --muted: #eef0f4;
+    --muted-foreground: #5d6378;
+    --accent: #e3f5f5;
+    --accent-foreground: var(--cla-navy);
+    --destructive: var(--cla-scarlett);
+    --border: #dfe2ea;
+    --input: #dfe2ea;
+    --ring: var(--cla-riptide);
+    /* Loop colors: brand hues, deepened where needed so they read as text and thin bars on white. */
+    --loop-market: #2f9c9e;
+    --loop-value: #5b6494;
+    --loop-capability: #8f961a;
+    --loop-control: #e39b2b;
     --loop-cash: oklch(0.596 0.145 163);
     --chart-1: var(--loop-market);
     --chart-2: var(--loop-value);

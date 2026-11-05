@@ -58,16 +58,16 @@ export function FacilitatorConsole() {
   return (
     <div className="bg-background text-foreground min-h-screen">
       {presenting && <PresentMode onClose={() => setPresenting(false)} />}
-      <header className="bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 text-white shadow-md">
+      <header className="bg-navy text-white shadow-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-4">
             <div className="text-xl font-black tracking-tight">
-              APEX<span className="text-amber-400">.</span>
+              APEX<span className="text-saffron">.</span>
             </div>
             <Badge className="bg-white/15 font-bold tracking-widest text-white uppercase">Facilitator console</Badge>
             <div className="hidden text-sm sm:block">
               <span className="font-semibold">{state.gameName}</span>
-              <span className="text-indigo-200">
+              <span className="text-white/70">
                 {" "}
                 · Round {state.currentRound} · {PHASE_LABEL[state.roundPhase]}
               </span>
@@ -75,10 +75,10 @@ export function FacilitatorConsole() {
           </div>
           <div className="flex items-center gap-2">
             <SyncBadge />
-            <Button size="sm" className="bg-white text-indigo-900 hover:bg-indigo-50" onClick={() => setPresenting(true)}>
+            <Button size="sm" className="bg-white text-navy hover:bg-riptide/20" onClick={() => setPresenting(true)}>
               Present
             </Button>
-            <Button size="sm" variant="ghost" className="text-indigo-200 hover:bg-white/10 hover:text-white" onClick={leaveSession}>
+            <Button size="sm" variant="ghost" className="text-white/70 hover:bg-white/10 hover:text-white" onClick={leaveSession}>
               Exit
             </Button>
           </div>
@@ -93,7 +93,7 @@ export function FacilitatorConsole() {
               onClick={() => setPage(item.key)}
               className={cn(
                 "shrink-0 rounded-lg px-3 py-2 text-left transition",
-                page === item.key ? "bg-primary/10 ring-primary/50 ring-1" : "hover:bg-muted",
+                page === item.key ? "bg-riptide/20 ring-riptide ring-1" : "hover:bg-muted",
               )}
             >
               <div className="flex items-center justify-between gap-2 text-sm font-semibold">

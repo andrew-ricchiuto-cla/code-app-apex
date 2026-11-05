@@ -40,12 +40,12 @@ export function StartScreen({ onStart }: Props) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-8">
-      <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 px-6 py-10 text-center text-white shadow-lg">
+      <header className="relative overflow-hidden rounded-2xl bg-navy px-6 py-10 text-center text-white shadow-lg">
         <h1 className="text-5xl font-black tracking-tight">
-          APEX<span className="text-amber-400">.</span>
+          APEX<span className="text-saffron">.</span>
         </h1>
-        <p className="mt-1 text-xs font-semibold tracking-[0.25em] text-indigo-200 uppercase">The Five Loop Investment Game</p>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-indigo-100">
+        <p className="mt-1 text-xs font-semibold tracking-[0.25em] text-white/70 uppercase">The Five Loop Investment Game</p>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-white/85">
           Run a $2.5B enterprise for four rounds. Balance five interdependent loops — one weak loop pulls everything down.
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -56,6 +56,7 @@ export function StartScreen({ onStart }: Props) {
             </span>
           ))}
         </div>
+        <div className="absolute inset-x-0 bottom-0 h-1 bg-saffron" />
       </header>
 
       {user === undefined ? (
@@ -77,9 +78,9 @@ export function StartScreen({ onStart }: Props) {
 
 function DoorCard({ tone, title, subtitle, children }: { tone: "player" | "facilitator"; title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <Card className={cn("overflow-hidden border-t-8", tone === "player" ? "border-t-indigo-600" : "border-t-violet-600")}>
+    <Card className={cn("overflow-hidden border-t-8", tone === "player" ? "border-t-riptide" : "border-t-saffron")}>
       <CardHeader>
-        <div className={cn("text-xs font-bold tracking-widest uppercase", tone === "player" ? "text-indigo-600" : "text-violet-700")}>
+        <div className={cn("text-xs font-bold tracking-widest uppercase", tone === "player" ? "text-navy" : "text-navy")}>
           {tone === "player" ? "Players" : "Facilitators"}
         </div>
         <CardTitle className="text-2xl">{title}</CardTitle>
@@ -99,7 +100,7 @@ function TeamPicker({ teams, value, onChange }: { teams: { teamKey: string; name
           onClick={() => onChange(t.teamKey)}
           className={cn(
             "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-medium transition",
-            value === t.teamKey ? "border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600" : "hover:border-indigo-300",
+            value === t.teamKey ? "border-navy bg-riptide/15 ring-2 ring-navy" : "hover:border-riptide",
           )}
         >
           <span className="size-3 rounded-full" style={{ background: teamColor(i) }} />
@@ -148,7 +149,7 @@ function PlayerDoor({ shared, games, onStart }: { shared: boolean; games: Shared
                   }}
                   className={cn(
                     "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm",
-                    gameId === g.id ? "border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600" : "hover:border-indigo-300",
+                    gameId === g.id ? "border-navy bg-riptide/15 ring-2 ring-navy" : "hover:border-riptide",
                   )}
                 >
                   <span className="font-medium">{g.name}</span>
@@ -169,7 +170,7 @@ function PlayerDoor({ shared, games, onStart }: { shared: boolean; games: Shared
       )}
       <Button
         size="lg"
-        className="w-full bg-indigo-600 hover:bg-indigo-700"
+        className="w-full bg-navy hover:bg-navy/90"
         disabled={!teamKey || (shared && !activeGame)}
         onClick={() =>
           onStart(
@@ -226,7 +227,7 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
                   </div>
                   <Button
                     size="sm"
-                    className="bg-violet-600 text-white hover:bg-violet-700"
+                    className="bg-navy text-white hover:bg-navy/90"
                     onClick={() => onStart({ mode: "shared", gameId: g.id, gameName: g.name, role: "facilitator", teamKey: null })}
                   >
                     Open console
@@ -257,7 +258,7 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
                 onChange={(e) => setTeamCount(Math.min(12, Math.max(1, Number(e.target.value) || 1)))}
               />
             </div>
-            <Button className="bg-violet-600 text-white hover:bg-violet-700" disabled={busy || !upn} onClick={() => void create()}>
+            <Button className="bg-navy text-white hover:bg-navy/90" disabled={busy || !upn} onClick={() => void create()}>
               {busy ? "Creating…" : "Create game"}
             </Button>
           </div>
@@ -271,7 +272,7 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
         <p className="text-muted-foreground text-xs">A private sandbox for rehearsing, tuning coefficients, or running a single-screen demo.</p>
         <Button
           variant="outline"
-          className="border-violet-300 text-violet-700 hover:bg-violet-50"
+          className="border-navy/40 text-navy hover:bg-riptide/15"
           onClick={() => onStart({ mode: "local", role: "facilitator", teamKey: null })}
         >
           Open sandbox console

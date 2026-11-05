@@ -76,7 +76,7 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
                   key={r}
                   className={cn(
                     "inline-flex size-8 items-center justify-center rounded-md text-xs font-bold",
-                    r < round ? "bg-muted text-muted-foreground" : r === round ? "bg-primary text-primary-foreground" : "border border-dashed",
+                    r < round ? "bg-muted text-muted-foreground" : r === round ? "bg-saffron text-navy" : "border border-dashed",
                   )}
                 >
                   R{r}
@@ -93,7 +93,7 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
                 className={cn(
                   "rounded-lg border px-3 py-2 text-sm",
                   p < phase && "text-muted-foreground",
-                  p === phase && "border-primary bg-primary/10 font-semibold",
+                  p === phase && "border-saffron bg-saffron/20 font-semibold",
                 )}
               >
                 <span className="text-muted-foreground mr-1 font-mono text-xs">{p + 1}</span>
