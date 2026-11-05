@@ -77,13 +77,13 @@ export function StartScreen({ onStart }: Props) {
 
 function DoorCard({ tone, title, subtitle, children }: { tone: "player" | "facilitator"; title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <Card className={cn("overflow-hidden border-t-8", tone === "player" ? "border-t-indigo-600" : "border-t-amber-400 bg-slate-950 text-slate-100")}>
+    <Card className={cn("overflow-hidden border-t-8", tone === "player" ? "border-t-indigo-600" : "border-t-violet-600")}>
       <CardHeader>
-        <div className={cn("text-xs font-bold tracking-widest uppercase", tone === "player" ? "text-indigo-600" : "text-amber-400")}>
+        <div className={cn("text-xs font-bold tracking-widest uppercase", tone === "player" ? "text-indigo-600" : "text-violet-700")}>
           {tone === "player" ? "Players" : "Facilitators"}
         </div>
         <CardTitle className="text-2xl">{title}</CardTitle>
-        <CardDescription className={tone === "facilitator" ? "text-slate-400" : undefined}>{subtitle}</CardDescription>
+        <CardDescription>{subtitle}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">{children}</CardContent>
     </Card>
@@ -209,24 +209,24 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
     <DoorCard tone="facilitator" title="Facilitate a session" subtitle="Brief the room, open and close rounds, rule on evidence and custom actions, reveal results.">
       {shared && (
         <div className="space-y-2">
-          <Label className="text-xs text-slate-300">Games you facilitate</Label>
+          <Label className="text-xs">Games you facilitate</Label>
           {games === null ? (
-            <p className="text-sm text-slate-400">Loading…</p>
+            <p className="text-muted-foreground text-sm">Loading…</p>
           ) : mine.length === 0 ? (
-            <p className="text-sm text-slate-400">None yet. Create one below, or ask a game's creator to add {upn || "you"} as a co-facilitator.</p>
+            <p className="text-muted-foreground text-sm">None yet. Create one below, or ask a game's creator to add {upn || "you"} as a co-facilitator.</p>
           ) : (
             <div className="space-y-1.5">
               {mine.map((g) => (
-                <div key={g.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm">
+                <div key={g.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
                   <div>
                     <div className="font-medium">{g.name}</div>
-                    <div className="text-xs text-slate-400">
+                    <div className="text-muted-foreground text-xs">
                       Round {g.currentRound} · {PHASE_LABEL[g.roundPhase]}
                     </div>
                   </div>
                   <Button
                     size="sm"
-                    className="bg-amber-400 text-amber-950 hover:bg-amber-300"
+                    className="bg-violet-600 text-white hover:bg-violet-700"
                     onClick={() => onStart({ mode: "shared", gameId: g.id, gameName: g.name, role: "facilitator", teamKey: null })}
                   >
                     Open console
@@ -239,25 +239,25 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
       )}
 
       {shared && (
-        <div className="space-y-2 rounded-lg border border-slate-700 p-3">
+        <div className="space-y-2 rounded-lg border p-3">
           <div className="text-sm font-semibold">Create a new game</div>
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Game name</Label>
-              <Input className="w-56 border-slate-700 bg-slate-900" value={name} onChange={(e) => setName(e.target.value)} />
+              <Label className="text-xs">Game name</Label>
+              <Input className="w-56" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-slate-300">Teams</Label>
+              <Label className="text-xs">Teams</Label>
               <Input
                 type="number"
                 min={1}
                 max={12}
-                className="w-20 border-slate-700 bg-slate-900"
+                className="w-20"
                 value={teamCount}
                 onChange={(e) => setTeamCount(Math.min(12, Math.max(1, Number(e.target.value) || 1)))}
               />
             </div>
-            <Button className="bg-amber-400 text-amber-950 hover:bg-amber-300" disabled={busy || !upn} onClick={() => void create()}>
+            <Button className="bg-violet-600 text-white hover:bg-violet-700" disabled={busy || !upn} onClick={() => void create()}>
               {busy ? "Creating…" : "Create game"}
             </Button>
           </div>
@@ -266,12 +266,12 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
 
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm font-semibold">
-          Prep &amp; practice <Badge className="bg-slate-800 text-slate-300">this device only</Badge>
+          Prep &amp; practice <Badge variant="secondary">this device only</Badge>
         </div>
-        <p className="text-xs text-slate-400">A private sandbox for rehearsing, tuning coefficients, or running a single-screen demo.</p>
+        <p className="text-muted-foreground text-xs">A private sandbox for rehearsing, tuning coefficients, or running a single-screen demo.</p>
         <Button
           variant="outline"
-          className="border-amber-400/60 bg-transparent text-amber-300 hover:bg-amber-400/10"
+          className="border-violet-300 text-violet-700 hover:bg-violet-50"
           onClick={() => onStart({ mode: "local", role: "facilitator", teamKey: null })}
         >
           Open sandbox console

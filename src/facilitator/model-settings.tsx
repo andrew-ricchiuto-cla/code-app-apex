@@ -353,7 +353,7 @@ export function ModelSettings() {
 
   return (
     <Tabs defaultValue="parameters" className="space-y-4">
-      <Alert className="border-amber-400/60">
+      <Alert className="border-control/60">
         <AlertTitle>Edits re-score the live game</AlertTitle>
         <AlertDescription>
           Every change recalculates all teams' results immediately on every device — including rounds already revealed. Defaults are the Oct 7 workbook.

@@ -40,11 +40,12 @@ export const PRIMARY_LOOP_CLASS: Record<string, string> = {
   Control: "border-t-control",
 };
 
+// Player-facing descriptions of the choice itself — deliberately silent on
+// consequences, which players discover at the reveal.
 export const POSTURE_PLAIN: Record<string, string> = {
-  Protect: "Pay owners more now. Owner confidence rises; next round's investment capital shrinks.",
-  Balance: "Keep the current split. No change to confidence or capital.",
-  Moderate:
-    "Pay owners less to fund renewal. Owner confidence dips; you only earn extra capital if margin and owner confidence stay credible.",
+  Protect: "Pay owners a larger share of this year's profit.",
+  Balance: "Keep the current split between owners and reinvestment.",
+  Moderate: "Pay owners a smaller share and reinvest more in the business.",
 };
 
 export const LOOPS_PRIMER = [
@@ -74,7 +75,7 @@ export const HOW_IT_WORKS = [
   },
   {
     title: "Now vs. next round",
-    body: "Many effects arrive a round later. Workforce cuts help margin now and hurt capability later; value and capability investments often do the reverse. First-round results can be a poor measure of strategy quality.",
+    body: "Many effects arrive a round later. First-round results can be a poor measure of strategy quality.",
   },
   {
     title: "Prepare before the shock",

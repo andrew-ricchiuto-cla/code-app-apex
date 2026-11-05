@@ -46,7 +46,7 @@ export function TeamsPage({ teamId, onSelectTeam }: { teamId: string | null; onS
             onClick={() => onSelectTeam(team.id)}
             className={cn(
               "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-              team.id === selected.id ? "bg-amber-400/15 font-semibold ring-1 ring-amber-400/60" : "hover:bg-muted",
+              team.id === selected.id ? "bg-primary/10 ring-primary/50 font-semibold ring-1" : "hover:bg-muted",
             )}
           >
             <span className="flex items-center gap-2">
