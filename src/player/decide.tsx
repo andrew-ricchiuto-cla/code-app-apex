@@ -14,8 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import type { EngineConfig, Initiative, InitiativeChoice, Intensity, RoundDecisions, RoundResult } from "@/engine";
+import type { EngineConfig, InitiativeChoice, Intensity, RoundDecisions, RoundResult } from "@/engine";
 import { FACILITATOR_STATUSES, missingNarrative, roundChecks } from "@/lib/checks";
 import { NARRATIVE_FIELDS, POSTURE_PLAIN } from "@/lib/content";
 import { CUSTOM_ACTIONS_ENABLED, hasCustomProposal, type FacilitatorRuling } from "@/lib/game";
@@ -181,85 +182,65 @@ function InitiativeCatalog({
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {config.initiatives.map((initiative) => {
-          const selected = chosen.find((c) => c.name === initiative.name);
-          return (
-            <InitiativeCard
-              key={initiative.name}
-              initiative={initiative}
-              selectedIntensity={selected ? (selected.intensity as Intensity) : null}
-              previous={priorSelections(history, initiative.name)}
-              canAdd={!full}
-              onAdd={(intensity) => add(initiative.name, intensity)}
-              onRemove={() => remove(initiative.name)}
-              onIntensity={(intensity) => setIntensity(initiative.name, intensity)}
-            />
-          );
-        })}
-      </div>
+      <Card className="py-0">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="pl-4">Initiative</TableHead>
+              <TableHead className="w-28">Intensity</TableHead>
+              <TableHead className="w-36 text-center">Investment capital</TableHead>
+              <TableHead className="w-36 text-center">Leadership capacity</TableHead>
+              <TableHead className="w-24 pr-4 text-right" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {config.initiatives.map((initiative) => {
+              const selected = chosen.find((c) => c.name === initiative.name);
+              const previous = priorSelections(history, initiative.name);
+              return (["Focused", "Accelerated"] as const).map((level, i) => {
+                const v = level === "Focused" ? initiative.focused : initiative.accelerated;
+                const isSelected = selected?.intensity === level;
+                const otherSelected = !!selected && !isSelected;
+                const disabled = !selected && full;
+                return (
+                  <TableRow
+                    key={`${initiative.name}|${level}`}
+                    className={cn(i === 0 ? "border-b-0" : "border-b-2", isSelected && "bg-riptide/20 hover:bg-riptide/25")}
+                  >
+                    {i === 0 && (
+                      <TableCell rowSpan={2} className={cn("border-b-2 py-1 pl-4 align-middle whitespace-normal", selected && "bg-riptide/10")}>
+                        <div className={cn("text-sm", selected ? "font-semibold" : "font-medium")}>{initiative.name}</div>
+                        {previous.length > 0 && <div className="text-muted-foreground text-xs">Chosen before: round {previous.join(", ")}</div>}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-muted-foreground py-0.5 text-xs">{level}</TableCell>
+                    <TableCell className="py-0.5 text-center font-mono text-sm">{v.capital}</TableCell>
+                    <TableCell className="py-0.5 text-center font-mono text-sm">{v.lc}</TableCell>
+                    <TableCell className="py-0.5 pr-4 text-right">
+                      <Button
+                        size="sm"
+                        variant={isSelected ? "default" : "outline"}
+                        className="h-6 w-20 text-xs"
+                        disabled={disabled}
+                        aria-pressed={isSelected}
+                        onClick={() => (isSelected ? remove(initiative.name) : otherSelected ? setIntensity(initiative.name, level) : add(initiative.name, level))}
+                      >
+                        {isSelected ? "✓ Selected" : otherSelected ? "Switch" : "Select"}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              });
+            })}
+          </TableBody>
+        </Table>
+      </Card>
+      <p className="text-muted-foreground text-xs">
+        {full ? "Portfolio full — remove an initiative to choose another. " : ""}Click a selected row again to remove it.
+      </p>
     </div>
   );
 }
-
-function InitiativeCard({
-  initiative,
-  selectedIntensity,
-  previous,
-  canAdd,
-  onAdd,
-  onRemove,
-  onIntensity,
-}: {
-  initiative: Initiative;
-  selectedIntensity: Intensity | null;
-  previous: number[];
-  canAdd: boolean;
-  onAdd: (i: Intensity) => void;
-  onRemove: () => void;
-  onIntensity: (i: Intensity) => void;
-}) {
-  const [preview, setPreview] = useState<Intensity>(selectedIntensity ?? "Focused");
-  const intensity = selectedIntensity ?? preview;
-
-  return (
-    <Card className={cn("border-t-4 border-t-primary/40 transition", selectedIntensity && "ring-primary ring-2")}>
-      <CardContent className="space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="font-semibold">{initiative.name}</div>
-          {selectedIntensity && <Badge>Selected</Badge>}
-        </div>
-        <div className="bg-muted inline-flex rounded-lg p-0.5">
-          {(["Focused", "Accelerated"] as const).map((level) => {
-            const v = level === "Focused" ? initiative.focused : initiative.accelerated;
-            return (
-              <button
-                key={level}
-                onClick={() => (selectedIntensity ? onIntensity(level) : setPreview(level))}
-                className={cn("rounded-md px-3 py-1 text-xs font-medium transition", intensity === level ? "bg-card shadow-sm" : "text-muted-foreground")}
-              >
-                {level} · {v.capital} cap · {v.lc} LC
-              </button>
-            );
-          })}
-        </div>
-        {previous.length > 0 && <p className="text-muted-foreground text-xs font-medium">Chosen before (round {previous.join(", ")})</p>}
-        <div className="flex justify-end">
-          {selectedIntensity ? (
-            <Button size="sm" variant="outline" onClick={onRemove}>
-              Remove
-            </Button>
-          ) : (
-            <Button size="sm" disabled={!canAdd} onClick={() => onAdd(intensity)}>
-              {canAdd ? "Add to portfolio" : "Portfolio full"}
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function ChoiceCard({ selected, title, children, onClick }: { selected: boolean; title: string; children: React.ReactNode; onClick: () => void }) {
   return (
     <button
