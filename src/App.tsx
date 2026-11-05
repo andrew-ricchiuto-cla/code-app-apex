@@ -5,6 +5,7 @@ import { FacilitatorConsole } from "@/facilitator/console";
 import { GameProvider } from "@/lib/store";
 import { loadSession, saveSession, type Session } from "@/lib/session";
 import { PlayerApp } from "@/player/player-app";
+import { TourProvider } from "@/lib/tour";
 
 function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
@@ -21,7 +22,7 @@ function App() {
   const key = session ? `${session.mode === "shared" ? session.gameId : "local"}|${session.role}|${session.teamKey ?? ""}` : "none";
 
   return (
-    <>
+    <TourProvider>
       {session === null ? (
         <StartScreen onStart={start} />
       ) : (
@@ -30,7 +31,7 @@ function App() {
         </GameProvider>
       )}
       <Toaster position="bottom-right" />
-    </>
+    </TourProvider>
   );
 }
 
