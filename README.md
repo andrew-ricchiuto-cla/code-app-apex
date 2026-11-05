@@ -16,17 +16,17 @@ Loop colors use deepened brand hues for legibility; Cash stays green.
 
 The landing page has two doors.
 
-**Player app** (CLA brand theme, team-colored) — one team's view of the game:
+**Participant app** (CLA brand theme, team-colored) — one team's view of the game:
 
 - **This round** follows the round phase: briefing → decide (initiative card catalog,
   enterprise choices, rationale, review & submit) → waiting → reveal (index, band, rank,
   loop before/after, what moved the loops, business outcomes).
 - **Our company**, **Leaderboard** (all teams, revealed rounds only), **How it works**.
-- Players never see a score for a round until the facilitator reveals it, and the decide
+- Participants never see a score for a round until the facilitator reveals it, and the decide
   flow shows only costs and limits — no modeled effects, effect notes, or change-load
   warnings that would preview the outcome of a choice.
 
-**Facilitator Console** (same CLA brand theme as the player app) — run the room:
+**Facilitator Console** (same CLA brand theme as the Participant app) — run the room:
 
 - **Run session**: round + phase stepper with one primary action per phase
   (Open decisions → Close submissions → Reveal results → Start next round), submission

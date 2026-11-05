@@ -83,7 +83,7 @@ export function TeamsPage({ teamId, onSelectTeam }: { teamId: string | null; onS
             />
             <div className="space-y-2 text-right text-sm">
               <div>
-                {isRevealed(clock, shownRound) ? <Badge className="bg-cash text-white">Revealed to players</Badge> : <Badge variant="outline">Hidden from players</Badge>}
+                {isRevealed(clock, shownRound) ? <Badge className="bg-cash text-white">Revealed to participants</Badge> : <Badge variant="outline">Hidden from participants</Badge>}
               </div>
               <div>
                 {selected.submitted[shownRound - 1] ? <Badge>Submitted</Badge> : <Badge variant="secondary">Not submitted</Badge>}{" "}

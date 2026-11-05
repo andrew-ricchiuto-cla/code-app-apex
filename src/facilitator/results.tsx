@@ -43,7 +43,7 @@ export function ResultsPage() {
             R{r}
           </Button>
         ))}
-        {isRevealed(clock, shown) ? <Badge className="bg-cash text-white">Revealed</Badge> : <Badge variant="outline">Not yet revealed to players</Badge>}
+        {isRevealed(clock, shown) ? <Badge className="bg-cash text-white">Revealed</Badge> : <Badge variant="outline">Not yet revealed to participants</Badge>}
       </div>
 
       <Leaderboard state={state} resultsByTeam={resultsByTeam} throughRound={shown} />
