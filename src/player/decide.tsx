@@ -324,7 +324,7 @@ function EnterpriseChoices({
       </Card>
 
       {round === config.totalRounds && (
-        <Card className="border-l-4 border-l-violet-500">
+        <Card className="border-l-4 border-l-saffron">
           <CardHeader>
             <CardTitle>Strategic option</CardTitle>
             <CardDescription>Available in Round {config.totalRounds} only, and counts toward your initiative limit.</CardDescription>

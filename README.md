@@ -8,11 +8,15 @@ fluidity), Control, and Cash.
 
 Built as a **Power Apps Code App**: React 19 + TypeScript + Vite, shadcn/ui, Tailwind v4.
 
+Theme: CLA brand palette — navy `#2E334E` (primary), riptide `#7DD2D3`, celadon `#E2E868`, saffron `#FBC55A`,
+scarlett `#EE5340` (destructive) — defined as tokens in `src/index.css` (`bg-navy`, `text-saffron`, …).
+Loop colors use deepened brand hues for legibility; Cash stays green.
+
 ## Two surfaces
 
 The landing page has two doors.
 
-**Player app** (light, team-colored) — one team's view of the game:
+**Player app** (CLA brand theme, team-colored) — one team's view of the game:
 
 - **This round** follows the round phase: briefing → decide (initiative card catalog,
   enterprise choices, rationale, review & submit) → waiting → reveal (index, band, rank,
@@ -22,7 +26,7 @@ The landing page has two doors.
   flow shows only costs and limits — no modeled effects, effect notes, or change-load
   warnings that would preview the outcome of a choice.
 
-**Facilitator Console** (light, same indigo/violet palette as the player app) — run the room:
+**Facilitator Console** (same CLA brand theme as the player app) — run the room:
 
 - **Run session**: round + phase stepper with one primary action per phase
   (Open decisions → Close submissions → Reveal results → Start next round), submission

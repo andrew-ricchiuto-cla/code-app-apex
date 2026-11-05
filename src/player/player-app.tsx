@@ -50,27 +50,27 @@ export function PlayerApp() {
     <div className="min-h-screen">
       <div className="h-1.5" style={{ background: color }} />
       <div className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
-        <header className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 px-6 py-5 text-white shadow-lg">
-          <div className="pointer-events-none absolute -top-24 right-0 size-72 rounded-full bg-violet-400/25 blur-3xl" />
+        <header className="relative overflow-hidden rounded-2xl bg-navy px-6 py-5 text-white shadow-lg">
+          <div className="pointer-events-none absolute -top-24 right-0 size-72 rounded-full bg-riptide/25 blur-3xl" /><div className="absolute inset-x-0 bottom-0 h-1 bg-saffron" />
           <div className="relative flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="flex items-baseline gap-3">
                 <h1 className="text-2xl font-black tracking-tight">
-                  APEX<span className="text-amber-400">.</span>
+                  APEX<span className="text-saffron">.</span>
                 </h1>
-                <span className="text-[11px] font-semibold tracking-[0.25em] text-indigo-200 uppercase">Player</span>
+                <span className="text-[11px] font-semibold tracking-[0.25em] text-white/70 uppercase">Player</span>
               </div>
               <div className="mt-1 flex items-center gap-2 text-lg font-bold">
                 <span className="size-3 rounded-full ring-2 ring-white/50" style={{ background: color }} />
                 {team.name}
-                <span className="text-sm font-normal text-indigo-200">· {state.gameName}</span>
+                <span className="text-sm font-normal text-white/70">· {state.gameName}</span>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
               <RoundTrack current={round} total={state.config.totalRounds} phase={state.roundPhase} />
               <div className="flex items-center gap-2">
                 <SyncBadge />
-                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-indigo-200 hover:bg-white/10 hover:text-white" onClick={leaveSession}>
+                <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-white/70 hover:bg-white/10 hover:text-white" onClick={leaveSession}>
                   Leave
                 </Button>
               </div>
@@ -139,7 +139,7 @@ export function PlayerApp() {
             {state.roundPhase === PHASE.Revealed && (
               <>
                 {isGameComplete(clock) && (
-                  <Card className="border-amber-400/60 bg-amber-50/60">
+                  <Card className="border-saffron/70 bg-saffron/15">
                     <CardContent className="text-sm font-medium">The simulation is complete. Your facilitator will lead the debrief.</CardContent>
                   </Card>
                 )}
@@ -220,7 +220,7 @@ function RoundTrack({ current, total, phase }: { current: number; total: number;
             key={r}
             className={cn(
               "inline-flex size-7 items-center justify-center rounded-full text-xs font-bold",
-              r < current ? "bg-white/30 text-white" : r === current ? "bg-amber-400 text-amber-950" : "bg-white/10 text-indigo-200",
+              r < current ? "bg-white/30 text-white" : r === current ? "bg-saffron text-navy" : "bg-white/10 text-white/70",
             )}
           >
             R{r}

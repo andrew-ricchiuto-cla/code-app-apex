@@ -19,7 +19,7 @@ import { DecisionSummary } from "./decide";
 export function RoundBriefing({ config, round, result, waitingText }: { config: EngineConfig; round: number; result: RoundResult; waitingText?: string }) {
   const theme = config.roundThemes.find((t) => t.round === round);
   return (
-    <Card className="border-primary/30 from-primary/10 bg-gradient-to-br to-transparent">
+    <Card className="border-riptide/60 from-riptide/20 bg-gradient-to-br to-transparent">
       <CardHeader>
         <div className="text-primary text-xs font-bold tracking-widest uppercase">Round {round} briefing</div>
         <CardTitle className="text-2xl">{theme?.theme}</CardTitle>
@@ -75,7 +75,7 @@ export function RoundReveal({
   return (
     <div className="space-y-4">
       <Card className="overflow-hidden">
-        <div className="from-primary/15 bg-gradient-to-r to-transparent px-6 py-5">
+        <div className="from-riptide/25 bg-gradient-to-r to-transparent px-6 py-5">
           <div className="text-primary text-xs font-bold tracking-widest uppercase">
             Round {round} results{isFinal && " · final"}
           </div>
@@ -191,7 +191,7 @@ export function Leaderboard({
                     <span
                       className={cn(
                         "inline-flex size-7 items-center justify-center rounded-full text-xs font-black",
-                        rank === 0 ? "bg-amber-400 text-amber-950" : rank === 1 ? "bg-slate-300 text-slate-800" : rank === 2 ? "bg-orange-300 text-orange-950" : "bg-muted text-muted-foreground",
+                        rank === 0 ? "bg-saffron text-navy" : rank === 1 ? "bg-riptide text-navy" : rank === 2 ? "bg-celadon text-navy" : "bg-muted text-muted-foreground",
                       )}
                     >
                       {rank + 1}
@@ -293,7 +293,7 @@ export function CompanyHistory({ config, team, results, throughRound }: { config
                     <TableCell key={r.round} className="text-right font-mono">
                       {row.format(value)}
                       <span
-                        className={cn("ml-1.5 text-xs", flat ? "text-muted-foreground" : delta > 0 ? "text-emerald-600" : "text-red-600")}
+                        className={cn("ml-1.5 text-xs", flat ? "text-muted-foreground" : delta > 0 ? "text-emerald-600" : "text-scarlett")}
                       >
                         {flat ? "±0" : row.formatDelta(delta)}
                       </span>
