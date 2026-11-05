@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SyncBadge } from "@/components/sync-badge";
+import { LemonadeTour } from "@/components/lemonade-tour";
+import { hasSeenTour, markTourSeen } from "@/lib/tour";
 import { emptyRuling, isGameComplete, isRevealed, lastRevealedRound, PHASE, PHASE_LABEL } from "@/lib/game";
 import { teamColor } from "@/lib/format";
 import { canEditTeam, displayName } from "@/lib/people";
@@ -27,6 +29,7 @@ export function PlayerApp() {
   const teamIndex = state.teams.findIndex((t) => t.id === myTeamKey);
   const team = state.teams[teamIndex];
   const [historyRound, setHistoryRound] = useState<number | null>(null);
+  const [tourOpen, setTourOpen] = useState(() => !hasSeenTour());
 
   if (!team) {
     return (
@@ -237,9 +240,25 @@ export function PlayerApp() {
           </TabsContent>
 
           <TabsContent value="how" className="mt-4">
+            <Card className="border-saffron/70 bg-saffron/10 mb-4">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="font-semibold">🍋 New to Apex? Run the Lemonade Stand.</div>
+                  <div className="text-muted-foreground text-sm">A two-minute practice round that shows exactly how each round works.</div>
+                </div>
+                <Button onClick={() => setTourOpen(true)}>Start the walkthrough</Button>
+              </CardContent>
+            </Card>
             <HowItWorks config={state.config} throughRound={round} />
           </TabsContent>
         </Tabs>
+        <LemonadeTour
+          open={tourOpen}
+          onOpenChange={(open) => {
+            setTourOpen(open);
+            if (!open) markTourSeen();
+          }}
+        />
       </div>
     </div>
   );

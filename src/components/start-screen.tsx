@@ -14,6 +14,7 @@ import { teamColor } from "@/lib/format";
 import { LOOP_META } from "@/lib/loops";
 import type { Session } from "@/lib/session";
 import { canJoinTeam, isMember } from "@/lib/people";
+import { LemonadeTour } from "@/components/lemonade-tour";
 import { peekLocalTeams, type TeamSummary } from "@/lib/store";
 import { useCurrentUser } from "@/lib/user";
 import { cn } from "@/lib/utils";
@@ -131,6 +132,7 @@ function PlayerDoor({ shared, games, upn, onStart }: { shared: boolean; games: S
   const [gameId, setGameId] = useState("");
   const [teams, setTeams] = useState<TeamSummary[]>(() => (shared ? [] : peekLocalTeams()));
   const [teamKey, setTeamKey] = useState("");
+  const [tour, setTour] = useState(false);
   const activeGame = games?.find((g) => g.id === gameId) ?? null;
 
   useEffect(() => {
@@ -206,6 +208,10 @@ function PlayerDoor({ shared, games, upn, onStart }: { shared: boolean; games: S
       >
         {shared ? "Join as participant" : "Practice as this team"}
       </Button>
+      <Button variant="link" className="text-navy w-full" onClick={() => setTour(true)}>
+        🍋 New here? See how a round works (2 min)
+      </Button>
+      <LemonadeTour open={tour} onOpenChange={setTour} />
     </DoorCard>
   );
 }
