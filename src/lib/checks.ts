@@ -53,19 +53,8 @@ export function roundChecks(config: EngineConfig, decisions: RoundDecisions, res
   for (const violation of customBandViolations(config, decisions)) {
     messages.push({ level: "error", text: violation });
   }
-  const ok = result.status === "OK" || FACILITATOR_STATUSES.has(result.status);
-  if (ok && result.changeLoadBand === "SATURATED") {
-    messages.push({
-      level: "warning",
-      text: `Change load is saturated (${result.lcCommitted} LC): only ${Math.round(result.absorptionFactor * 100)}% of adoption-heavy effects will land, and nothing is left to cushion the next shock.`,
-    });
-  }
-  if (ok && result.changeLoadBand === "STRETCHED") {
-    messages.push({
-      level: "info",
-      text: `Change load is stretched (${result.lcCommitted} LC): adoption-heavy effects land at ${Math.round(result.absorptionFactor * 100)}%.`,
-    });
-  }
+  // No change-load / absorption warnings here: these checks are shown to players
+  // before they submit, and those warnings preview the scored outcome.
   if (!result.narrativeComplete) {
     messages.push({
       level: "info",

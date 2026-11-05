@@ -64,7 +64,7 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="text-xs font-bold tracking-widest text-amber-400 uppercase">
+              <div className="text-primary text-xs font-bold tracking-widest uppercase">
                 Round {round} of {total}
               </div>
               <CardTitle className="text-2xl">{theme?.theme}</CardTitle>
@@ -76,7 +76,7 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
                   key={r}
                   className={cn(
                     "inline-flex size-8 items-center justify-center rounded-md text-xs font-bold",
-                    r < round ? "bg-muted text-muted-foreground" : r === round ? "bg-amber-400 text-amber-950" : "border border-dashed",
+                    r < round ? "bg-muted text-muted-foreground" : r === round ? "bg-primary text-primary-foreground" : "border border-dashed",
                   )}
                 >
                   R{r}
@@ -93,7 +93,7 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
                 className={cn(
                   "rounded-lg border px-3 py-2 text-sm",
                   p < phase && "text-muted-foreground",
-                  p === phase && "border-amber-400 bg-amber-400/10 font-semibold",
+                  p === phase && "border-primary bg-primary/10 font-semibold",
                 )}
               >
                 <span className="text-muted-foreground mr-1 font-mono text-xs">{p + 1}</span>
@@ -111,11 +111,11 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
           )}
           <div className="flex flex-wrap items-center gap-2">
             {primary ? (
-              <Button size="lg" className="bg-amber-400 text-amber-950 hover:bg-amber-300" onClick={primary.run}>
+              <Button size="lg" onClick={primary.run}>
                 {primary.label}
               </Button>
             ) : (
-              <Badge className="bg-amber-400 px-3 py-1.5 text-amber-950">Simulation complete — run the debrief from Results</Badge>
+              <Badge className="px-3 py-1.5">Simulation complete — run the debrief from Results</Badge>
             )}
             <Button variant="ghost" size="sm" disabled={round === 1 && phase === PHASE.Briefing} onClick={stepBack}>
               Step back
@@ -202,7 +202,7 @@ function SubmissionTracker({
                   </TableCell>
                   <TableCell className="text-xs">
                     {r && r.status !== "OK" ? (
-                      <span className={FACILITATOR_STATUSES.has(r.status) ? "text-amber-400" : "text-destructive"} title={statusExplanation(r.status)}>
+                      <span className={FACILITATOR_STATUSES.has(r.status) ? "text-control font-medium" : "text-destructive"} title={statusExplanation(r.status)}>
                         {r.status}
                       </span>
                     ) : (
@@ -246,7 +246,7 @@ function RulingsQueue({ round }: { round: number }) {
   const setRuling = (team: TeamState, ruling: FacilitatorRuling) => dispatch({ type: "setRuling", teamId: team.id, round, ruling });
 
   return (
-    <Card className="border-amber-400/50">
+    <Card className="border-primary/40">
       <CardHeader>
         <CardTitle>Facilitator rulings</CardTitle>
         <CardDescription>Only you can make these calls. Players see the outcome, not the controls.</CardDescription>

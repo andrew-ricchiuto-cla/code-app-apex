@@ -1,6 +1,7 @@
 // The player's decision flow for an open round: pick initiatives from a card
 // catalog, set enterprise choices, write the rationale, review, submit.
-// Players never see a score here — only costs and the modeled direction of effects.
+// Players never see a score or any modeled effect here — only costs and limits.
+// Outcomes are discovered at the reveal.
 
 import { useState } from "react";
 import { toast } from "sonner";
@@ -14,13 +15,10 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { EffectChip, EffectChips } from "@/components/game-ui";
-import { flatEffects } from "@/lib/display";
 import type { EngineConfig, Initiative, InitiativeChoice, Intensity, RoundDecisions, RoundResult } from "@/engine";
 import { FACILITATOR_STATUSES, roundChecks } from "@/lib/checks";
-import { INITIATIVE_THEMES, NARRATIVE_FIELDS, POSTURE_PLAIN, PRIMARY_LOOP_CLASS } from "@/lib/content";
+import { INITIATIVE_THEMES, NARRATIVE_FIELDS, POSTURE_PLAIN } from "@/lib/content";
 import { hasCustomProposal, type FacilitatorRuling } from "@/lib/game";
-import { pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
@@ -124,9 +122,6 @@ function ResourceBar({ config, result }: { config: EngineConfig; result: RoundRe
           unit="max"
           barClass="[&_[data-slot=progress-indicator]]:bg-capability"
         />
-        <p className="text-muted-foreground text-xs sm:col-span-3">
-          Above {config.absorptionBands[0]?.max ?? 8} LC, less of every initiative lands. Unused LC becomes a reserve that softens the next shock.
-        </p>
       </CardContent>
     </Card>
   );
@@ -182,8 +177,8 @@ function InitiativeCatalog({
             </div>
           )}
           <p className="text-muted-foreground text-xs">
-            Up to {config.params.maxActiveInitiatives} initiatives, including any Round 4 strategic option or approved custom action. Accelerated costs more for a
-            bigger effect. Effects shown are the full modeled effect — how much lands depends on your Control and change load.
+            Up to {config.params.maxActiveInitiatives} initiatives, including any Round 4 strategic option or approved custom action. Accelerated is a bigger,
+            costlier commitment than Focused.
           </p>
         </CardContent>
       </Card>
@@ -199,7 +194,6 @@ function InitiativeCatalog({
                 return (
                   <InitiativeCard
                     key={initiative.name}
-                    config={config}
                     initiative={initiative}
                     selectedIntensity={selected ? (selected.intensity as Intensity) : null}
                     previous={priorSelections(history, initiative.name)}
@@ -218,7 +212,6 @@ function InitiativeCatalog({
 }
 
 function InitiativeCard({
-  config,
   initiative,
   selectedIntensity,
   previous,
@@ -227,7 +220,6 @@ function InitiativeCard({
   onRemove,
   onIntensity,
 }: {
-  config: EngineConfig;
   initiative: Initiative;
   selectedIntensity: Intensity | null;
   previous: number[];
@@ -238,18 +230,12 @@ function InitiativeCard({
 }) {
   const [preview, setPreview] = useState<Intensity>(selectedIntensity ?? "Focused");
   const intensity = selectedIntensity ?? preview;
-  const variant = intensity === "Focused" ? initiative.focused : initiative.accelerated;
-  const primary = INITIATIVE_THEMES[initiative.name]?.primary ?? "Market";
-  const repeatShare = config.repeatFactors[Math.min(previous.length, config.repeatFactors.length - 1)] ?? 1;
 
   return (
-    <Card className={cn("border-t-4 transition", PRIMARY_LOOP_CLASS[primary], selectedIntensity && "ring-primary ring-2")}>
+    <Card className={cn("border-t-4 border-t-primary/40 transition", selectedIntensity && "ring-primary ring-2")}>
       <CardContent className="space-y-3">
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <div className="font-semibold">{initiative.name}</div>
-            <div className="text-muted-foreground text-xs">Primary loop: {primary}</div>
-          </div>
+          <div className="font-semibold">{initiative.name}</div>
           {selectedIntensity && <Badge>Selected</Badge>}
         </div>
         <div className="bg-muted inline-flex rounded-lg p-0.5">
@@ -266,13 +252,7 @@ function InitiativeCard({
             );
           })}
         </div>
-        <EffectChips variant={variant} />
-        <p className="text-muted-foreground text-xs italic">{variant.note}</p>
-        {previous.length > 0 && (
-          <p className="text-control text-xs font-medium">
-            Chosen before (round {previous.join(", ")}) — selecting again delivers {pct(repeatShare, 0)} of the effect at full cost.
-          </p>
-        )}
+        {previous.length > 0 && <p className="text-muted-foreground text-xs font-medium">Chosen before (round {previous.join(", ")})</p>}
         <div className="flex justify-end">
           {selectedIntensity ? (
             <Button size="sm" variant="outline" onClick={onRemove}>
@@ -319,7 +299,6 @@ function EnterpriseChoices({
 }) {
   const update = (patch: Partial<RoundDecisions>) => onChange({ ...decisions, ...patch });
   const w = config.workforceAction;
-  const mc = config.moderateCredibility;
   const proposal = decisions.customProposal ?? { name: "", description: "" };
 
   return (
@@ -332,17 +311,7 @@ function EnterpriseChoices({
         <CardContent className="grid gap-3 md:grid-cols-3">
           {config.distributionPostures.map((p) => (
             <ChoiceCard key={p.name} selected={decisions.distribution === p.name} title={p.name} onClick={() => update({ distribution: p.name })}>
-              <p>{POSTURE_PLAIN[p.name] ?? p.interpretation}</p>
-              <div className="flex flex-wrap gap-1">
-                {p.immediateOcAdj !== 0 && <EffectChip channel="oc" value={p.immediateOcAdj} when="now" />}
-                {p.name === "Moderate" && mc.enabled ? (
-                  <span className="text-foreground/80 text-[11px]">
-                    Next capital +{mc.fullAdj} if credible, +{mc.partialAdj} if adequate, else 0
-                  </span>
-                ) : (
-                  p.nextCapitalAdj !== 0 && <span className="text-foreground/80 text-[11px]">Next capital {p.nextCapitalAdj > 0 ? "+" : ""}{p.nextCapitalAdj}</span>
-                )}
-              </div>
+              {POSTURE_PLAIN[p.name] && <p>{POSTURE_PLAIN[p.name]}</p>}
             </ChoiceCard>
           ))}
         </CardContent>
@@ -354,23 +323,12 @@ function EnterpriseChoices({
             Targeted workforce reduction
             <Switch checked={decisions.workforceReduction} onCheckedChange={(v) => update({ workforceReduction: v })} />
           </CardTitle>
-          <CardDescription>Short-term economics now; capability and confidence damage later.</CardDescription>
+          <CardDescription>Reduce headcount in targeted areas this round.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-1">
-          <span className="text-foreground/80 mr-2 text-xs">
+        <CardContent>
+          <span className="text-foreground/80 text-xs">
             Frees {w.capitalReleased} capital · uses {w.lc} LC
           </span>
-          {flatEffects({ marginPp: w.immediateMarginPp }, "now").map((c, i) => (
-            <EffectChip key={`n${i}`} {...c} />
-          ))}
-          {flatEffects({ k: w.lagK, ec: w.lagEc }, "next round").map((c, i) => (
-            <EffectChip key={`l${i}`} {...c} />
-          ))}
-          {(w.lagC !== 0 || w.lagOc !== 0) && (
-            <span className="text-muted-foreground text-[11px]">
-              plus Control {w.lagC} and Owner confidence {w.lagOc} {w.applyControlOcLagInPlay ? "next round" : "beyond the final round"}
-            </span>
-          )}
         </CardContent>
       </Card>
 
@@ -378,10 +336,7 @@ function EnterpriseChoices({
         <Card className="border-l-4 border-l-violet-500">
           <CardHeader>
             <CardTitle>Strategic option</CardTitle>
-            <CardDescription>
-              Available in Round {config.totalRounds} only, and counts toward your initiative limit. Integration hurts Control if your Control and Capability
-              average below {config.params.integrationReadinessThreshold}.
-            </CardDescription>
+            <CardDescription>Available in Round {config.totalRounds} only, and counts toward your initiative limit.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-3">
             <ChoiceCard selected={decisions.strategicOption === "None"} title="No strategic option" onClick={() => update({ strategicOption: "None" })}>
@@ -390,14 +345,8 @@ function EnterpriseChoices({
             {config.strategicOptions.map((o) => (
               <ChoiceCard key={o.name} selected={decisions.strategicOption === o.name} title={o.name} onClick={() => update({ strategicOption: o.name })}>
                 <p>
-                  {o.capital} capital · {o.lc} LC — {o.note}
+                  {o.capital} capital · {o.lc} LC
                 </p>
-                <div className="flex flex-wrap gap-1">
-                  {flatEffects({ m: o.m, v: o.v, k: o.k, f: o.f, marginPp: o.marginPp }, "now").map((c, i) => (
-                    <EffectChip key={i} {...c} />
-                  ))}
-                </div>
-                {o.conditionalC !== 0 && <p>Integration risk: Control {o.conditionalC} if not ready.</p>}
               </ChoiceCard>
             ))}
           </CardContent>

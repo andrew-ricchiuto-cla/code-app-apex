@@ -1,7 +1,8 @@
-// Facilitator surface: a dark "control room" distinct from the player app.
+// Facilitator surface: shares the player app's light indigo/violet palette,
+// marked as the console by its header badge and side navigation.
 // Access is limited to the game's creator and named co-facilitators.
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SyncBadge } from "@/components/sync-badge";
@@ -25,16 +26,7 @@ const NAV = [
 ] as const;
 type NavKey = (typeof NAV)[number]["key"];
 
-function useDarkMode() {
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add("dark");
-    return () => root.classList.remove("dark");
-  }, []);
-}
-
 export function FacilitatorConsole() {
-  useDarkMode();
   const { state, session, leaveSession } = useGame();
   const user = useCurrentUser();
   const [page, setPage] = useState<NavKey>("run");
@@ -66,16 +58,16 @@ export function FacilitatorConsole() {
   return (
     <div className="bg-background text-foreground min-h-screen">
       {presenting && <PresentMode onClose={() => setPresenting(false)} />}
-      <header className="border-b border-amber-400/30 bg-slate-950/80">
+      <header className="bg-gradient-to-br from-indigo-950 via-indigo-800 to-violet-700 text-white shadow-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-4">
-            <div className="text-xl font-black tracking-tight text-white">
+            <div className="text-xl font-black tracking-tight">
               APEX<span className="text-amber-400">.</span>
             </div>
-            <Badge className="bg-amber-400 font-bold tracking-widest text-amber-950 uppercase">Facilitator console</Badge>
+            <Badge className="bg-white/15 font-bold tracking-widest text-white uppercase">Facilitator console</Badge>
             <div className="hidden text-sm sm:block">
-              <span className="font-semibold text-white">{state.gameName}</span>
-              <span className="text-muted-foreground">
+              <span className="font-semibold">{state.gameName}</span>
+              <span className="text-indigo-200">
                 {" "}
                 · Round {state.currentRound} · {PHASE_LABEL[state.roundPhase]}
               </span>
@@ -83,10 +75,10 @@ export function FacilitatorConsole() {
           </div>
           <div className="flex items-center gap-2">
             <SyncBadge />
-            <Button size="sm" variant="outline" onClick={() => setPresenting(true)}>
+            <Button size="sm" className="bg-white text-indigo-900 hover:bg-indigo-50" onClick={() => setPresenting(true)}>
               Present
             </Button>
-            <Button size="sm" variant="ghost" onClick={leaveSession}>
+            <Button size="sm" variant="ghost" className="text-indigo-200 hover:bg-white/10 hover:text-white" onClick={leaveSession}>
               Exit
             </Button>
           </div>
@@ -101,12 +93,12 @@ export function FacilitatorConsole() {
               onClick={() => setPage(item.key)}
               className={cn(
                 "shrink-0 rounded-lg px-3 py-2 text-left transition",
-                page === item.key ? "bg-amber-400/15 ring-1 ring-amber-400/60" : "hover:bg-muted",
+                page === item.key ? "bg-primary/10 ring-primary/50 ring-1" : "hover:bg-muted",
               )}
             >
               <div className="flex items-center justify-between gap-2 text-sm font-semibold">
                 {item.label}
-                {item.key === "run" && pending > 0 && <Badge className="bg-amber-400 px-1.5 text-amber-950">{pending}</Badge>}
+                {item.key === "run" && pending > 0 && <Badge className="px-1.5">{pending}</Badge>}
               </div>
               <div className="text-muted-foreground hidden text-xs lg:block">{item.hint}</div>
             </button>
