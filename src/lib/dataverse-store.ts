@@ -9,7 +9,7 @@ import { Mw_apexgamesService } from "@/generated/services/Mw_apexgamesService";
 import { Mw_apexteamsService } from "@/generated/services/Mw_apexteamsService";
 import { Mw_apexteamroundsService } from "@/generated/services/Mw_apexteamroundsService";
 import { emptyRuling, PHASE, type FacilitatorRuling, type RoundPhase } from "./game";
-import type { GameState, TeamState } from "./store";
+import type { GameState, TeamMember, TeamState, TeamSummary } from "./store";
 
 export interface SharedGameSummary {
   id: string;
@@ -100,7 +100,7 @@ export async function loadSharedGame(gameId: string): Promise<{ state: GameState
   const [gameResult, teamsResult, roundsResult] = await Promise.all([
     Mw_apexgamesService.get(gameId),
     Mw_apexteamsService.getAll({
-      select: ["mw_apexteamid", "mw_name", "mw_teamkey", "mw_sortorder"],
+      select: ["mw_apexteamid", "mw_name", "mw_teamkey", "mw_sortorder", "mw_membersjson", "mw_captainupn"],
       filter: `mw_gameid eq '${escaped}' and statecode eq 0`,
       top: 50,
     }),
@@ -137,7 +137,15 @@ export async function loadSharedGame(gameId: string): Promise<{ state: GameState
       submitted.push(roundRow?.mw_submitted ?? false);
       rulings.push({ ...emptyRuling(), ...parseJson<Partial<FacilitatorRuling>>(roundRow?.mw_facilitatorjson, () => ({})) });
     }
-    return { id: teamKey, name: row.mw_name ?? teamKey, decisions, submitted, rulings };
+    return {
+      id: teamKey,
+      name: row.mw_name ?? teamKey,
+      decisions,
+      submitted,
+      rulings,
+      members: parseJson<TeamMember[]>(row.mw_membersjson, () => []),
+      captainUpn: (row.mw_captainupn ?? "").toLowerCase(),
+    };
   });
 
   const state: GameState = {
@@ -169,6 +177,9 @@ export const writeGameMeta = (
 
 export const writeTeamName = (teamRowId: string, name: string) => Mw_apexteamsService.update(teamRowId, { mw_name: name });
 
+export const writeRoster = (teamRowId: string, members: TeamMember[], captainUpn: string) =>
+  Mw_apexteamsService.update(teamRowId, { mw_membersjson: JSON.stringify(members), mw_captainupn: captainUpn });
+
 export const writeRoundDecisions = (roundRowId: string, decisions: RoundDecisions) =>
   Mw_apexteamroundsService.update(roundRowId, { mw_decisionsjson: JSON.stringify(decisions) });
 
@@ -178,15 +189,20 @@ export const writeRoundSubmitted = (roundRowId: string, submitted: boolean) =>
 export const writeRuling = (roundRowId: string, ruling: FacilitatorRuling) =>
   Mw_apexteamroundsService.update(roundRowId, { mw_facilitatorjson: JSON.stringify(ruling) });
 
-export async function listGameTeams(gameId: string): Promise<{ teamKey: string; name: string }[]> {
+export async function listGameTeams(gameId: string): Promise<TeamSummary[]> {
   const escaped = gameId.replace(/'/g, "''");
   const result = await Mw_apexteamsService.getAll({
-    select: ["mw_teamkey", "mw_name", "mw_sortorder"],
+    select: ["mw_teamkey", "mw_name", "mw_sortorder", "mw_membersjson", "mw_captainupn"],
     filter: `mw_gameid eq '${escaped}' and statecode eq 0`,
     top: 50,
   });
   return (result.data ?? [])
     .slice()
     .sort((a, b) => (a.mw_sortorder ?? 0) - (b.mw_sortorder ?? 0))
-    .map((t) => ({ teamKey: t.mw_teamkey ?? "", name: t.mw_name ?? t.mw_teamkey ?? "" }));
+    .map((t) => ({
+      teamKey: t.mw_teamkey ?? "",
+      name: t.mw_name ?? t.mw_teamkey ?? "",
+      members: parseJson<TeamMember[]>(t.mw_membersjson, () => []),
+      captainUpn: (t.mw_captainupn ?? "").toLowerCase(),
+    }));
 }

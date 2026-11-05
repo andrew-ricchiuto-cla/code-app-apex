@@ -8,8 +8,10 @@ export * as CommonModels from './models/CommonModels';
 export * as Mw_apexgamesModel from './models/Mw_apexgamesModel';
 export * as Mw_apexteamroundsModel from './models/Mw_apexteamroundsModel';
 export * as Mw_apexteamsModel from './models/Mw_apexteamsModel';
+export * as SystemusersModel from './models/SystemusersModel';
 
 // Services
 export * from './services/Mw_apexgamesService';
 export * from './services/Mw_apexteamroundsService';
 export * from './services/Mw_apexteamsService';
+export * from './services/SystemusersService';

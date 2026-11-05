@@ -106,13 +106,26 @@ export const TENSIONS = [
   { title: "Immediate economics vs. terminal sustainability", text: "Moving damage past the horizon doesn't make it go away." },
 ] as const;
 
-export const NARRATIVE_FIELDS = [
+export interface NarrativeField {
+  key: "diagnosis" | "learning" | "hypothesis" | "leadingIndicator" | "reconsiderTrigger" | "minorityView" | "stakeholderMessage";
+  label: string;
+  prompt: string;
+  required: boolean;
+  /** First round the field applies to (default 1). */
+  fromRound?: number;
+}
+
+export const NARRATIVE_FIELDS: NarrativeField[] = [
+  { key: "diagnosis", label: "Diagnosis", prompt: "What is the constraint you are trying to address?", required: true },
+  { key: "learning", label: "Learning since the prior round", prompt: "What did the last round teach you? What surprised you?", required: true, fromRound: 2 },
   { key: "hypothesis", label: "Decision hypothesis", prompt: "What do you believe, and what will this portfolio cause?", required: true },
   { key: "leadingIndicator", label: "Leading indicator", prompt: "What will you watch before the score moves? (Your facilitator uses this in Round 4.)", required: true },
   { key: "reconsiderTrigger", label: "Reconsider / stop / scale trigger", prompt: "What evidence would change this decision?", required: true },
   { key: "minorityView", label: "Minority view", prompt: "What did the dissenting voice argue?", required: false },
   { key: "stakeholderMessage", label: "Stakeholder message", prompt: "How will you explain the trade-off to owners and staff?", required: false },
-] as const;
+];
+
+export const narrativeFieldsFor = (round: number) => NARRATIVE_FIELDS.filter((f) => round >= (f.fromRound ?? 1));
 
 export const DEBRIEF_PROMPTS = [
   "Which loop constrained your System Health most, and when did you first see it coming?",

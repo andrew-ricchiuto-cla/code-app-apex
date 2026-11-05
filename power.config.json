@@ -28,6 +28,11 @@
           "entitySetName": "mw_apexteamrounds",
           "logicalName": "mw_apexteamround",
           "isHidden": false
+        },
+        "users": {
+          "entitySetName": "systemusers",
+          "logicalName": "systemuser",
+          "isHidden": false
         }
       },
       "environmentVariableName": ""

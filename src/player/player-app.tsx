@@ -10,7 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SyncBadge } from "@/components/sync-badge";
 import { emptyRuling, isGameComplete, isRevealed, lastRevealedRound, PHASE, PHASE_LABEL } from "@/lib/game";
 import { teamColor } from "@/lib/format";
+import { canEditTeam, displayName } from "@/lib/people";
 import { useAllResults, useGame } from "@/lib/store";
+import { useCurrentUser } from "@/lib/user";
 import { cn } from "@/lib/utils";
 import { DecideFlow, DecisionSummary } from "./decide";
 import { rankAt } from "@/lib/display";
@@ -19,8 +21,9 @@ import { CompanyHistory, DecisionHistory, HowItWorks, Leaderboard, RoundBriefing
 const TAB = "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-4";
 
 export function PlayerApp() {
-  const { state, dispatch, myTeamKey, leaveSession } = useGame();
+  const { state, dispatch, myTeamKey, leaveSession, session } = useGame();
   const resultsByTeam = useAllResults();
+  const user = useCurrentUser();
   const teamIndex = state.teams.findIndex((t) => t.id === myTeamKey);
   const team = state.teams[teamIndex];
   const [historyRound, setHistoryRound] = useState<number | null>(null);
@@ -34,6 +37,9 @@ export function PlayerApp() {
     );
   }
 
+  const sandbox = session.mode === "local";
+  const canEdit = canEditTeam(team, user?.upn, sandbox);
+  const captain = team.members.find((m) => m.upn === team.captainUpn);
   const clock = { currentRound: state.currentRound, roundPhase: state.roundPhase, totalRounds: state.config.totalRounds };
   const round = state.currentRound;
   const results = resultsByTeam.get(team.id) ?? [];
@@ -65,6 +71,14 @@ export function PlayerApp() {
                 {team.name}
                 <span className="text-sm font-normal text-white/70">· {state.gameName}</span>
               </div>
+              {team.members.length > 0 && (
+                <div className="mt-1 flex items-center gap-1.5 text-xs text-white/80">
+                  <span className="text-saffron">★</span>
+                  {captain ? `Captain: ${displayName(captain.name)}` : "No captain set"}
+                  {user && captain?.upn === user.upn && <Badge className="bg-saffron text-navy ml-1 h-4 px-1.5 text-[10px]">You</Badge>}
+                  <span className="text-white/50">· {team.members.length} member{team.members.length === 1 ? "" : "s"}</span>
+                </div>
+              )}
             </div>
             <div className="flex flex-col items-end gap-2">
               <RoundTrack current={round} total={state.config.totalRounds} phase={state.roundPhase} />
@@ -99,7 +113,7 @@ export function PlayerApp() {
               <RoundBriefing config={state.config} round={round} result={result} waitingText="Your facilitator will open decisions shortly." />
             )}
 
-            {state.roundPhase === PHASE.Open && !submitted && (
+            {state.roundPhase === PHASE.Open && !submitted && canEdit && (
               <>
                 <RoundBriefing config={state.config} round={round} result={result} />
                 <DecideFlow
@@ -112,6 +126,26 @@ export function PlayerApp() {
                   onChange={(next) => dispatch({ type: "setDecisions", teamId: team.id, round, decisions: next })}
                   onSubmit={() => dispatch({ type: "setSubmitted", teamId: team.id, round, submitted: true })}
                 />
+              </>
+            )}
+
+            {state.roundPhase === PHASE.Open && !submitted && !canEdit && (
+              <>
+                <RoundBriefing config={state.config} round={round} result={result} />
+                <Card className="border-saffron/70">
+                  <CardHeader>
+                    <CardTitle className="flex flex-wrap items-center gap-2">
+                      <span className="text-saffron">★</span>
+                      {captain ? `${displayName(captain.name)} is entering your team's decisions` : "Your team captain is entering decisions"}
+                    </CardTitle>
+                    <CardDescription>
+                      Only the team captain can change and submit choices. Talk it through together — this view updates live as the captain works.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DecisionSummary config={state.config} round={round} decisions={decisions} ruling={ruling} />
+                  </CardContent>
+                </Card>
               </>
             )}
 

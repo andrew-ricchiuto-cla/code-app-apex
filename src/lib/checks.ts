@@ -2,7 +2,7 @@
 // scoring but the facilitator wants surfaced before submission.
 
 import type { EngineConfig, RoundDecisions, RoundResult } from "@/engine";
-import { NARRATIVE_FIELDS } from "./content";
+import { narrativeFieldsFor } from "./content";
 
 export interface CheckMessage {
   level: "error" | "warning" | "info";
@@ -56,7 +56,7 @@ export function roundChecks(config: EngineConfig, decisions: RoundDecisions, res
   }
   // No change-load / absorption warnings here: these checks are shown to players
   // before they submit, and those warnings preview the scored outcome.
-  const missing = missingNarrative(decisions);
+  const missing = missingNarrative(decisions, result.round);
   if (missing.length > 0) {
     messages.push({
       level: "error",
@@ -67,6 +67,6 @@ export function roundChecks(config: EngineConfig, decisions: RoundDecisions, res
 }
 
 /** Required rationale fields the team hasn't filled in. Submission is blocked until this is empty. */
-export function missingNarrative(decisions: RoundDecisions) {
-  return NARRATIVE_FIELDS.filter((f) => f.required && decisions.narrative[f.key].trim() === "");
+export function missingNarrative(decisions: RoundDecisions, round: number) {
+  return narrativeFieldsFor(round).filter((f) => f.required && (decisions.narrative[f.key] ?? "").trim() === "");
 }

@@ -20,6 +20,18 @@ export interface TeamState {
   decisions: RoundDecisions[];
   submitted: boolean[];
   rulings: FacilitatorRuling[];
+  /** People assigned to the team by the facilitator. Empty = open team (anyone can join). */
+  members: TeamMember[];
+  /** Lower-cased UPN of the one member allowed to edit and submit. Empty = anyone on the team can edit. */
+  captainUpn: string;
+}
+
+export interface TeamMember {
+  id: string; // systemuserid (or the email in the local sandbox)
+  upn: string; // lower-cased
+  name: string;
+  email: string;
+  title?: string;
 }
 
 export interface GameState {
@@ -42,6 +54,8 @@ function makeTeam(index: number, rounds: number): TeamState {
     decisions: Array.from({ length: rounds }, () => emptyDecisions()),
     submitted: Array.from({ length: rounds }, () => false),
     rulings: Array.from({ length: rounds }, () => emptyRuling()),
+    members: [],
+    captainUpn: "",
   };
 }
 
@@ -68,6 +82,7 @@ type Action =
   | { type: "setUnderHood"; value: boolean }
   | { type: "setFacilitators"; facilitators: string[] }
   | { type: "renameTeam"; teamId: string; name: string }
+  | { type: "setRoster"; teamId: string; members: TeamMember[]; captainUpn: string }
   | { type: "setTeamCount"; count: number }
   | { type: "setGameName"; name: string }
   | { type: "replace"; state: GameState }
@@ -80,6 +95,7 @@ const dirtyKeys = {
   round: (teamId: string, round: number) => `round|${teamId}|${round}`,
   ruling: (teamId: string, round: number) => `ruling|${teamId}|${round}`,
   team: (teamId: string) => `team|${teamId}`,
+  roster: (teamId: string) => `roster|${teamId}`,
 };
 
 function mergeRemote(local: GameState, remote: GameState, dirty: Set<string>): GameState {
@@ -100,6 +116,8 @@ function mergeRemote(local: GameState, remote: GameState, dirty: Set<string>): G
       return {
         id: remoteTeam.id,
         name: dirty.has(dirtyKeys.team(remoteTeam.id)) ? localTeam.name : remoteTeam.name,
+        members: dirty.has(dirtyKeys.roster(remoteTeam.id)) ? localTeam.members : remoteTeam.members,
+        captainUpn: dirty.has(dirtyKeys.roster(remoteTeam.id)) ? localTeam.captainUpn : remoteTeam.captainUpn,
         decisions: remoteTeam.decisions.map((d, i) => (roundDirty(i) ? (localTeam.decisions[i] ?? d) : d)),
         submitted: remoteTeam.submitted.map((s, i) => (roundDirty(i) ? (localTeam.submitted[i] ?? s) : s)),
         rulings: remoteTeam.rulings.map((r, i) => (rulingDirty(i) ? (localTeam.rulings[i] ?? r) : r)),
@@ -122,6 +140,8 @@ function reducer(state: GameState, action: Action): GameState {
       return updateTeam(action.teamId, (t) => ({ ...t, submitted: updateAt(t.submitted, action.round - 1, action.submitted) }));
     case "setRuling":
       return updateTeam(action.teamId, (t) => ({ ...t, rulings: updateAt(t.rulings, action.round - 1, action.ruling) }));
+    case "setRoster":
+      return updateTeam(action.teamId, (t) => ({ ...t, members: action.members, captainUpn: action.captainUpn }));
     case "setClock":
       return {
         ...state,
@@ -153,6 +173,12 @@ function reducer(state: GameState, action: Action): GameState {
   }
 }
 
+/** Games saved before rosters existed get empty ones. */
+const withRosters = (state: GameState): GameState => ({
+  ...state,
+  teams: state.teams.map((t) => ({ ...t, members: t.members ?? [], captainUpn: t.captainUpn ?? "" })),
+});
+
 /** Accepts only games built for the current model; anything older is retired. */
 export function isCurrentModel(state: Partial<GameState> | null | undefined): state is GameState {
   return !!state && state.version === 2 && Array.isArray(state.teams) && state.config?.configVersion === CONFIG_VERSION;
@@ -163,7 +189,7 @@ function loadInitial(): GameState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as GameState;
-      if (isCurrentModel(parsed)) return parsed;
+      if (isCurrentModel(parsed)) return withRosters(parsed);
     }
   } catch {
     // fall through to a fresh game
@@ -179,9 +205,16 @@ export function resetLocalGame(): void {
   }
 }
 
-/** Team names in the local sandbox, for the landing page's practice door. */
-export function peekLocalTeams(): { teamKey: string; name: string }[] {
-  return loadInitial().teams.map((t) => ({ teamKey: t.id, name: t.name }));
+/** Team names and rosters in the local sandbox, for the landing page's practice door. */
+export function peekLocalTeams(): TeamSummary[] {
+  return loadInitial().teams.map((t) => ({ teamKey: t.id, name: t.name, members: t.members, captainUpn: t.captainUpn }));
+}
+
+export interface TeamSummary {
+  teamKey: string;
+  name: string;
+  members: TeamMember[];
+  captainUpn: string;
 }
 
 export type SyncStatus = "local" | "live" | "syncing" | "error";
@@ -383,6 +416,12 @@ export function GameProvider({ session, onLeave, children }: ProviderProps) {
           const rowId = ids.teamRowIds[action.teamId];
           if (!rowId) return;
           queueWrite(dirtyKeys.team(action.teamId), () => dv.writeTeamName(rowId, action.name));
+          break;
+        }
+        case "setRoster": {
+          const rowId = ids.teamRowIds[action.teamId];
+          if (!rowId) return;
+          queueWrite(dirtyKeys.roster(action.teamId), () => dv.writeRoster(rowId, action.members, action.captainUpn), 300);
           break;
         }
         default:

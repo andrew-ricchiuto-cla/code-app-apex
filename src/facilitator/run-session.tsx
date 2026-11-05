@@ -15,6 +15,7 @@ import type { CustomAction, EngineConfig, RoundResult } from "@/engine";
 import { customBandViolations, FACILITATOR_STATUSES, statusExplanation } from "@/lib/checks";
 import { CUSTOM_ACTIONS_ENABLED, effectiveDecisions, emptyRuling, hasCustomProposal, isGameComplete, PHASE, PHASE_LABEL, pendingRulings, zeroCustom, type FacilitatorRuling, type RoundPhase } from "@/lib/game";
 import { fmt1, teamColor } from "@/lib/format";
+import { displayName } from "@/lib/people";
 import { useAllResults, useGame, type TeamState } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -183,12 +184,18 @@ function SubmissionTracker({
               const r = resultsByTeam.get(team.id)?.[round - 1];
               const d = team.decisions[round - 1];
               const isSubmitted = team.submitted[round - 1];
-              const started = d.initiatives.some((c) => c.name !== "None") || d.narrative.hypothesis !== "" || hasCustomProposal(d);
+              const started = d.initiatives.some((c) => c.name !== "None") || (d.narrative.hypothesis !== "" || (d.narrative.diagnosis ?? "") !== "") || hasCustomProposal(d);
               return (
                 <TableRow key={team.id}>
                   <TableCell className="font-medium">
                     <span className="mr-2 inline-block size-2.5 rounded-full" style={{ background: teamColor(index) }} />
                     {team.name}
+                    {team.members.length > 0 && (
+                      <div className="text-muted-foreground pl-4.5 text-xs font-normal">
+                        <span className="text-saffron">★</span> {displayName(team.members.find((m) => m.upn === team.captainUpn)?.name ?? "No captain")} ·{" "}
+                        {team.members.length} member{team.members.length === 1 ? "" : "s"}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     {isSubmitted ? <Badge className="bg-cash text-white">Submitted</Badge> : started ? <Badge variant="secondary">Drafting</Badge> : <Badge variant="outline">Not started</Badge>}

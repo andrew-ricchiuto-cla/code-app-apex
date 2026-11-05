@@ -11,10 +11,95 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { exportGame, freshGame, importGame, useGame } from "@/lib/store";
+import { PeoplePicker } from "@/components/people-picker";
+import { displayName } from "@/lib/people";
+import { exportGame, freshGame, importGame, useGame, type TeamMember, type TeamState } from "@/lib/store";
+import { teamColor } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { normalizeEmail, useCurrentUser } from "@/lib/user";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Name, members, and captain for every team. Only the captain can edit and submit decisions. */
+function TeamRosters({ directory }: { directory: boolean }) {
+  const { state, dispatch } = useGame();
+
+  // A person can be on only one team.
+  const teamOf = new Map<string, string>();
+  for (const t of state.teams) for (const m of t.members) teamOf.set(m.upn, t.name);
+
+  const setRoster = (team: TeamState, members: TeamMember[], captainUpn: string) => {
+    const captain = members.some((m) => m.upn === captainUpn) ? captainUpn : (members[0]?.upn ?? "");
+    dispatch({ type: "setRoster", teamId: team.id, members, captainUpn: captain });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Teams</CardTitle>
+        <CardDescription>
+          Add people from the directory and pick a captain (★). Only the captain can change and submit their team's decisions; everyone else on the
+          team follows along read-only. A team with no members is open to anyone who joins it.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {state.teams.map((team, index) => {
+          const unavailable = new Map<string, string>();
+          for (const [upn, name] of teamOf) if (name !== team.name) unavailable.set(upn, `Already on ${name}`);
+          const captain = team.members.find((m) => m.upn === team.captainUpn);
+          return (
+            <div key={team.id} className="grid gap-2 rounded-lg border p-3 md:grid-cols-[14rem_1fr]">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="size-3 rounded-full" style={{ background: teamColor(index) }} />
+                  <Input
+                    className="h-8"
+                    value={team.name}
+                    aria-label="Team name"
+                    onChange={(e) => dispatch({ type: "renameTeam", teamId: team.id, name: e.target.value })}
+                  />
+                </div>
+                <p className="text-muted-foreground pl-5 text-xs">
+                  {team.members.length === 0
+                    ? "Open team"
+                    : `${team.members.length} member${team.members.length === 1 ? "" : "s"} · Captain: ${captain ? displayName(captain.name) : "none"}`}
+                </p>
+              </div>
+              <PeoplePicker
+                directory={directory}
+                value={team.members}
+                unavailable={unavailable}
+                placeholder={directory ? "Add people by name or email" : "Type an email and press Enter (directory search works in the deployed app)"}
+                onChange={(members) => setRoster(team, members, team.captainUpn)}
+                renderChipExtra={(m) => {
+                  const isCaptain = m.upn === team.captainUpn;
+                  return (
+                    <button
+                      type="button"
+                      title={isCaptain ? "Team captain" : "Make team captain"}
+                      aria-label={isCaptain ? `${displayName(m.name)} is team captain` : `Make ${displayName(m.name)} team captain`}
+                      aria-pressed={isCaptain}
+                      className={cn("rounded-full px-0.5 leading-none", isCaptain ? "text-saffron" : "text-muted-foreground/50 hover:text-saffron")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isCaptain) setRoster(team, team.members, m.upn);
+                      }}
+                    >
+                      ★
+                    </button>
+                  );
+                }}
+              />
+            </div>
+          );
+        })}
+        {!directory && (
+          <p className="text-muted-foreground text-xs">Sandbox: directory search needs the Power Apps host, so add people by email here. Captain rules are not enforced in the sandbox.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export function GameSetup() {
   const { state, dispatch, session } = useGame();
@@ -69,14 +154,11 @@ export function GameSetup() {
               <Label className="text-xs">Show engine trace in team drill-in</Label>
             </div>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {state.teams.map((team) => (
-              <Input key={team.id} value={team.name} onChange={(e) => dispatch({ type: "renameTeam", teamId: team.id, name: e.target.value })} />
-            ))}
-          </div>
           {isShared && <p className="text-muted-foreground text-xs">Team count is fixed when a shared game is created.</p>}
         </CardContent>
       </Card>
+
+      <TeamRosters directory={!!user} />
 
       {isShared && (
         <Card>
