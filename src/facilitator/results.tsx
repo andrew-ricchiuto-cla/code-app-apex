@@ -9,7 +9,7 @@ import { DEBRIEF_PROMPTS } from "@/lib/content";
 import { isRevealed } from "@/lib/game";
 import { fmt1 } from "@/lib/format";
 import { useAllResults, useGame } from "@/lib/store";
-import { CompanyHistory, Leaderboard } from "@/player/views";
+import { CompanyHistory, DecisionHistory, Leaderboard } from "@/player/views";
 
 export function ResultsPage() {
   const { state } = useGame();
@@ -88,6 +88,7 @@ export function ResultsPage() {
         ))}
       </div>
       {team && <CompanyHistory config={state.config} team={team} results={resultsByTeam.get(team.id) ?? []} throughRound={state.currentRound} />}
+      {team && <DecisionHistory config={state.config} team={team} throughRound={state.currentRound} />}
     </div>
   );
 }

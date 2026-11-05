@@ -14,7 +14,7 @@ import { useAllResults, useGame } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { DecideFlow, DecisionSummary } from "./decide";
 import { rankAt } from "@/lib/display";
-import { CompanyHistory, HowItWorks, Leaderboard, RoundBriefing, RoundReveal } from "./views";
+import { CompanyHistory, DecisionHistory, HowItWorks, Leaderboard, RoundBriefing, RoundReveal } from "./views";
 
 const TAB = "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-4";
 
@@ -168,6 +168,7 @@ export function PlayerApp() {
             ) : (
               <>
                 <CompanyHistory config={state.config} team={team} results={results} throughRound={revealedThrough} />
+                <DecisionHistory config={state.config} team={team} throughRound={revealedThrough} />
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium">Revisit a round:</span>
                   <Select value={String(historyPick)} onValueChange={(v) => setHistoryRound(Number(v))}>
@@ -190,6 +191,7 @@ export function PlayerApp() {
                     results={results}
                     rank={rankAt(state, resultsByTeam, historyPick, team.id)}
                     teamCount={state.teams.length}
+                    choices={{ decisions: team.decisions[historyPick - 1], ruling: team.rulings[historyPick - 1] ?? emptyRuling() }}
                   />
                 )}
               </>

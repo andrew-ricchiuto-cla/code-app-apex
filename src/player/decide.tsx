@@ -16,9 +16,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { EngineConfig, Initiative, InitiativeChoice, Intensity, RoundDecisions, RoundResult } from "@/engine";
-import { FACILITATOR_STATUSES, roundChecks } from "@/lib/checks";
-import { INITIATIVE_THEMES, NARRATIVE_FIELDS, POSTURE_PLAIN } from "@/lib/content";
-import { hasCustomProposal, type FacilitatorRuling } from "@/lib/game";
+import { FACILITATOR_STATUSES, missingNarrative, roundChecks } from "@/lib/checks";
+import { NARRATIVE_FIELDS, POSTURE_PLAIN } from "@/lib/content";
+import { CUSTOM_ACTIONS_ENABLED, hasCustomProposal, type FacilitatorRuling } from "@/lib/game";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
@@ -155,8 +155,6 @@ function InitiativeCatalog({
   const remove = (name: string) => setChoices(chosen.filter((c) => c.name !== name));
   const setIntensity = (name: string, intensity: Intensity) => setChoices(chosen.map((c) => (c.name === name ? { ...c, intensity } : c)));
 
-  const themes = Array.from(new Set(config.initiatives.map((i) => INITIATIVE_THEMES[i.name]?.theme ?? "Other")));
-
   return (
     <div className="space-y-5">
       <Card className="border-primary/30 bg-primary/5">
@@ -177,36 +175,29 @@ function InitiativeCatalog({
             </div>
           )}
           <p className="text-muted-foreground text-xs">
-            Up to {config.params.maxActiveInitiatives} initiatives, including any Round 4 strategic option or approved custom action. Accelerated is a bigger,
-            costlier commitment than Focused.
+            Up to {config.params.maxActiveInitiatives} initiatives{config.totalRounds > 1 ? `, including any Round ${config.totalRounds} strategic option` : ""}.
+            Accelerated is a bigger, costlier commitment than Focused.
           </p>
         </CardContent>
       </Card>
 
-      {themes.map((theme) => (
-        <section key={theme} className="space-y-2">
-          <h3 className="text-muted-foreground text-xs font-bold tracking-widest uppercase">{theme}</h3>
-          <div className="grid gap-3 md:grid-cols-2">
-            {config.initiatives
-              .filter((i) => (INITIATIVE_THEMES[i.name]?.theme ?? "Other") === theme)
-              .map((initiative) => {
-                const selected = chosen.find((c) => c.name === initiative.name);
-                return (
-                  <InitiativeCard
-                    key={initiative.name}
-                    initiative={initiative}
-                    selectedIntensity={selected ? (selected.intensity as Intensity) : null}
-                    previous={priorSelections(history, initiative.name)}
-                    canAdd={!full}
-                    onAdd={(intensity) => add(initiative.name, intensity)}
-                    onRemove={() => remove(initiative.name)}
-                    onIntensity={(intensity) => setIntensity(initiative.name, intensity)}
-                  />
-                );
-              })}
-          </div>
-        </section>
-      ))}
+      <div className="grid gap-3 md:grid-cols-2">
+        {config.initiatives.map((initiative) => {
+          const selected = chosen.find((c) => c.name === initiative.name);
+          return (
+            <InitiativeCard
+              key={initiative.name}
+              initiative={initiative}
+              selectedIntensity={selected ? (selected.intensity as Intensity) : null}
+              previous={priorSelections(history, initiative.name)}
+              canAdd={!full}
+              onAdd={(intensity) => add(initiative.name, intensity)}
+              onRemove={() => remove(initiative.name)}
+              onIntensity={(intensity) => setIntensity(initiative.name, intensity)}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -353,6 +344,7 @@ function EnterpriseChoices({
         </Card>
       )}
 
+      {CUSTOM_ACTIONS_ENABLED && (
       <Card>
         <CardHeader>
           <CardTitle className="flex flex-wrap items-center gap-2">
@@ -381,6 +373,7 @@ function EnterpriseChoices({
           {ruling.custom.status === "rejected" && ruling.custom.note && <div className="text-destructive text-xs">Facilitator: {ruling.custom.note}</div>}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
@@ -393,11 +386,15 @@ export function CustomStatusBadge({ ruling }: { ruling: FacilitatorRuling }) {
 
 function Rationale({ decisions, onChange }: { decisions: RoundDecisions; onChange: (d: RoundDecisions) => void }) {
   const n = decisions.narrative;
+  const missing = new Set(missingNarrative(decisions).map((f) => f.key));
   return (
     <Card>
       <CardHeader>
         <CardTitle>Your rationale</CardTitle>
-        <CardDescription>The model scores choices; your facilitator debriefs the thinking. Write it the way you'd brief your owners.</CardDescription>
+        <CardDescription>
+          The model scores choices; your facilitator debriefs the thinking. Write it the way you'd brief your owners. Fields marked{" "}
+          <span className="text-destructive">*</span> are required to submit.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {NARRATIVE_FIELDS.map((f) => (
@@ -405,7 +402,13 @@ function Rationale({ decisions, onChange }: { decisions: RoundDecisions; onChang
             <Label>
               {f.label} {f.required && <span className="text-destructive">*</span>}
             </Label>
-            <Textarea rows={2} placeholder={f.prompt} value={n[f.key]} onChange={(e) => onChange({ ...decisions, narrative: { ...n, [f.key]: e.target.value } })} />
+            <Textarea
+              rows={2}
+              placeholder={f.prompt}
+              value={n[f.key]}
+              aria-invalid={missing.has(f.key) || undefined}
+              onChange={(e) => onChange({ ...decisions, narrative: { ...n, [f.key]: e.target.value } })}
+            />
           </div>
         ))}
         <div className="flex flex-wrap items-center gap-3">

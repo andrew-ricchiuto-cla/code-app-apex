@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import type { CustomAction, EngineConfig, RoundResult } from "@/engine";
 import { customBandViolations, FACILITATOR_STATUSES, statusExplanation } from "@/lib/checks";
-import { effectiveDecisions, emptyRuling, hasCustomProposal, isGameComplete, PHASE, PHASE_LABEL, pendingRulings, zeroCustom, type FacilitatorRuling, type RoundPhase } from "@/lib/game";
+import { CUSTOM_ACTIONS_ENABLED, effectiveDecisions, emptyRuling, hasCustomProposal, isGameComplete, PHASE, PHASE_LABEL, pendingRulings, zeroCustom, type FacilitatorRuling, type RoundPhase } from "@/lib/game";
 import { fmt1, teamColor } from "@/lib/format";
 import { useAllResults, useGame, type TeamState } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -138,8 +138,8 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
 function PhaseGuidance({ phase, round, total }: { phase: RoundPhase; round: number; total: number }) {
   const text: Record<RoundPhase, string> = {
     0: `Players see the Round ${round} briefing and their resources but can't edit yet. Brief the room (Present mode helps), then open decisions.`,
-    1: "Teams are choosing. Watch the tracker; price custom actions as they come in. Players can't see any scores.",
-    2: `Decisions are locked.${round === total ? " Rule on each team's evidence trigger" : " Resolve any custom actions"}, then reveal.`,
+    1: `Teams are choosing. Watch the tracker${CUSTOM_ACTIONS_ENABLED ? "; price custom actions as they come in" : ""}. Players can't see any scores.`,
+    2: `Decisions are locked.${round === total ? " Rule on each team's evidence trigger" : CUSTOM_ACTIONS_ENABLED ? " Resolve any custom actions" : ""}, then reveal.`,
     3: round === total ? "Final results are visible to players. Use Results for the debrief." : "Players now see their results and the leaderboard. Debrief, then start the next round.",
   };
   return <p className="text-muted-foreground text-sm">{text[phase]}</p>;
