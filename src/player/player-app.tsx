@@ -120,7 +120,7 @@ export function PlayerApp() {
 
             {state.roundPhase === PHASE.Open && !submitted && canEdit && (
               <>
-                <RoundBriefing config={state.config} round={round} result={result} />
+                <RoundBriefing config={state.config} round={round} result={result} compact />
                 <DecideFlow
                   config={state.config}
                   round={round}

@@ -16,7 +16,7 @@ import type { GameState, TeamState } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { DecisionSummary } from "./decide";
 
-export function RoundBriefing({ config, round, result, waitingText }: { config: EngineConfig; round: number; result: RoundResult; waitingText?: string }) {
+export function RoundBriefing({ config, round, result, waitingText, compact }: { config: EngineConfig; round: number; result: RoundResult; waitingText?: string; compact?: boolean }) {
   const theme = config.roundThemes.find((t) => t.round === round);
   return (
     <Card className="border-riptide/60 from-riptide/20 bg-gradient-to-br to-transparent">
@@ -26,11 +26,19 @@ export function RoundBriefing({ config, round, result, waitingText }: { config: 
         <CardDescription className="text-base">{theme?.primaryEvent}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Stat label="Investment capital this round" value={`${result.availableCapital} units`} />
-          <Stat label="Leadership / change capacity" value={`${result.availableLc} tokens`} />
-          <Stat label="Response reserve from last round" value={`${result.responseReserve} tokens`} />
-        </div>
+        {!compact && (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Stat label="🪙 Investment capital this round" value={`${result.availableCapital}`} />
+            <Stat label="⚡ Leadership capacity this round" value={`${result.availableLc}`} />
+            <Stat label="Response reserve from last round" value={`${result.responseReserve} tokens`} />
+          </div>
+        )}
+        {compact && result.responseReserve > 0 && (
+          <p className="text-muted-foreground text-sm">
+            ⚡ You kept enough leadership capacity last round to bank {result.responseReserve} reserve token{result.responseReserve === 1 ? "" : "s"} against this
+            round's events.
+          </p>
+        )}
         {waitingText && (
           <div className="bg-muted text-muted-foreground flex items-center gap-2 rounded-lg px-3 py-2 text-sm">
             <span className="bg-control size-2 animate-pulse rounded-full" />
