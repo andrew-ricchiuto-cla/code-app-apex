@@ -11,12 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import type { EngineConfig, InitiativeChoice, Intensity, RoundDecisions, RoundResult } from "@/engine";
+import type { EngineConfig, Initiative, InitiativeChoice, Intensity, RoundDecisions, RoundResult } from "@/engine";
 import { FACILITATOR_STATUSES, missingNarrative, roundChecks } from "@/lib/checks";
 import { narrativeFieldsFor, POSTURE_PLAIN } from "@/lib/content";
 import { CUSTOM_ACTIONS_ENABLED, hasCustomProposal, type FacilitatorRuling } from "@/lib/game";
@@ -71,7 +69,7 @@ export function DecideFlow({ config, round, decisions, ruling, result, history, 
         ))}
       </nav>
 
-      {step === "initiatives" && <InitiativeCatalog config={config} decisions={decisions} history={history} onChange={onChange} />}
+      {step === "initiatives" && <InitiativeCatalog config={config} decisions={decisions} result={result} history={history} onChange={onChange} />}
       {step === "enterprise" && <EnterpriseChoices config={config} round={round} decisions={decisions} ruling={ruling} onChange={onChange} />}
       {step === "rationale" && <Rationale round={round} decisions={decisions} onChange={onChange} />}
       {step === "review" && <Review config={config} round={round} decisions={decisions} ruling={ruling} result={result} onSubmit={onSubmit} />}
@@ -86,45 +84,79 @@ export function DecideFlow({ config, round, decisions, ruling, result, history, 
   );
 }
 
-function Meter({ label, used, available, unit, barClass }: { label: string; used: number; available: number; unit: string; barClass: string }) {
-  const over = used > available;
+function BudgetCard({
+  icon,
+  label,
+  left,
+  total,
+  unit,
+  note,
+  barClass,
+}: {
+  icon: string;
+  label: string;
+  left: number;
+  total: number;
+  unit: string;
+  note: string;
+  barClass: string;
+}) {
+  const over = left < 0;
+  const used = total - left;
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-sm">
-        <span className="font-medium">{label}</span>
-        <span className={cn("font-mono", over && "text-destructive font-semibold")}>
-          {used} / {available} {unit}
+    <div className={cn("bg-card rounded-xl border px-4 py-3 shadow-sm", over && "border-destructive")}>
+      <div className="text-muted-foreground flex justify-between text-xs">
+        <span className="text-foreground font-semibold">
+          {icon} {label}
         </span>
+        <span>of {total}</span>
       </div>
-      <Progress
-        value={available === 0 ? 0 : Math.min(100, (used / available) * 100)}
-        className={cn("h-2", over ? "[&_[data-slot=progress-indicator]]:bg-destructive" : barClass)}
-      />
+      <div className={cn("mt-0.5 font-mono text-2xl font-extrabold", over ? "text-destructive" : "text-navy")}>
+        {over ? `${-left} over` : left} <span className="text-muted-foreground font-sans text-xs font-medium">{over ? "" : `${unit} left`}</span>
+      </div>
+      <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
+        <div className={cn("h-full rounded-full", over ? "bg-destructive" : barClass)} style={{ width: `${total === 0 ? 0 : Math.min(100, (used / total) * 100)}%` }} />
+      </div>
+      <div className="text-muted-foreground mt-1.5 text-[11px]">{note}</div>
     </div>
   );
 }
 
 function ResourceBar({ config, result }: { config: EngineConfig; result: RoundResult }) {
+  const capLeft = result.availableCapital - result.capitalCommitted;
+  const lcLeft = result.availableLc - result.lcCommitted;
+  const max = config.params.maxActiveInitiatives;
+  const slotsLeft = max - result.initiativeCount;
   return (
-    <Card className="bg-card/95 sticky top-2 z-10 shadow-md backdrop-blur">
-      <CardContent className="grid gap-4 sm:grid-cols-3">
-        <Meter label="Investment capital" used={result.capitalCommitted} available={result.availableCapital} unit="units" barClass="" />
-        <Meter
-          label="Leadership / change capacity"
-          used={result.lcCommitted}
-          available={result.availableLc}
-          unit="tokens"
-          barClass="[&_[data-slot=progress-indicator]]:bg-control"
-        />
-        <Meter
-          label="Active initiatives"
-          used={result.initiativeCount}
-          available={config.params.maxActiveInitiatives}
-          unit="max"
-          barClass="[&_[data-slot=progress-indicator]]:bg-capability"
-        />
-      </CardContent>
-    </Card>
+    <div className="bg-background/95 sticky top-0 z-10 grid gap-3 py-2 backdrop-blur sm:grid-cols-3">
+      <BudgetCard
+        icon="🪙"
+        label="Investment capital"
+        left={capLeft}
+        total={result.availableCapital}
+        unit=""
+        note={`${result.capitalCommitted} committed`}
+        barClass="bg-navy"
+      />
+      <BudgetCard
+        icon="⚡"
+        label="Leadership capacity"
+        left={lcLeft}
+        total={result.availableLc}
+        unit=""
+        note={`${result.lcCommitted} committed · unused capacity cushions the next shock`}
+        barClass="bg-control"
+      />
+      <BudgetCard
+        icon="🎯"
+        label="Initiatives"
+        left={slotsLeft}
+        total={max}
+        unit={slotsLeft === 1 ? "slot" : "slots"}
+        note={`${result.initiativeCount} of ${max} chosen`}
+        barClass="bg-capability"
+      />
+    </div>
   );
 }
 
@@ -134,110 +166,139 @@ function priorSelections(history: RoundDecisions[], name: string): number[] {
   return rounds;
 }
 
+const LEVELS = ["Focused", "Accelerated"] as const;
+
 function InitiativeCatalog({
   config,
   decisions,
+  result,
   history,
   onChange,
 }: {
   config: EngineConfig;
   decisions: RoundDecisions;
+  result: RoundResult;
   history: RoundDecisions[];
   onChange: (d: RoundDecisions) => void;
 }) {
+  const [blocked, setBlocked] = useState<{ name: string; level: Intensity; reason: string } | null>(null);
   const chosen = decisions.initiatives.filter((c) => c.name !== "None" && c.name !== "");
-  const full = chosen.length >= decisions.initiatives.length;
+  const capLeft = result.availableCapital - result.capitalCommitted;
+  const lcLeft = result.availableLc - result.lcCommitted;
+  const slotsLeft = config.params.maxActiveInitiatives - result.initiativeCount;
 
   const setChoices = (list: InitiativeChoice[]) => {
     const padded = [...list, ...Array.from({ length: 4 - list.length }, () => ({ name: "None", intensity: "None" as const }))];
     onChange({ ...decisions, initiatives: padded.slice(0, 4) as RoundDecisions["initiatives"] });
   };
-  const add = (name: string, intensity: Intensity) => setChoices([...chosen, { name, intensity }]);
-  const remove = (name: string) => setChoices(chosen.filter((c) => c.name !== name));
-  const setIntensity = (name: string, intensity: Intensity) => setChoices(chosen.map((c) => (c.name === name ? { ...c, intensity } : c)));
+
+  /** Why an option can't be picked right now, or null if it can. */
+  const blockReason = (initiative: Initiative, level: Intensity): string | null => {
+    const current = chosen.find((c) => c.name === initiative.name);
+    if (current?.intensity === level) return null;
+    if (!current && (slotsLeft <= 0 || chosen.length >= decisions.initiatives.length)) {
+      return `Portfolio full — ${config.params.maxActiveInitiatives} initiatives already chosen. Turn one Off first.`;
+    }
+    const v = level === "Focused" ? initiative.focused : initiative.accelerated;
+    const cur = current ? (current.intensity === "Focused" ? initiative.focused : initiative.accelerated) : null;
+    const capAvail = capLeft + (cur?.capital ?? 0);
+    const lcAvail = lcLeft + (cur?.lc ?? 0);
+    const other = level === "Accelerated" ? " or choose Focused" : "";
+    if (v.capital > capAvail) return `${level} needs ${v.capital} 🪙 capital — you have ${Math.max(0, capAvail)} available. Turn something down${other}.`;
+    if (v.lc > lcAvail) return `${level} needs ${v.lc} ⚡ leadership capacity — you have ${Math.max(0, lcAvail)} available. Turn something down${other}.`;
+    return null;
+  };
+
+  const choose = (initiative: Initiative, level: Intensity | "Off") => {
+    if (level === "Off") {
+      setBlocked(null);
+      setChoices(chosen.filter((c) => c.name !== initiative.name));
+      return;
+    }
+    const reason = blockReason(initiative, level);
+    if (reason) {
+      setBlocked({ name: initiative.name, level, reason });
+      return;
+    }
+    setBlocked(null);
+    const exists = chosen.some((c) => c.name === initiative.name);
+    setChoices(exists ? chosen.map((c) => (c.name === initiative.name ? { name: c.name, intensity: level } : c)) : [...chosen, { name: initiative.name, intensity: level }]);
+  };
 
   return (
-    <div className="space-y-5">
-      <Card className="border-primary/30 bg-primary/5">
-        <CardContent className="space-y-2">
-          <div className="text-sm font-semibold">Your portfolio this round</div>
-          {chosen.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Nothing selected yet. Doing nothing is a choice too — events still arrive.</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {chosen.map((c) => (
-                <Badge key={c.name} className="gap-1.5 py-1 pr-1 pl-2.5">
-                  {c.name} · {c.intensity}
-                  <button className="hover:bg-primary-foreground/20 rounded-full px-1.5" onClick={() => remove(c.name)} aria-label={`Remove ${c.name}`}>
-                    ✕
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
-          <p className="text-muted-foreground text-xs">
-            Up to {config.params.maxActiveInitiatives} initiatives{config.totalRounds > 1 ? `, including any Round ${config.totalRounds} strategic option` : ""}.
-            Accelerated is a bigger, costlier commitment than Focused.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="py-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="pl-4">Initiative</TableHead>
-              <TableHead className="w-28">Intensity</TableHead>
-              <TableHead className="w-36 text-center">Investment capital</TableHead>
-              <TableHead className="w-36 text-center">Leadership capacity</TableHead>
-              <TableHead className="w-24 pr-4 text-right" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {config.initiatives.map((initiative) => {
-              const selected = chosen.find((c) => c.name === initiative.name);
-              const previous = priorSelections(history, initiative.name);
-              return (["Focused", "Accelerated"] as const).map((level, i) => {
-                const v = level === "Focused" ? initiative.focused : initiative.accelerated;
-                const isSelected = selected?.intensity === level;
-                const otherSelected = !!selected && !isSelected;
-                const disabled = !selected && full;
-                return (
-                  <TableRow
-                    key={`${initiative.name}|${level}`}
-                    className={cn(i === 0 ? "border-b-0" : "border-b-2", isSelected && "bg-riptide/20 hover:bg-riptide/25")}
-                  >
-                    {i === 0 && (
-                      <TableCell rowSpan={2} className={cn("border-b-2 py-1 pl-4 align-middle whitespace-normal", selected && "bg-riptide/10")}>
-                        <div className={cn("text-sm", selected ? "font-semibold" : "font-medium")}>{initiative.name}</div>
-                        {previous.length > 0 && <div className="text-muted-foreground text-xs">Chosen before: round {previous.join(", ")}</div>}
-                      </TableCell>
-                    )}
-                    <TableCell className="text-muted-foreground py-0.5 text-xs">{level}</TableCell>
-                    <TableCell className="py-0.5 text-center font-mono text-sm">{v.capital}</TableCell>
-                    <TableCell className="py-0.5 text-center font-mono text-sm">{v.lc}</TableCell>
-                    <TableCell className="py-0.5 pr-4 text-right">
-                      <Button
-                        size="sm"
-                        variant={isSelected ? "default" : "outline"}
-                        className="h-6 w-20 text-xs"
-                        disabled={disabled}
-                        aria-pressed={isSelected}
-                        onClick={() => (isSelected ? remove(initiative.name) : otherSelected ? setIntensity(initiative.name, level) : add(initiative.name, level))}
-                      >
-                        {isSelected ? "✓ Selected" : otherSelected ? "Switch" : "Select"}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              });
-            })}
-          </TableBody>
-        </Table>
-      </Card>
-      <p className="text-muted-foreground text-xs">
-        {full ? "Portfolio full — remove an initiative to choose another. " : ""}Click a selected row again to remove it.
+    <div className="space-y-2">
+      <p className="text-muted-foreground text-sm">
+        Choose an intensity for up to {config.params.maxActiveInitiatives} initiatives
+        {config.totalRounds > 1 ? ` (a Round ${config.totalRounds} strategic option counts toward the limit)` : ""}. Leave the rest Off.
       </p>
+      <div className="bg-card overflow-hidden rounded-xl border">
+        {config.initiatives.map((initiative) => {
+          const current = chosen.find((c) => c.name === initiative.name);
+          const previous = priorSelections(history, initiative.name);
+          const showReason = blocked?.name === initiative.name ? blocked : null;
+          return (
+            <div
+              key={initiative.name}
+              className={cn(
+                "grid items-center gap-x-4 gap-y-2 border-b border-l-4 border-l-transparent px-4 py-2.5 last:border-b-0 md:grid-cols-[1fr_auto]",
+                current && "border-l-riptide bg-riptide/10",
+              )}
+            >
+              <div className="min-w-0">
+                <div className={cn("font-medium", current && "text-navy font-semibold")}>{initiative.name}</div>
+                {previous.length > 0 && <div className="text-muted-foreground text-xs">Chosen in Round {previous.join(", ")}</div>}
+                {showReason && <div className="text-destructive mt-1 text-xs">⛔ {showReason.reason}</div>}
+              </div>
+              <div role="radiogroup" aria-label={`${initiative.name} intensity`} className="bg-muted grid grid-cols-[4rem_10rem_10rem] gap-0.5 rounded-lg p-0.5">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={!current}
+                  onClick={() => choose(initiative, "Off")}
+                  className={cn(
+                    "text-muted-foreground rounded-md px-2 py-1.5 text-sm font-semibold transition hover:bg-white/70",
+                    !current && "text-navy bg-card shadow-sm hover:bg-card",
+                  )}
+                >
+                  Off
+                </button>
+                {LEVELS.map((level) => {
+                  const v = level === "Focused" ? initiative.focused : initiative.accelerated;
+                  const selected = current?.intensity === level;
+                  const reason = selected ? null : blockReason(initiative, level);
+                  const flashing = showReason?.level === level;
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      aria-disabled={!!reason || undefined}
+                      title={reason ?? undefined}
+                      onClick={() => choose(initiative, level)}
+                      className={cn(
+                        "rounded-md px-2.5 py-1 text-left leading-tight transition",
+                        selected ? "bg-navy text-white shadow-sm" : reason ? "text-muted-foreground/60 hover:bg-destructive/10" : "hover:bg-white/70",
+                        flashing && "ring-destructive bg-destructive/10 ring-2 ring-inset",
+                      )}
+                      style={reason ? { cursor: "pointer" } : undefined}
+                    >
+                      <div className="text-[13px] font-semibold">
+                        {selected && "✓ "}
+                        {level}
+                        {reason && !selected && " ⛔"}
+                      </div>
+                      <div className={cn("text-[11.5px] tabular-nums", selected ? "text-white/80" : "text-muted-foreground", reason && !selected && "opacity-70")}>
+                        {v.capital} 🪙 · {v.lc} ⚡
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
