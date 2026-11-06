@@ -88,7 +88,7 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
             </Badge>
           )}
         </CardTitle>
-        <CardDescription>Engine trace for this team-round — every number maps to a cell in the Oct 7 workbook. Facilitator only.</CardDescription>
+        <CardDescription>Engine trace for this team-round. Every number maps to a cell in the Oct 7 workbook. Facilitator only.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <section>
@@ -128,7 +128,7 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
         </section>
         <Separator />
         <section>
-          <StageHeading n={3} title="State update — prior + immediate + lagged + event" />
+          <StageHeading n={3} title="State update: prior + immediate + lagged + event" />
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -157,7 +157,7 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
                       <TableCell className="text-right font-mono">{signed(result.immediate[key])}</TableCell>
                       <TableCell className="text-right font-mono">{signed(result.lagged[key])}</TableCell>
                       <TableCell className="text-right font-mono">{signed(ev)}</TableCell>
-                      <TableCell className="text-right font-mono">{ocToC === 0 ? "—" : signed(ocToC)}</TableCell>
+                      <TableCell className="text-right font-mono">{ocToC === 0 ? "-" : signed(ocToC)}</TableCell>
                       <TableCell className="text-right font-mono font-semibold">
                         {fmt1(result.out[key])}{" "}
                         <span className={delta >= 0 ? "text-muted-foreground" : "text-destructive"}>({signed(delta)})</span>
@@ -171,7 +171,7 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
                   <TableCell className="text-right font-mono">{signed(result.immediate.marginPp, 2)}</TableCell>
                   <TableCell className="text-right font-mono">{signed(result.lagged.marginPp, 2)}</TableCell>
                   <TableCell className="text-right font-mono">{signed(result.events.marginPp.total, 2)}</TableCell>
-                  <TableCell className="text-right font-mono">—</TableCell>
+                  <TableCell className="text-right font-mono">-</TableCell>
                   <TableCell className="text-right font-mono font-semibold">{pct(result.margin)}</TableCell>
                 </TableRow>
                 <TableRow>
@@ -179,8 +179,8 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
                   <TableCell className="text-right font-mono">{pct(prev.mix)}</TableCell>
                   <TableCell className="text-right font-mono">{signed(result.immediate.mixPp, 2)}</TableCell>
                   <TableCell className="text-right font-mono">{signed(result.lagged.mixPp, 2)}</TableCell>
-                  <TableCell className="text-right font-mono">—</TableCell>
-                  <TableCell className="text-right font-mono">—</TableCell>
+                  <TableCell className="text-right font-mono">-</TableCell>
+                  <TableCell className="text-right font-mono">-</TableCell>
                   <TableCell className="text-right font-mono font-semibold">{pct(result.mix)}</TableCell>
                 </TableRow>
               </TableBody>
@@ -234,7 +234,7 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
         </section>
         <Separator />
         <section>
-          <StageHeading n={6} title="System Health — geometric mean, then index" />
+          <StageHeading n={6} title="System Health: geometric mean, then index" />
           <div className="flex flex-wrap items-end gap-5">
             <Stat label="Market" value={fmt1(result.out.m)} valueClass="text-market text-base" />
             <Stat label="Value" value={fmt1(result.out.v)} valueClass="text-value text-base" />
@@ -269,7 +269,7 @@ export function UnderTheHood({ config, result, prev, prevSystemHealth }: Props) 
             />
           </div>
           <p className="text-muted-foreground mt-2 text-xs">
-            One weak loop pulls the total down — strength elsewhere cannot fully mask it. EC ({fmt1(result.out.ec)}) and OC (
+            One weak loop pulls the total down; strength elsewhere cannot fully mask it. EC ({fmt1(result.out.ec)}) and OC (
             {fmt1(result.out.oc)}) are signals, not direct inputs; low OC penalizes next-round Control.
           </p>
         </section>

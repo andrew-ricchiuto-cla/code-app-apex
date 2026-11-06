@@ -266,7 +266,7 @@ export function GameProvider({ session, onLeave, children }: ProviderProps) {
       if (inflightRef.current === 1) setSyncStatus("live");
     } catch (err) {
       setSyncStatus("error");
-      toast.error(`Save failed — your change is kept on this device and will retry on your next edit. (${err instanceof Error ? err.message : "unknown error"})`);
+      toast.error(`Save failed. Your change is kept on this device and will retry on your next edit. (${err instanceof Error ? err.message : "unknown error"})`);
     } finally {
       inflightRef.current -= 1;
     }

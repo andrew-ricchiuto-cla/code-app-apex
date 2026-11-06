@@ -55,7 +55,7 @@ export function PresentMode({ onClose }: { onClose: () => void }) {
                   <span className="size-4 rounded-full" style={{ background: teamColor(index) }} />
                   <span className="grow text-2xl font-bold">{team.name}</span>
                   <span className="text-sm text-white/70">{r?.healthBand}</span>
-                  <span className="w-28 text-right font-mono text-4xl font-black">{r ? fmt1(r.systemHealth) : "—"}</span>
+                  <span className="w-28 text-right font-mono text-4xl font-black">{r ? fmt1(r.systemHealth) : "-"}</span>
                 </div>
               ))}
             </div>
@@ -82,7 +82,7 @@ export function PresentMode({ onClose }: { onClose: () => void }) {
             </div>
             <div className="rounded-2xl bg-white/10 p-6">
               <div className="text-sm tracking-widest text-white/70 uppercase">
-                {state.roundPhase === PHASE.Briefing ? "Decisions open soon" : state.roundPhase === PHASE.Open ? "Teams deciding" : "Submissions closed — reveal coming"}
+                {state.roundPhase === PHASE.Briefing ? "Decisions open soon" : state.roundPhase === PHASE.Open ? "Teams deciding" : "Submissions closed. Reveal coming"}
               </div>
               <div className="mt-2 font-mono text-5xl font-black">
                 {submitted} / {state.teams.length} <span className="text-2xl font-semibold text-white/70">teams submitted</span>

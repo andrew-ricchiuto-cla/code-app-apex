@@ -13,11 +13,11 @@ import { cn } from "@/lib/utils";
 type LoopKey = "market" | "value" | "capability" | "control" | "cash";
 
 const LOOPS: { key: LoopKey; apex: string; lemon: string; bar: string }[] = [
-  { key: "market", apex: "Market", lemon: "Buzz — how many thirsty people find your stand", bar: "bg-market" },
-  { key: "value", apex: "Value", lemon: "Taste — how good it is and what people will pay", bar: "bg-value" },
-  { key: "capability", apex: "Capability", lemon: "Squeezing — skill, plus getting it where the line is", bar: "bg-capability" },
-  { key: "control", apex: "Control", lemon: "Teamwork — everyone knows who does what", bar: "bg-control" },
-  { key: "cash", apex: "Cash", lemon: "The jar — coins earned and saved to reinvest", bar: "bg-cash" },
+  { key: "market", apex: "Market", lemon: "Buzz: how many thirsty people find your stand", bar: "bg-market" },
+  { key: "value", apex: "Value", lemon: "Taste: how good it is and what people will pay", bar: "bg-value" },
+  { key: "capability", apex: "Capability", lemon: "Squeezing: skill, plus getting it where the line is", bar: "bg-capability" },
+  { key: "control", apex: "Control", lemon: "Teamwork: everyone knows who does what", bar: "bg-control" },
+  { key: "cash", apex: "Cash", lemon: "The jar: coins earned and saved to reinvest", bar: "bg-cash" },
 ];
 
 interface Option {
@@ -52,7 +52,7 @@ const OPTIONS: Option[] = [
 const JAR = [
   { id: "treat", name: "Treat yourself", text: "Spend today's coins on ice cream. Fun now, less to invest next round.", now: { cash: -3 } as Partial<Record<LoopKey, number>> },
   { id: "balance", name: "Balance", text: "Some for you, some for the jar.", now: {} },
-  { id: "save", name: "Save in the jar", text: "More coins to invest next round — if the stand is earning.", now: { cash: 3 } },
+  { id: "save", name: "Save in the jar", text: "More coins to invest next round, if the stand is earning.", now: { cash: 3 } },
 ] as const;
 
 const DIAGNOSES = ["We can't keep up when it's busy", "Nobody can find our stand", "Our lemonade tastes like… lemonade"];
@@ -118,7 +118,7 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
           {step === 0 && (
             <Section title="You've just been handed a lemonade stand.">
               <p>
-                Over a few rounds, you'll face different scenarios — a heat wave, a rival stand, a lemon shortage — and decide how to spend
+                Over a few rounds, you'll face different scenarios (a heat wave, a rival stand, a lemon shortage) and decide how to spend
                 your limited resources. Then you find out what happened.
               </p>
               <p>
@@ -141,8 +141,8 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
                 ))}
               </div>
               <Callout>
-                Your score multiplies the five together. The best recipe in town doesn't matter if nobody can find you —{" "}
-                <strong>one weak loop drags everything down.</strong>
+                Your score multiplies the five together. The best recipe in town doesn't matter if nobody can find you.{" "}
+                <strong>One weak loop drags everything down.</strong>
               </Callout>
             </Section>
           )}
@@ -156,7 +156,7 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
               </div>
               <Callout>
                 Two budgets, not one. You might afford something with coins and still not have the energy to pull it off. Energy you don't spend
-                isn't wasted — it helps you handle surprises.
+                isn't wasted. It helps you handle surprises.
               </Callout>
             </Section>
           )}
@@ -211,7 +211,7 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
                 </div>
               </div>
               <p className="text-muted-foreground text-xs">
-                Notice what's missing: what each choice will <em>do</em>. In Apex you see costs, not outcomes — you have to reason it through.
+                Notice what's missing: what each choice will <em>do</em>. In Apex you see costs, not outcomes, so you have to reason it through.
               </p>
             </Section>
           )}
@@ -219,8 +219,8 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
           {step === 4 && (
             <Section title="Rationale: say what you think will happen.">
               <p className="text-sm">Before submitting, your team commits to its thinking. It's what you'll debrief later.</p>
-              <ChipChoice label="Diagnosis — what constraint are you trying to address?" options={DIAGNOSES} value={diagnosis} onChange={setDiagnosis} />
-              <ChipChoice label="Leading indicator — what will you watch before the score moves?" options={INDICATORS} value={indicator} onChange={setIndicator} />
+              <ChipChoice label="Diagnosis: what constraint are you trying to address?" options={DIAGNOSES} value={diagnosis} onChange={setDiagnosis} />
+              <ChipChoice label="Leading indicator: what will you watch before the score moves?" options={INDICATORS} value={indicator} onChange={setIndicator} />
               <p className="text-muted-foreground text-xs">
                 In Apex you'll write these in your own words, plus a hypothesis and a "reconsider" trigger. From Round 2 you'll also note what you
                 learned since last round.
@@ -337,7 +337,7 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
               {step === 5 ? "Reveal results" : step === 3 && picks.length === 0 ? "Pick at least one" : "Next"}
             </Button>
           ) : (
-            <Button onClick={() => close(false)}>Got it — let's play</Button>
+            <Button onClick={() => close(false)}>Got it, let's play</Button>
           )}
         </div>
       </DialogContent>

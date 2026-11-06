@@ -144,7 +144,7 @@ export function PlayerApp() {
                       {captain ? `${displayName(captain.name)} is entering your team's decisions` : "Your team captain is entering decisions"}
                     </CardTitle>
                     <CardDescription>
-                      Only the team captain can change and submit choices. Talk it through together — this view updates live as the captain works.
+                      Only the team captain can change and submit choices. Talk it through together. This view updates live as the captain works.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -158,7 +158,7 @@ export function PlayerApp() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center gap-2">
-                    {submitted ? "Submitted — waiting for the reveal" : "Submissions are closed"}
+                    {submitted ? "Submitted. Waiting for the reveal" : "Submissions are closed"}
                     <Badge variant="outline">
                       {submittedCount} of {state.teams.length} teams submitted
                     </Badge>

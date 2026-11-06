@@ -63,7 +63,7 @@ export async function copyTourLink(): Promise<void> {
   try {
     const link = await tourLink();
     await navigator.clipboard.writeText(link);
-    toast.success("Walkthrough link copied — paste it into Teams, email, or the meeting chat");
+    toast.success("Walkthrough link copied. Paste it into Teams, email, or the meeting chat");
   } catch {
     toast.error("Couldn't copy the link");
   }
