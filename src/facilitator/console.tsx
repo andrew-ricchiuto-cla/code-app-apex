@@ -91,35 +91,33 @@ export function FacilitatorConsole() {
             </Button>
           </div>
         </div>
-      </header>
-
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[13rem_1fr]">
-        <nav className="flex gap-1 overflow-x-auto lg:flex-col">
+        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 sm:px-6" role="tablist" aria-label="Facilitator console">
           {NAV.map((item) => (
             <button
               key={item.key}
+              role="tab"
+              aria-selected={page === item.key}
+              title={item.hint}
               onClick={() => setPage(item.key)}
               className={cn(
-                "shrink-0 rounded-lg px-3 py-2 text-left transition",
-                page === item.key ? "bg-riptide/20 ring-riptide ring-1" : "hover:bg-muted",
+                "flex shrink-0 items-center gap-2 border-b-[3px] px-4 pt-2 pb-2.5 text-sm font-semibold transition",
+                page === item.key ? "border-saffron text-white" : "border-transparent text-white/65 hover:border-white/30 hover:text-white",
               )}
             >
-              <div className="flex items-center justify-between gap-2 text-sm font-semibold">
-                {item.label}
-                {item.key === "run" && pending > 0 && <Badge className="px-1.5">{pending}</Badge>}
-              </div>
-              <div className="text-muted-foreground hidden text-xs lg:block">{item.hint}</div>
+              {item.label}
+              {item.key === "run" && pending > 0 && <Badge className="bg-saffron text-navy h-5 px-1.5">{pending}</Badge>}
             </button>
           ))}
         </nav>
-        <main className="min-w-0">
-          {page === "run" && <RunSession onOpenTeam={openTeam} />}
-          {page === "teams" && <TeamsPage teamId={teamId} onSelectTeam={setTeamId} />}
-          {page === "results" && <ResultsPage />}
-          {page === "model" && <ModelSettings />}
-          {page === "setup" && <GameSetup />}
-        </main>
-      </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl min-w-0 px-4 py-6 sm:px-6">
+        {page === "run" && <RunSession onOpenTeam={openTeam} />}
+        {page === "teams" && <TeamsPage teamId={teamId} onSelectTeam={setTeamId} />}
+        {page === "results" && <ResultsPage />}
+        {page === "model" && <ModelSettings />}
+        {page === "setup" && <GameSetup />}
+      </main>
     </div>
   );
 }

@@ -11,19 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { EngineConfig, Initiative, InitiativeChoice, Intensity, RoundDecisions, RoundResult } from "@/engine";
 import { FACILITATOR_STATUSES, missingNarrative, roundChecks } from "@/lib/checks";
-import { narrativeFieldsFor, POSTURE_PLAIN } from "@/lib/content";
+import { DECISION_RECORD_INTRO, narrativeFieldsFor, narrativeText, POSTURE_PLAIN } from "@/lib/content";
 import { CUSTOM_ACTIONS_ENABLED, hasCustomProposal, type FacilitatorRuling } from "@/lib/game";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
   { key: "initiatives", label: "Initiatives" },
   { key: "enterprise", label: "Enterprise choices" },
-  { key: "rationale", label: "Rationale" },
+  { key: "rationale", label: "Decision record" },
   { key: "review", label: "Review & submit" },
 ] as const;
 type StepKey = (typeof STEPS)[number]["key"];
@@ -228,8 +227,7 @@ function InitiativeCatalog({
   return (
     <div className="space-y-2">
       <p className="text-muted-foreground text-sm">
-        Choose an intensity for up to {config.params.maxActiveInitiatives} initiatives
-        {config.totalRounds > 1 ? ` (a Round ${config.totalRounds} strategic option counts toward the limit)` : ""}. Leave the rest Off.
+        Choose an intensity for up to {config.params.maxActiveInitiatives} initiatives. Leave the rest Off.
       </p>
       <div className="bg-card overflow-hidden rounded-xl border">
         {config.initiatives.map((initiative) => {
@@ -429,45 +427,46 @@ export function CustomStatusBadge({ ruling }: { ruling: FacilitatorRuling }) {
 function Rationale({ round, decisions, onChange }: { round: number; decisions: RoundDecisions; onChange: (d: RoundDecisions) => void }) {
   const n = decisions.narrative;
   const missing = new Set(missingNarrative(decisions, round).map((f) => f.key));
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (key: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your rationale</CardTitle>
+        <CardTitle>Decision record</CardTitle>
         <CardDescription>
-          The model scores choices; your facilitator debriefs the thinking. Write it the way you'd brief your owners. Fields marked{" "}
-          <span className="text-destructive">*</span> are required to submit.
+          {DECISION_RECORD_INTRO} Fields marked <span className="text-destructive">*</span> are required to submit.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         {narrativeFieldsFor(round).map((f) => (
-          <div key={f.key} className="space-y-1">
-            <Label>
-              {f.label} {f.required && <span className="text-destructive">*</span>}
-            </Label>
+          <div key={f.key} className="space-y-1.5">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <Label htmlFor={`dr-${f.key}`} className="text-sm font-semibold">
+                {f.label} {f.required && <span className="text-destructive">*</span>}
+                {f.key === "learning" && <span className="text-muted-foreground ml-1 text-xs font-normal">(Rounds 2 to 4)</span>}
+              </Label>
+              <button type="button" className="text-navy text-xs font-medium underline-offset-2 hover:underline" onClick={() => toggle(f.key)}>
+                {open.has(f.key) ? "Hide guidance" : "Guidance"}
+              </button>
+            </div>
+            <p className="text-muted-foreground text-xs">{f.summary}</p>
+            {open.has(f.key) && <p className="bg-riptide/10 border-riptide rounded-md border-l-4 px-3 py-2 text-xs leading-relaxed">{f.guidance}</p>}
             <Textarea
+              id={`dr-${f.key}`}
               rows={2}
               placeholder={f.prompt}
-              value={n[f.key] ?? ""}
+              value={narrativeText(n as unknown as Record<string, string>, f.key)}
               aria-invalid={missing.has(f.key) || undefined}
               onChange={(e) => onChange({ ...decisions, narrative: { ...n, [f.key]: e.target.value } })}
             />
           </div>
         ))}
-        <div className="flex flex-wrap items-center gap-3">
-          <Label>Loop you're intentionally leaving exposed</Label>
-          <Select value={n.exposedLoop} onValueChange={(v) => onChange({ ...decisions, narrative: { ...n, exposedLoop: v } })}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {["None", "Market", "Value", "Capability", "Cash", "Control"].map((loop) => (
-                <SelectItem key={loop} value={loop}>
-                  {loop}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
       </CardContent>
     </Card>
   );

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HealthIndexBadge } from "@/components/game-ui";
 import { UnderTheHood } from "@/components/under-the-hood";
+import { narrativeText } from "@/lib/content";
 import { emptyRuling, isRevealed, PHASE } from "@/lib/game";
 import { teamColor } from "@/lib/format";
 import { useGame, useTeamResults } from "@/lib/store";
@@ -38,22 +39,26 @@ export function TeamsPage({ teamId, onSelectTeam }: { teamId: string | null; onS
   const ruling = selected.rulings[shownRound - 1] ?? emptyRuling();
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[14rem_1fr]">
-      <nav className="space-y-1">
+    <div className="space-y-4">
+      <nav className="bg-card flex gap-1 overflow-x-auto rounded-xl border p-1 shadow-sm" role="tablist" aria-label="Teams">
         {state.teams.map((team, index) => (
           <button
             key={team.id}
+            role="tab"
+            aria-selected={team.id === selected.id}
             onClick={() => onSelectTeam(team.id)}
             className={cn(
-              "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",
-              team.id === selected.id ? "bg-riptide/20 ring-riptide font-semibold ring-1" : "hover:bg-muted",
+              "flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition",
+              team.id === selected.id ? "bg-navy text-white shadow-sm" : "hover:bg-muted",
             )}
           >
-            <span className="flex items-center gap-2">
-              <span className="size-2.5 rounded-full" style={{ background: teamColor(index) }} />
-              {team.name}
-            </span>
-            {team.submitted[state.currentRound - 1] && <span className="text-cash text-xs">✓</span>}
+            <span className="size-2.5 rounded-full" style={{ background: teamColor(index) }} />
+            {team.name}
+            {team.submitted[state.currentRound - 1] && (
+              <span className={cn("text-xs", team.id === selected.id ? "text-riptide" : "text-cash")} title="Submitted this round">
+                ✓
+              </span>
+            )}
           </button>
         ))}
       </nav>
@@ -114,13 +119,13 @@ export function TeamsPage({ teamId, onSelectTeam }: { teamId: string | null; onS
             {(["reconsiderTrigger", "minorityView", "stakeholderMessage"] as const).map((key) =>
               selected.decisions[shownRound - 1].narrative[key] ? (
                 <div key={key} className="text-sm">
-                  <span className="text-muted-foreground">{key === "reconsiderTrigger" ? "Reconsider trigger" : key === "minorityView" ? "Minority view" : "Stakeholder message"}:</span>{" "}
+                  <span className="text-muted-foreground">{key === "reconsiderTrigger" ? "Reconsider, stop, or scale trigger" : key === "minorityView" ? "Minority view" : "Stakeholder message"}:</span>{" "}
                   {selected.decisions[shownRound - 1].narrative[key]}
                 </div>
               ) : null,
             )}
             <div className="text-muted-foreground text-sm">
-              Exposed loop: {selected.decisions[shownRound - 1].narrative.exposedLoop}
+              Intentionally exposed: {narrativeText(selected.decisions[shownRound - 1].narrative as unknown as Record<string, string>, "exposedLoop") || "-"}
             </div>
           </CardContent>
         </Card>

@@ -2,7 +2,7 @@
 // scoring but the facilitator wants surfaced before submission.
 
 import type { EngineConfig, RoundDecisions, RoundResult } from "@/engine";
-import { narrativeFieldsFor } from "./content";
+import { narrativeFieldsFor, narrativeText } from "./content";
 
 export interface CheckMessage {
   level: "error" | "warning" | "info";
@@ -60,13 +60,13 @@ export function roundChecks(config: EngineConfig, decisions: RoundDecisions, res
   if (missing.length > 0) {
     messages.push({
       level: "error",
-      text: `Complete your rationale before submitting: ${missing.map((f) => f.label.toLowerCase()).join(", ")}.`,
+      text: `Complete your decision record before submitting: ${missing.map((f) => f.label.toLowerCase()).join(", ")}.`,
     });
   }
   return messages;
 }
 
-/** Required rationale fields the team hasn't filled in. Submission is blocked until this is empty. */
+/** Required decision-record fields the team hasn't filled in. Submission is blocked until this is empty. */
 export function missingNarrative(decisions: RoundDecisions, round: number) {
-  return narrativeFieldsFor(round).filter((f) => f.required && (decisions.narrative[f.key] ?? "").trim() === "");
+  return narrativeFieldsFor(round).filter((f) => f.required && (narrativeText(decisions.narrative as unknown as Record<string, string>, f.key)).trim() === "");
 }

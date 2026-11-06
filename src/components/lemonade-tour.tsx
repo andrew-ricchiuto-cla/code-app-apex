@@ -1,5 +1,5 @@
 // "How a round works" — a two-minute guided round of a lemonade stand that
-// models the real Apex flow: briefing → spend two budgets → rationale →
+// models the real Apex flow: briefing → spend two budgets → decision record →
 // submit and wait → reveal. Same rules, smaller stakes, more lemons.
 
 import { useState } from "react";
@@ -61,7 +61,7 @@ const INDICATORS = ["Length of the line at noon", "Cups sold before the ice runs
 const BUDGET = { coins: 10, energy: 5, picks: 3 };
 const START = 50;
 
-const STEPS = ["Welcome", "Five loops", "Briefing", "Decide", "Rationale", "Submit", "Reveal", "Your turn"] as const;
+const STEPS = ["Welcome", "Five loops", "Briefing", "Decide", "Decision record", "Submit", "Reveal", "Your turn"] as const;
 
 export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [step, setStep] = useState(0);
@@ -217,8 +217,8 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
           )}
 
           {step === 4 && (
-            <Section title="Rationale: say what you think will happen.">
-              <p className="text-sm">Before submitting, your team commits to its thinking. It's what you'll debrief later.</p>
+            <Section title="Decision record: explain your reasoning first.">
+              <p className="text-sm">The decision record lets your team explain its reasoning before seeing the result. It's the reference point for interpreting what happens later.</p>
               <ChipChoice label="Diagnosis: what constraint are you trying to address?" options={DIAGNOSES} value={diagnosis} onChange={setDiagnosis} />
               <ChipChoice label="Leading indicator: what will you watch before the score moves?" options={INDICATORS} value={indicator} onChange={setIndicator} />
               <p className="text-muted-foreground text-xs">
@@ -302,7 +302,7 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
                 {[
                   ["Briefing", "Read the scenario and your resources."],
                   ["Decide", "Pick up to 4 initiatives (Focused or Accelerated) and set enterprise choices, within capital and leadership capacity."],
-                  ["Rationale", "Diagnosis, learning, hypothesis, leading indicator, reconsider trigger."],
+                  ["Decision record", "Diagnosis, learning, hypothesis, leading indicator, and more. Your reasoning, written before you see the result."],
                   ["Submit", "The captain locks it in. Then you wait."],
                   ["Reveal", "See your System Health Index, your five loops, and the leaderboard."],
                 ].map(([t, d], i) => (
