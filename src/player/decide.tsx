@@ -197,15 +197,15 @@ function InitiativeCatalog({
     const current = chosen.find((c) => c.name === initiative.name);
     if (current?.intensity === level) return null;
     if (!current && (slotsLeft <= 0 || chosen.length >= decisions.initiatives.length)) {
-      return `Portfolio full — ${config.params.maxActiveInitiatives} initiatives already chosen. Turn one Off first.`;
+      return `Portfolio full: ${config.params.maxActiveInitiatives} initiatives already chosen. Turn one Off first.`;
     }
     const v = level === "Focused" ? initiative.focused : initiative.accelerated;
     const cur = current ? (current.intensity === "Focused" ? initiative.focused : initiative.accelerated) : null;
     const capAvail = capLeft + (cur?.capital ?? 0);
     const lcAvail = lcLeft + (cur?.lc ?? 0);
     const other = level === "Accelerated" ? " or choose Focused" : "";
-    if (v.capital > capAvail) return `${level} needs ${v.capital} 🪙 capital — you have ${Math.max(0, capAvail)} available. Turn something down${other}.`;
-    if (v.lc > lcAvail) return `${level} needs ${v.lc} ⚡ leadership capacity — you have ${Math.max(0, lcAvail)} available. Turn something down${other}.`;
+    if (v.capital > capAvail) return `${level} needs ${v.capital} 🪙 capital but you have ${Math.max(0, capAvail)} available. Turn something down${other}.`;
+    if (v.lc > lcAvail) return `${level} needs ${v.lc} ⚡ leadership capacity but you have ${Math.max(0, lcAvail)} available. Turn something down${other}.`;
     return null;
   };
 
@@ -409,7 +409,7 @@ function EnterpriseChoices({
           {ruling.custom.status === "approved" && ruling.custom.priced && (
             <div className="text-xs">
               Priced at {ruling.custom.priced.capital} capital · {ruling.custom.priced.lc} LC
-              {ruling.custom.note && <span className="text-muted-foreground"> — {ruling.custom.note}</span>}
+              {ruling.custom.note && <span className="text-muted-foreground"> · {ruling.custom.note}</span>}
             </div>
           )}
           {ruling.custom.status === "rejected" && ruling.custom.note && <div className="text-destructive text-xs">Facilitator: {ruling.custom.note}</div>}
@@ -500,17 +500,17 @@ export function DecisionSummary({ config, round, decisions, ruling }: { config: 
         </>
       )}
       <dt className="text-muted-foreground">Diagnosis</dt>
-      <dd className="whitespace-pre-wrap">{decisions.narrative.diagnosis || "—"}</dd>
+      <dd className="whitespace-pre-wrap">{decisions.narrative.diagnosis || "-"}</dd>
       {round > 1 && (
         <>
           <dt className="text-muted-foreground">Learning since prior round</dt>
-          <dd className="whitespace-pre-wrap">{decisions.narrative.learning || "—"}</dd>
+          <dd className="whitespace-pre-wrap">{decisions.narrative.learning || "-"}</dd>
         </>
       )}
       <dt className="text-muted-foreground">Hypothesis</dt>
-      <dd className="whitespace-pre-wrap">{decisions.narrative.hypothesis || "—"}</dd>
+      <dd className="whitespace-pre-wrap">{decisions.narrative.hypothesis || "-"}</dd>
       <dt className="text-muted-foreground">Leading indicator</dt>
-      <dd className="whitespace-pre-wrap">{decisions.narrative.leadingIndicator || "—"}</dd>
+      <dd className="whitespace-pre-wrap">{decisions.narrative.leadingIndicator || "-"}</dd>
     </dl>
   );
 }

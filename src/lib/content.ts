@@ -63,7 +63,7 @@ export const LOOPS_PRIMER = [
 export const HOW_IT_WORKS = [
   {
     title: "System Health",
-    body: "Your score is the System Health Index — a balanced blend of the five loops. Because it multiplies them together, one weak loop drags everything down; strength elsewhere can't hide it. 50 is where the company starts.",
+    body: "Your score is the System Health Index, a balanced blend of the five loops. Because it multiplies them together, one weak loop drags everything down; strength elsewhere can't hide it. 50 is where the company starts.",
   },
   {
     title: "Two budgets, not one",
@@ -129,7 +129,7 @@ export const narrativeFieldsFor = (round: number) => NARRATIVE_FIELDS.filter((f)
 
 export const DEBRIEF_PROMPTS = [
   "Which loop constrained your System Health most, and when did you first see it coming?",
-  "Where did preparation in an earlier round pay off when the event hit — or where did you react too late?",
+  "Where did preparation in an earlier round pay off when the event hit, or where did you react too late?",
   "Did your leading indicator move before your score did? What would you have done differently if you'd trusted it?",
   "Where did you choose headroom over activity? Was it intentional?",
   "What consequence did your final-round choices push past the horizon?",

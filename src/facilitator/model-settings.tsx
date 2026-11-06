@@ -381,7 +381,7 @@ export function ModelSettings() {
     if (draft) dispatch({ type: "setConfig", config: draft });
     setDraft(null);
     setConfirm(null);
-    toast.success(`Model saved — ${changes} setting${changes === 1 ? "" : "s"} changed. All teams re-scored.`);
+    toast.success(`Model saved. ${changes} setting${changes === 1 ? "" : "s"} changed. All teams re-scored.`);
   };
   const discard = () => {
     setDraft(null);
@@ -448,7 +448,7 @@ export function ModelSettings() {
             size="sm"
             onClick={() => {
               update((d) => Object.assign(d, structuredClone(defaultConfig)));
-              toast.info("Workbook defaults loaded into your edits — Save to apply");
+              toast.info("Workbook defaults loaded into your edits. Save to apply.");
             }}
           >
             Reset to workbook defaults
@@ -462,7 +462,7 @@ export function ModelSettings() {
             <DialogTitle>{confirm === "save" ? "Save model changes?" : "Discard your changes?"}</DialogTitle>
             <DialogDescription>
               {confirm === "save"
-                ? `${changes} setting${changes === 1 ? "" : "s"} will change. Every team's results — including rounds already revealed — will be recalculated on all devices.`
+                ? `${changes} setting${changes === 1 ? "" : "s"} will change. Every team's results, including rounds already revealed, will be recalculated on all devices.`
                 : `You have ${changes} unsaved change${changes === 1 ? "" : "s"}. The model will stay as it was.`}
             </DialogDescription>
           </DialogHeader>

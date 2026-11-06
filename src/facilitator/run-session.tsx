@@ -107,7 +107,7 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
           {phase === PHASE.Closed && pending.length > 0 && (
             <Alert>
               <AlertTitle>{pending.length} ruling(s) still open</AlertTitle>
-              <AlertDescription>Resolve them below before revealing — unresolved items are scored as “not assessed” / not approved.</AlertDescription>
+              <AlertDescription>Resolve them below before revealing. Unresolved items are scored as “not assessed” / not approved.</AlertDescription>
             </Alert>
           )}
           <div className="flex flex-wrap items-center gap-2">
@@ -116,7 +116,7 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
                 {primary.label}
               </Button>
             ) : (
-              <Badge className="px-3 py-1.5">Simulation complete — run the debrief from Results</Badge>
+              <Badge className="px-3 py-1.5">Simulation complete. Run the debrief from Results</Badge>
             )}
             <Button variant="ghost" size="sm" disabled={round === 1 && phase === PHASE.Briefing} onClick={stepBack}>
               Step back
@@ -412,7 +412,7 @@ function LiveStandings({ teams, round, resultsByTeam }: { teams: TeamState[]; ro
               <span className="size-2 rounded-full" style={{ background: teamColor(index) }} />
               {team.name}
             </div>
-            <div className="font-mono text-xl font-black">{r ? fmt1(r.systemHealth) : "—"}</div>
+            <div className="font-mono text-xl font-black">{r ? fmt1(r.systemHealth) : "-"}</div>
             <div className="text-muted-foreground text-[11px]">{r?.healthBand}</div>
           </div>
         ))}

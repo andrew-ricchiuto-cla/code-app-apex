@@ -22,7 +22,7 @@ export function ResultsPage() {
 
   const weakest = state.teams.map((t) => {
     const r = resultsByTeam.get(t.id)?.[shown - 1];
-    if (!r) return { team: t, loop: "—", value: 0 };
+    if (!r) return { team: t, loop: "-", value: 0 };
     const loops = [
       { loop: "Market", value: r.out.m },
       { loop: "Value", value: r.out.v },

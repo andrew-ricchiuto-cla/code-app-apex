@@ -379,7 +379,7 @@ function eventEffects(config: EngineConfig, inputs: EventInputs) {
       cNotes.push(`${r.label} ${signedNum(r.c)}`);
       if (decisions.evidenceTriggerMet === "Yes") {
         cRaw += r.evidenceC;
-        cNotes.push(`Avoided — facilitator confirmed the evidence trigger ${signedNum(r.evidenceC)}`);
+        cNotes.push(`Avoided: facilitator confirmed the evidence trigger ${signedNum(r.evidenceC)}`);
       }
     }
     const option = strategicOption(config, decisions);

@@ -48,7 +48,7 @@ export function StartScreen({ onStart }: Props) {
         </h1>
         <p className="mt-1 text-xs font-semibold tracking-[0.25em] text-white/70 uppercase">The Five Loop Investment Game</p>
         <p className="mx-auto mt-3 max-w-xl text-sm text-white/85">
-          Run a $2.5B enterprise for four rounds. Balance five interdependent loops — one weak loop pulls everything down.
+          Run a $2.5B enterprise for four rounds. Balance five interdependent loops. One weak loop pulls everything down.
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           {LOOP_META.map((loop) => (
@@ -71,7 +71,7 @@ export function StartScreen({ onStart }: Props) {
       )}
       {user === null && (
         <p className="text-muted-foreground text-center text-xs">
-          Running outside Power Apps — shared multi-device games are available in the deployed app. Both doors use this device's sandbox.
+          Running outside Power Apps. Shared multi-device games are available in the deployed app. Both doors use this device's sandbox.
         </p>
       )}
     </div>
@@ -227,7 +227,7 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
       const dv = await import("@/lib/dataverse-store");
       const gameName = name.trim() || "Apex Simulation";
       const id = await dv.createSharedGame(gameName, teamCount, upn);
-      toast.success("Game created — you're its facilitator");
+      toast.success("Game created. You're its facilitator.");
       onStart({ mode: "shared", gameId: id, gameName, role: "facilitator", teamKey: null });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not create the game");

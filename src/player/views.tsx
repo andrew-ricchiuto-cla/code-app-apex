@@ -1,6 +1,7 @@
 // Player-facing views that don't involve editing: briefing, waiting, the round
 // reveal, the company history, the leaderboard, and the primer.
 
+import { Fragment } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -210,12 +211,12 @@ export function Leaderboard({
                     {team.name}
                     {team.id === highlightTeamId && <Badge className="ml-2">You</Badge>}
                   </TableCell>
-                  <TableCell className="text-primary text-right font-mono text-base font-black">{r ? fmt1(r.systemHealth) : "—"}</TableCell>
+                  <TableCell className="text-primary text-right font-mono text-base font-black">{r ? fmt1(r.systemHealth) : "-"}</TableCell>
                   <TableCell className={cn("text-right font-mono", delta !== null && delta < 0 ? "text-destructive" : "text-cash")}>
-                    {delta === null ? "—" : signed(delta)}
+                    {delta === null ? "-" : signed(delta)}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">{r?.healthBand}</TableCell>
-                  <TableCell className="text-right font-mono">{r ? money(r.revenue) : "—"}</TableCell>
+                  <TableCell className="text-right font-mono">{r ? money(r.revenue) : "-"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -272,8 +273,8 @@ export function CompanyHistory({ config, team, results, throughRound }: { config
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{team.name} — company record</CardTitle>
-        <CardDescription>Starting position and every revealed round. Change is shown against the previous column.</CardDescription>
+        <CardTitle>{team.name}: company record</CardTitle>
+        <CardDescription>Starting position and every revealed round, with the change between each.</CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto">
         <Table>
@@ -282,9 +283,10 @@ export function CompanyHistory({ config, team, results, throughRound }: { config
               <TableHead>Measure</TableHead>
               <TableHead className="text-right">Start</TableHead>
               {shown.map((r) => (
-                <TableHead key={r.round} className="text-right">
-                  Round {r.round}
-                </TableHead>
+                <Fragment key={r.round}>
+                  <TableHead className="text-muted-foreground w-24 text-center text-xs font-normal">Change</TableHead>
+                  <TableHead className="text-right">Round {r.round}</TableHead>
+                </Fragment>
               ))}
             </TableRow>
           </TableHeader>
@@ -298,14 +300,14 @@ export function CompanyHistory({ config, team, results, throughRound }: { config
                   const delta = value - (i === 0 ? row.start : row.value(shown[i - 1]));
                   const flat = Math.abs(delta) < 0.0005 * Math.max(1, Math.abs(value));
                   return (
-                    <TableCell key={r.round} className="text-right font-mono">
-                      {row.format(value)}
-                      <span
-                        className={cn("ml-1.5 text-xs", flat ? "text-muted-foreground" : delta > 0 ? "text-emerald-600" : "text-scarlett")}
+                    <Fragment key={r.round}>
+                      <TableCell
+                        className={cn("text-center font-mono text-xs", flat ? "text-muted-foreground" : delta > 0 ? "text-emerald-600" : "text-scarlett")}
                       >
                         {flat ? "±0" : row.formatDelta(delta)}
-                      </span>
-                    </TableCell>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">{row.format(value)}</TableCell>
+                    </Fragment>
                   );
                 })}
               </TableRow>
@@ -343,16 +345,16 @@ export function DecisionHistory({ config, team, throughRound }: { config: Engine
     },
     { label: "Distribution", cell: (round) => team.decisions[round - 1].distribution },
     { label: "Workforce reduction", cell: (round) => (team.decisions[round - 1].workforceReduction ? "Yes" : "No") },
-    ...(hasFinal ? [{ label: "Strategic option", cell: (round: number) => (round === config.totalRounds ? team.decisions[round - 1].strategicOption : "—") }] : []),
-    { label: "Diagnosis", cell: (round) => team.decisions[round - 1].narrative.diagnosis || "—" },
-    { label: "Learning since prior round", cell: (round) => (round > 1 ? team.decisions[round - 1].narrative.learning || "—" : "—") },
-    { label: "Hypothesis", cell: (round) => team.decisions[round - 1].narrative.hypothesis || "—" },
-    { label: "Leading indicator", cell: (round) => team.decisions[round - 1].narrative.leadingIndicator || "—" },
+    ...(hasFinal ? [{ label: "Strategic option", cell: (round: number) => (round === config.totalRounds ? team.decisions[round - 1].strategicOption : "-") }] : []),
+    { label: "Diagnosis", cell: (round) => team.decisions[round - 1].narrative.diagnosis || "-" },
+    { label: "Learning since prior round", cell: (round) => (round > 1 ? team.decisions[round - 1].narrative.learning || "-" : "-") },
+    { label: "Hypothesis", cell: (round) => team.decisions[round - 1].narrative.hypothesis || "-" },
+    { label: "Leading indicator", cell: (round) => team.decisions[round - 1].narrative.leadingIndicator || "-" },
   ];
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{team.name} — decisions by round</CardTitle>
+        <CardTitle>{team.name}: decisions by round</CardTitle>
         <CardDescription>What your team chose in each revealed round.</CardDescription>
       </CardHeader>
       <CardContent className="overflow-x-auto">
@@ -427,7 +429,7 @@ export function HowItWorks({ config, throughRound }: { config: EngineConfig; thr
             .map((t) => (
               <div key={t.round}>
                 <span className="font-semibold">
-                  Round {t.round} — {t.theme}.
+                  Round {t.round}: {t.theme}.
                 </span>{" "}
                 <span className="text-muted-foreground">{t.primaryEvent}</span>
               </div>
@@ -437,7 +439,7 @@ export function HowItWorks({ config, throughRound }: { config: EngineConfig; thr
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Designed tensions</CardTitle>
-          <CardDescription>These aren't flaws to optimize away — each forces a judgment about timing, risk, and readiness.</CardDescription>
+          <CardDescription>These aren't flaws to optimize away. Each forces a judgment about timing, risk, and readiness.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 md:grid-cols-2">
           {TENSIONS.map((t) => (
