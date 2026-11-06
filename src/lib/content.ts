@@ -107,23 +107,104 @@ export const TENSIONS = [
 ] as const;
 
 export interface NarrativeField {
-  key: "diagnosis" | "learning" | "hypothesis" | "leadingIndicator" | "reconsiderTrigger" | "minorityView" | "stakeholderMessage";
+  key: "diagnosis" | "learning" | "hypothesis" | "leadingIndicator" | "exposedLoop" | "reconsiderTrigger" | "minorityView" | "stakeholderMessage";
   label: string;
+  /** One-line purpose shown under the label. */
+  summary: string;
+  /** Full guidance, shown on demand. */
+  guidance: string;
+  /** Short placeholder in the text box. */
   prompt: string;
   required: boolean;
   /** First round the field applies to (default 1). */
   fromRound?: number;
 }
 
+export const DECISION_RECORD_INTRO =
+  "The decision record allows your team to explain its reasoning before seeing the result. It also creates a reference point for interpreting what happens later.";
+
+// Field order, wording, and guidance from Yassir Karam (Nov 5).
 export const NARRATIVE_FIELDS: NarrativeField[] = [
-  { key: "diagnosis", label: "Diagnosis", prompt: "What is the constraint you are trying to address?", required: true },
-  { key: "learning", label: "Learning since the prior round", prompt: "What did the last round teach you? What surprised you?", required: true, fromRound: 2 },
-  { key: "hypothesis", label: "Decision hypothesis", prompt: "What do you believe, and what will this portfolio cause?", required: true },
-  { key: "leadingIndicator", label: "Leading indicator", prompt: "What will you watch before the score moves? (Your facilitator uses this in Round 4.)", required: true },
-  { key: "reconsiderTrigger", label: "Reconsider / stop / scale trigger", prompt: "What evidence would change this decision?", required: true },
-  { key: "minorityView", label: "Minority view", prompt: "What did the dissenting voice argue?", required: false },
-  { key: "stakeholderMessage", label: "Stakeholder message", prompt: "How will you explain the trade-off to owners and staff?", required: false },
+  {
+    key: "diagnosis",
+    label: "Diagnosis",
+    summary: "The most important constraint your team believes it must address, and the evidence supporting that conclusion.",
+    guidance:
+      "The diagnosis identifies the most important constraint the team believes it must address. It should also cite the evidence supporting that conclusion. A weak diagnosis simply restates a disappointing result. For example, “growth is too low” describes a condition. It does not explain what is preventing growth. A stronger diagnosis identifies the mechanism underneath the result. The team might conclude that market opportunity exists but cannot be converted because client value is unclear. Another team may interpret the same result differently. What matters is whether the diagnosis is supported by the available evidence.",
+    prompt: "What constraint must you address, and what evidence supports that?",
+    required: true,
+  },
+  {
+    key: "learning",
+    label: "Learning since the prior round",
+    summary: "Compare what your team predicted last round with the actual result, and whether it changes your interpretation or next decision.",
+    guidance:
+      "Return to what the team predicted in the previous round. Compare that expectation with the actual result. Then explain whether the evidence changes the team’s interpretation or its next decision. Not every result provides a clear answer. An expected effect may still be delayed. An event may have obscured the initiative’s impact. If the evidence remains inconclusive, say so and identify what you need to observe next.",
+    prompt: "What did you expect, what happened, and does it change your thinking?",
+    required: true,
+    fromRound: 2,
+  },
+  {
+    key: "hypothesis",
+    label: "Decision hypothesis",
+    summary: "The improvement your team expects and how its choices should produce it.",
+    guidance:
+      "The decision hypothesis describes the improvement the team expects and explains how its choices should produce it. It should contain a causal explanation rather than a general aspiration. “Invest in capability to improve performance” is too broad. The team should specify which capability matters and how it is expected to change an organizational outcome.",
+    prompt: "What improvement do you expect, and how will your choices cause it?",
+    required: true,
+  },
+  {
+    key: "leadingIndicator",
+    label: "Leading indicator",
+    summary: "The earliest evidence that the expected mechanism may be working.",
+    guidance:
+      "A leading indicator is the earliest evidence that the expected mechanism may be working. It should appear before the final financial or system outcome. If the indicator does not move, the team should question whether the initiative has been adopted or whether its original reasoning was incomplete.",
+    prompt: "What early signal will show the mechanism is working?",
+    required: true,
+  },
+  {
+    key: "exposedLoop",
+    label: "Intentionally exposed",
+    summary: "The outcome or stakeholder group your team has knowingly placed under pressure.",
+    guidance:
+      "Every portfolio creates pressure somewhere. This field identifies the outcome or stakeholder group that the team has knowingly placed under pressure. The purpose is not to eliminate every risk. It is to show that the team understands the trade-off and has decided that the exposure is acceptable for a period of time.",
+    prompt: "Which outcome or stakeholder group are you knowingly putting under pressure, and for how long?",
+    required: false,
+  },
+  {
+    key: "reconsiderTrigger",
+    label: "Reconsider, stop, or scale trigger",
+    summary: "The evidence, decided in advance, that would cause your team to reopen this decision.",
+    guidance:
+      "A trigger establishes in advance what evidence would cause the team to reopen its decision. The team should distinguish between evidence that warrants reconsideration and evidence that requires stopping an initiative. It should also state what would justify increasing the initiative’s scale.",
+    prompt: "What would make you reconsider? Stop? Scale up?",
+    required: true,
+  },
+  {
+    key: "minorityView",
+    label: "Minority view",
+    summary: "The strongest credible alternative explanation your team considered before committing.",
+    guidance:
+      "The minority view captures the strongest credible alternative explanation considered by the team before it committed. It is not a list of every objection raised during discussion. Nor is it simply a record that someone disagreed. The entry should explain what the alternative interpretation predicts so that it can later be compared with the results.",
+    prompt: "What is the strongest alternative explanation, and what does it predict?",
+    required: false,
+  },
+  {
+    key: "stakeholderMessage",
+    label: "Stakeholder message",
+    summary: "How you would explain this decision to the people affected by it.",
+    guidance:
+      "The stakeholder message explains the decision to the people affected by it. It should state what the organization is choosing and why the timing matters. The message should acknowledge the near-term trade-off and explain how the organization will determine whether the decision is working.",
+    prompt: "What are you choosing, why now, what's the trade-off, and how will you know it's working?",
+    required: false,
+  },
 ];
+
+/** Text value of a decision-record field ("None" was the old default for the exposed field). */
+export const narrativeText = (narrative: Record<string, string | undefined>, key: NarrativeField["key"]) => {
+  const v = narrative[key] ?? "";
+  return key === "exposedLoop" && v === "None" ? "" : v;
+};
 
 export const narrativeFieldsFor = (round: number) => NARRATIVE_FIELDS.filter((f) => round >= (f.fromRound ?? 1));
 

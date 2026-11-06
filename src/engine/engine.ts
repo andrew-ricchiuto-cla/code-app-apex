@@ -775,7 +775,7 @@ export function emptyDecisions(): RoundDecisions {
       learning: "",
       hypothesis: "",
       leadingIndicator: "",
-      exposedLoop: "None",
+      exposedLoop: "",
       reconsiderTrigger: "",
       minorityView: "",
       stakeholderMessage: "",
