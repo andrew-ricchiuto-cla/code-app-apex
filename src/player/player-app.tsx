@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SyncBadge } from "@/components/sync-badge";
 import { useTour } from "@/lib/tour";
+import { useStickyHeader } from "@/lib/sticky-header";
 import { emptyRuling, isGameComplete, isRevealed, lastRevealedRound, PHASE, PHASE_LABEL } from "@/lib/game";
 import { teamColor } from "@/lib/format";
 import { canEditTeam, displayName } from "@/lib/people";
@@ -26,6 +27,7 @@ export function PlayerApp() {
   const resultsByTeam = useAllResults();
   const user = useCurrentUser();
   const { openTour } = useTour();
+  const headerRef = useStickyHeader<HTMLDivElement>();
   const teamIndex = state.teams.findIndex((t) => t.id === myTeamKey);
   const team = state.teams[teamIndex];
   const [historyRound, setHistoryRound] = useState<number | null>(null);
@@ -56,9 +58,10 @@ export function PlayerApp() {
 
   return (
     <div className="min-h-screen">
-      <div className="h-1.5" style={{ background: color }} />
-      <div className="mx-auto max-w-6xl space-y-4 p-4 sm:p-6">
-        <header className="relative overflow-hidden rounded-2xl bg-navy px-6 py-5 text-white shadow-lg">
+      <div ref={headerRef} className="bg-background/95 sticky top-0 z-40 backdrop-blur">
+        <div className="h-1.5" style={{ background: color }} />
+        <div className="mx-auto max-w-6xl px-4 pt-3 pb-2 sm:px-6">
+        <header className="relative overflow-hidden rounded-2xl bg-navy px-6 py-4 text-white shadow-lg">
           <div className="pointer-events-none absolute -top-24 right-0 size-72 rounded-full bg-riptide/25 blur-3xl" /><div className="absolute inset-x-0 bottom-0 h-1 bg-saffron" />
           <div className="relative flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -96,6 +99,9 @@ export function PlayerApp() {
             </div>
           </div>
         </header>
+        </div>
+      </div>
+      <div className="mx-auto max-w-6xl space-y-4 px-4 pt-2 pb-4 sm:px-6 sm:pb-6">
 
         <Tabs defaultValue="round">
           <TabsList className="bg-card h-11 gap-1 border p-1 shadow-sm">

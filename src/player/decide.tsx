@@ -127,7 +127,7 @@ function ResourceBar({ config, result }: { config: EngineConfig; result: RoundRe
   const max = config.params.maxActiveInitiatives;
   const slotsLeft = max - result.initiativeCount;
   return (
-    <div className="bg-background/95 sticky top-0 z-10 grid gap-3 py-2 backdrop-blur sm:grid-cols-3">
+    <div className="bg-background/95 sticky top-[var(--app-header-h,0px)] z-30 grid gap-3 py-2 backdrop-blur sm:grid-cols-3">
       <BudgetCard
         icon="🪙"
         label="Investment capital"

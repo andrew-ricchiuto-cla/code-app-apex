@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SyncBadge } from "@/components/sync-badge";
 import { copyTourLink, useTour } from "@/lib/tour";
+import { useStickyHeader } from "@/lib/sticky-header";
 import { pendingRulings, PHASE_LABEL } from "@/lib/game";
 import { useGame } from "@/lib/store";
 import { isFacilitator, useCurrentUser } from "@/lib/user";
@@ -34,6 +35,7 @@ export function FacilitatorConsole() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [presenting, setPresenting] = useState(false);
   const { openTour } = useTour();
+  const headerRef = useStickyHeader<HTMLElement>();
 
   if (session.mode === "shared") {
     if (user === undefined) return <div className="text-muted-foreground p-10 text-center text-sm">Checking facilitator access…</div>;
@@ -60,7 +62,7 @@ export function FacilitatorConsole() {
   return (
     <div className="bg-background text-foreground min-h-screen">
       {presenting && <PresentMode onClose={() => setPresenting(false)} />}
-      <header className="bg-navy text-white shadow-md">
+      <header ref={headerRef} className="bg-navy sticky top-0 z-40 text-white shadow-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-4">
             <div className="text-xl font-black tracking-tight">

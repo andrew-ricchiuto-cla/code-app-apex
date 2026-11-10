@@ -394,7 +394,7 @@ export function ModelSettings() {
     <EditingContext.Provider value={editing}>
     <Tabs defaultValue="parameters" className="space-y-4">
       {editing ? (
-        <Alert className="border-saffron bg-saffron/15 sticky top-2 z-20 shadow-md">
+        <Alert className="border-saffron bg-saffron/95 sticky top-[calc(var(--app-header-h,0px)+0.5rem)] z-30 shadow-md backdrop-blur">
           <AlertTitle className="flex flex-wrap items-center justify-between gap-2">
             <span>
               Editing the model{" "}
