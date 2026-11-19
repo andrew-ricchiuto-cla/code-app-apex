@@ -82,19 +82,30 @@ export interface PendingItem {
   round: number;
 }
 
-/** Facilitator to-dos for the current round. */
+/** The evidence trigger ruling sets the final round's leadership capacity, so it is made between
+ *  rounds: after the second-to-last round closes and before final-round decisions open. It is
+ *  stored on the final round's ruling. */
+export const evidenceRound = (clock: RoundClock) => clock.totalRounds;
+
+export const isEvidenceWindowOpen = (clock: RoundClock) =>
+  (clock.currentRound === clock.totalRounds - 1 && clock.roundPhase >= PHASE.Closed) ||
+  (clock.currentRound === clock.totalRounds && clock.roundPhase === PHASE.Briefing);
+
+/** Facilitator to-dos right now: custom actions for the current round, plus evidence rulings while the window is open. */
 export function pendingRulings(
-  round: number,
+  clock: RoundClock,
   teams: { id: string; decisions: RoundDecisions[]; submitted: boolean[]; rulings: FacilitatorRuling[] }[],
-  evidenceRound: number,
 ): PendingItem[] {
   const items: PendingItem[] = [];
+  const round = clock.currentRound;
+  const finalRound = evidenceRound(clock);
   for (const team of teams) {
+    if (isEvidenceWindowOpen(clock) && (team.rulings[finalRound - 1] ?? emptyRuling()).evidence === "Not assessed") {
+      items.push({ kind: "evidence", teamId: team.id, round: finalRound });
+    }
     const d = team.decisions[round - 1];
     const r = team.rulings[round - 1] ?? emptyRuling();
-    if (!d) continue;
-    if (round === evidenceRound && r.evidence === "Not assessed") items.push({ kind: "evidence", teamId: team.id, round });
-    if (hasCustomProposal(d) && r.custom.status === "pending") items.push({ kind: "custom", teamId: team.id, round });
+    if (d && hasCustomProposal(d) && r.custom.status === "pending") items.push({ kind: "custom", teamId: team.id, round });
   }
   return items;
 }

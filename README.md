@@ -75,7 +75,7 @@ stored in the browser, which is useful for rehearsal and development.
 | **This round** | Follows the round phase: briefing, decide, waiting, reveal. |
 | Decide step 1: **Initiatives** | One `Off / Focused / Accelerated` control per initiative, with costs shown as 🪙 capital and ⚡ leadership capacity. Sticky budget cards show what is left. Options that would exceed a budget are greyed and explain why when clicked. Max 4 initiatives. |
 | Decide step 2: **Enterprise choices** | Distribution posture (Protect / Balance / Moderate), targeted workforce reduction, and the Round 4 strategic option (Round 4 only). |
-| Decide step 3: **Decision record** | Eight reasoning fields with guidance (Diagnosis, Learning since the prior round, Decision hypothesis, Leading indicator, Intentionally exposed, Reconsider/stop/scale trigger, Minority view, Stakeholder message). Required fields block submission. |
+| Decide step 3: **Decision record** | Eight reasoning fields with guidance (Diagnosis, Learning since the prior round, Decision hypothesis, Leading indicator, Intentionally exposed, Reconsider/stop/scale trigger, Minority view, Stakeholder message). All fields are required to submit (Learning applies from Round 2). |
 | Decide step 4: **Review & submit** | Summary plus hard checks (budget, intensity, duplicates, missing required fields). Only the team **captain** can submit. |
 | **Reveal** | System Health Index with change and band, rank, the five loops before/after, and business outcomes. Nothing is shown until the facilitator reveals. |
 | **Our company** | Company record by round (with a change column between rounds) and a decisions-by-round table. |
@@ -87,7 +87,7 @@ stored in the browser, which is useful for rehearsal and development.
 
 | Tab | What it does |
 |---|---|
-| **Run session** | Round and phase stepper with one primary action per phase, submission tracker (with Unlock), Round 4 evidence-review rulings, and facilitator-only live standings. **Present** opens a projector view. |
+| **Run session** | Round and phase stepper with one primary action per phase, submission tracker (with Unlock), Round 4 evidence-review rulings (made between Round 3 and Round 4), and facilitator-only live standings. **Present** opens a projector view. |
 | **Teams** | Per-team tabs: decisions, rulings, index, and the full engine trace ("Under the hood"). |
 | **Results** | Leaderboard for any round, weakest loop by team, debrief prompts, **decision records** (by question or by team), company record, decisions by round. |
 | **Model settings** | Every coefficient, band, initiative, event, and realism rule. **View-only until Edit**; Save and Cancel both confirm. Saving re-scores every team, including revealed rounds. |
@@ -280,8 +280,10 @@ Briefing (0) ─► Decisions open (1) ─► Submissions closed (2) ─► Resu
 |---|---|---|
 | Briefing | Scenario and resources, no editing | Brief the room; open decisions |
 | Decisions open | The decide flow (captain edits; teammates read-only) | Watch the tracker; unlock if needed |
-| Submissions closed | Locked choices, "waiting for reveal" | Round 4: rule on each team's evidence trigger; then reveal |
+| Submissions closed | Locked choices, "waiting for reveal" | Reveal. After Round 3 closes, rule on each team's Round 4 evidence trigger |
 | Results revealed | Reveal, leaderboard, company record | Debrief; start the next round |
+
+**Round 4 evidence trigger.** The facilitator rules on each team's evidence trigger after Round 3 submissions close and before Round 4 decisions open (the "Open decisions for Round 4" button stays disabled until every team has a ruling). "Met" avoids the owner-confidence challenge's -1 leadership capacity and -4 Control, so the ruling is already reflected in the Round 4 budget participants see. Investment capital is not affected by the trigger. Rulings lock once Round 4 decisions open.
 
 A round is "revealed" to participants when it is the current round in phase 3, or any earlier
 round (`isRevealed()` in `src/lib/game.ts`). Unsubmitted drafts are still scored at reveal.
@@ -473,7 +475,7 @@ queue on Run session.
 | People picker finds nobody | User is not in the environment, is disabled, or is non-interactive | Confirm the person exists as an enabled interactive user in the Dev environment. Search needs 2+ characters |
 | People picker says "Type an email and press Enter" | Running in the sandbox (no directory) | Expected outside the Power Apps host |
 | Scores look wrong | Model changed, or rulings not set | Facilitator Teams tab, "Under the hood" trace shows every stage. Compare with the workbook Engine tab using the column references in `engine.ts` |
-| Round 4 status "EVIDENCE REVIEW REQUIRED" | Facilitator has not ruled | Run session, Facilitator rulings: mark "Trigger met" or "Not met" |
+| "Open decisions for Round 4" is disabled, or status "EVIDENCE REVIEW REQUIRED" | Evidence rulings not made | Run session, Facilitator rulings: mark "Trigger met" or "Not met" for every team. Rulings are available from Round 3 submissions closed through the Round 4 briefing, and lock once Round 4 decisions open (Step back to change one) |
 | `?tour=1` link does not open the walkthrough | The query parameter is not passed through by the host | Open the walkthrough from the header instead. Check `tourRequested()` in `src/lib/tour-link.ts` |
 | Sticky budget cards overlap the header | `--app-header-h` not set | Check `useStickyHeader` is attached to the header element (`src/lib/sticky-header.ts`) |
 

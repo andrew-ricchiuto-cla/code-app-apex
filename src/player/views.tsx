@@ -30,7 +30,11 @@ export function RoundBriefing({ config, round, result, waitingText, compact }: {
         {!compact && (
           <div className="grid gap-3 sm:grid-cols-3">
             <Stat label="🪙 Investment capital this round" value={`${result.availableCapital}`} />
-            <Stat label="⚡ Leadership capacity this round" value={`${result.availableLc}`} />
+            <Stat
+              label="⚡ Leadership capacity this round"
+              value={`${result.availableLc}`}
+              hint={round === config.totalRounds ? (result.status === "EVIDENCE REVIEW REQUIRED" ? "Facilitator evidence review pending" : "Includes the facilitator's evidence review") : undefined}
+            />
             <Stat label="Response reserve from last round" value={`${result.responseReserve} tokens`} />
           </div>
         )}

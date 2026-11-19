@@ -53,7 +53,7 @@ export function FacilitatorConsole() {
     }
   }
 
-  const pending = pendingRulings(state.currentRound, state.teams, state.config.totalRounds).length;
+  const pending = pendingRulings({ currentRound: state.currentRound, roundPhase: state.roundPhase, totalRounds: state.config.totalRounds }, state.teams).length;
   const openTeam = (id: string) => {
     setTeamId(id);
     setPage("teams");

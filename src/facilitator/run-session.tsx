@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import type { CustomAction, EngineConfig, RoundResult } from "@/engine";
 import { customBandViolations, FACILITATOR_STATUSES, statusExplanation } from "@/lib/checks";
-import { CUSTOM_ACTIONS_ENABLED, effectiveDecisions, emptyRuling, hasCustomProposal, isGameComplete, PHASE, PHASE_LABEL, pendingRulings, zeroCustom, type FacilitatorRuling, type RoundPhase } from "@/lib/game";
+import { CUSTOM_ACTIONS_ENABLED, effectiveDecisions, emptyRuling, hasCustomProposal, isGameComplete, PHASE, PHASE_LABEL, isEvidenceWindowOpen, pendingRulings, zeroCustom, type FacilitatorRuling, type RoundPhase } from "@/lib/game";
 import { fmt1, teamColor } from "@/lib/format";
 import { displayName } from "@/lib/people";
 import { useAllResults, useGame, type TeamState } from "@/lib/store";
@@ -30,7 +30,9 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
   const clock = { currentRound: round, roundPhase: phase, totalRounds: total };
   const theme = state.config.roundThemes.find((t) => t.round === round);
   const submitted = state.teams.filter((t) => t.submitted[round - 1]);
-  const pending = pendingRulings(round, state.teams, total);
+  const pending = pendingRulings(clock, state.teams);
+  const evidencePending = pending.filter((p) => p.kind === "evidence").length;
+  const customPending = pending.length - evidencePending;
   const complete = isGameComplete(clock);
 
   const setClock = (r: number, p: RoundPhase, message: string) => {
@@ -41,7 +43,11 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
   const primary = (() => {
     switch (phase) {
       case PHASE.Briefing:
-        return { label: `Open decisions for Round ${round}`, run: () => setClock(round, PHASE.Open, `Round ${round} decisions are open`) };
+        return {
+          label: `Open decisions for Round ${round}`,
+          disabled: round === total && evidencePending > 0,
+          run: () => setClock(round, PHASE.Open, `Round ${round} decisions are open`),
+        };
       case PHASE.Open:
         return {
           label: submitted.length < state.teams.length ? `Close submissions (${state.teams.length - submitted.length} not submitted)` : "Close submissions",
@@ -104,15 +110,25 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
             ))}
           </ol>
           <PhaseGuidance phase={phase} round={round} total={total} />
-          {phase === PHASE.Closed && pending.length > 0 && (
+          {phase === PHASE.Closed && customPending > 0 && (
             <Alert>
-              <AlertTitle>{pending.length} ruling(s) still open</AlertTitle>
-              <AlertDescription>Resolve them below before revealing. Unresolved items are scored as “not assessed” / not approved.</AlertDescription>
+              <AlertTitle>{customPending} custom action(s) still open</AlertTitle>
+              <AlertDescription>Resolve them below before revealing. Unresolved proposals are scored as not approved.</AlertDescription>
+            </Alert>
+          )}
+          {evidencePending > 0 && (
+            <Alert>
+              <AlertTitle>
+                {evidencePending} Round {total} evidence ruling{evidencePending === 1 ? "" : "s"} still open
+              </AlertTitle>
+              <AlertDescription>
+                Rule on each team below before opening Round {total} decisions. The ruling sets each team&apos;s Round {total} leadership capacity.
+              </AlertDescription>
             </Alert>
           )}
           <div className="flex flex-wrap items-center gap-2">
             {primary ? (
-              <Button size="lg" onClick={primary.run}>
+              <Button size="lg" disabled={primary.disabled} onClick={primary.run}>
                 {primary.label}
               </Button>
             ) : (
@@ -138,10 +154,18 @@ export function RunSession({ onOpenTeam }: { onOpenTeam: (teamId: string) => voi
 
 function PhaseGuidance({ phase, round, total }: { phase: RoundPhase; round: number; total: number }) {
   const text: Record<RoundPhase, string> = {
-    0: `Participants see the Round ${round} briefing and their resources but can't edit yet. Brief the room (Present mode helps), then open decisions.`,
+    0:
+      round === total
+        ? `Participants see the Round ${round} briefing and their resources but can't edit yet. Finish the evidence rulings, brief the room, then open decisions.`
+        : `Participants see the Round ${round} briefing and their resources but can't edit yet. Brief the room (Present mode helps), then open decisions.`,
     1: `Teams are choosing. Watch the tracker${CUSTOM_ACTIONS_ENABLED ? "; price custom actions as they come in" : ""}. Participants can't see any scores.`,
-    2: `Decisions are locked.${round === total ? " Rule on each team's evidence trigger" : CUSTOM_ACTIONS_ENABLED ? " Resolve any custom actions" : ""}, then reveal.`,
-    3: round === total ? "Final results are visible to participants. Use Results for the debrief." : "Participants now see their results and the leaderboard. Debrief, then start the next round.",
+    2: `Decisions are locked.${CUSTOM_ACTIONS_ENABLED ? " Resolve any custom actions, then reveal." : " Reveal when ready."}${round === total - 1 ? ` Rule on each team's evidence trigger before Round ${total} decisions open.` : ""}`,
+    3:
+      round === total
+        ? "Final results are visible to participants. Use Results for the debrief."
+        : round === total - 1
+          ? `Participants now see their results and the leaderboard. Rule on each team's evidence trigger (now or during the Round ${total} briefing), then start the next round.`
+          : "Participants now see their results and the leaderboard. Debrief, then start the next round.",
   };
   return <p className="text-muted-foreground text-sm">{text[phase]}</p>;
 }
@@ -246,11 +270,13 @@ function SubmissionTracker({
 function RulingsQueue({ round }: { round: number }) {
   const { state, dispatch } = useGame();
   const total = state.config.totalRounds;
-  const evidenceTeams = round === total ? state.teams : [];
+  const clock = { currentRound: round, roundPhase: state.roundPhase, totalRounds: total };
+  const evidenceEditable = isEvidenceWindowOpen(clock);
+  const evidenceTeams = evidenceEditable || round === total ? state.teams : [];
   const customTeams = state.teams.filter((t) => hasCustomProposal(t.decisions[round - 1]));
   if (evidenceTeams.length === 0 && customTeams.length === 0) return null;
 
-  const setRuling = (team: TeamState, ruling: FacilitatorRuling) => dispatch({ type: "setRuling", teamId: team.id, round, ruling });
+  const setRuling = (team: TeamState, ruling: FacilitatorRuling, forRound = round) => dispatch({ type: "setRuling", teamId: team.id, round: forRound, ruling });
 
   return (
     <Card className="border-primary/40">
@@ -263,12 +289,16 @@ function RulingsQueue({ round }: { round: number }) {
           <section className="space-y-3">
             <h3 className="text-sm font-bold tracking-wide uppercase">Round {total} evidence review</h3>
             <p className="text-muted-foreground text-xs">
-              Did the team's previously stated leading indicator actually move? “Met” avoids the owner-confidence challenge (Control −4 and −1 LC become 0).
+              Did the team's previously stated leading indicator actually move? “Met” avoids the owner-confidence challenge (Control −4 and −1 LC become 0), so it sets the
+              team's Round {total} leadership capacity.{" "}
+              {evidenceEditable
+                ? `Rule before opening Round ${total} decisions.`
+                : `Locked because Round ${total} decisions are open. Step back to the Round ${total} briefing to change a ruling.`}
             </p>
             {evidenceTeams.map((team) => {
-              const ruling = team.rulings[round - 1] ?? emptyRuling();
+              const ruling = team.rulings[total - 1] ?? emptyRuling();
               const earlier = team.decisions
-                .slice(0, round)
+                .slice(0, total - 1)
                 .map((d, i) => ({ round: i + 1, text: d.narrative.leadingIndicator.trim() }))
                 .filter((x) => x.text !== "");
               return (
@@ -281,13 +311,14 @@ function RulingsQueue({ round }: { round: number }) {
                           key={v}
                           size="sm"
                           variant={ruling.evidence === v ? "default" : "outline"}
-                          onClick={() => setRuling(team, { ...ruling, evidence: v })}
+                          disabled={!evidenceEditable}
+                          onClick={() => setRuling(team, { ...ruling, evidence: v }, total)}
                         >
                           {v === "Yes" ? "Trigger met" : "Not met"}
                         </Button>
                       ))}
-                      {ruling.evidence !== "Not assessed" && (
-                        <Button size="sm" variant="ghost" onClick={() => setRuling(team, { ...ruling, evidence: "Not assessed" })}>
+                      {evidenceEditable && ruling.evidence !== "Not assessed" && (
+                        <Button size="sm" variant="ghost" onClick={() => setRuling(team, { ...ruling, evidence: "Not assessed" }, total)}>
                           Clear
                         </Button>
                       )}

@@ -169,7 +169,7 @@ export const NARRATIVE_FIELDS: NarrativeField[] = [
     guidance:
       "Every portfolio creates pressure somewhere. This field identifies the outcome or stakeholder group that the team has knowingly placed under pressure. The purpose is not to eliminate every risk. It is to show that the team understands the trade-off and has decided that the exposure is acceptable for a period of time.",
     prompt: "Which outcome or stakeholder group are you knowingly putting under pressure, and for how long?",
-    required: false,
+    required: true,
   },
   {
     key: "reconsiderTrigger",
@@ -187,7 +187,7 @@ export const NARRATIVE_FIELDS: NarrativeField[] = [
     guidance:
       "The minority view captures the strongest credible alternative explanation considered by the team before it committed. It is not a list of every objection raised during discussion. Nor is it simply a record that someone disagreed. The entry should explain what the alternative interpretation predicts so that it can later be compared with the results.",
     prompt: "What is the strongest alternative explanation, and what does it predict?",
-    required: false,
+    required: true,
   },
   {
     key: "stakeholderMessage",
@@ -196,7 +196,7 @@ export const NARRATIVE_FIELDS: NarrativeField[] = [
     guidance:
       "The stakeholder message explains the decision to the people affected by it. It should state what the organization is choosing and why the timing matters. The message should acknowledge the near-term trade-off and explain how the organization will determine whether the decision is working.",
     prompt: "What are you choosing, why now, what's the trade-off, and how will you know it's working?",
-    required: false,
+    required: true,
   },
 ];
 
