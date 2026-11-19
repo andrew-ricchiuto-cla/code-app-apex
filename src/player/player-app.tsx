@@ -79,7 +79,7 @@ export function PlayerApp() {
               {team.members.length > 0 && (
                 <div className="mt-1 flex items-center gap-1.5 text-xs text-white/80">
                   <span className="text-saffron">★</span>
-                  {captain ? `Captain: ${displayName(captain.name)}` : "No captain set"}
+                  {captain ? `Scribe: ${displayName(captain.name)}` : "No scribe set"}
                   {user && captain?.upn === user.upn && <Badge className="bg-saffron text-navy ml-1 h-4 px-1.5 text-[10px]">You</Badge>}
                   <span className="text-white/50">· {team.members.length} member{team.members.length === 1 ? "" : "s"}</span>
                 </div>
@@ -147,10 +147,10 @@ export function PlayerApp() {
                   <CardHeader>
                     <CardTitle className="flex flex-wrap items-center gap-2">
                       <span className="text-saffron">★</span>
-                      {captain ? `${displayName(captain.name)} is entering your team's decisions` : "Your team captain is entering decisions"}
+                      {captain ? `${displayName(captain.name)} is entering your team's decisions` : "Your team scribe is entering decisions"}
                     </CardTitle>
                     <CardDescription>
-                      Only the team captain can change and submit choices. Talk it through together. This view updates live as the captain works.
+                      Only the team scribe can change and submit choices. Talk it through together. This view updates live as the scribe works.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

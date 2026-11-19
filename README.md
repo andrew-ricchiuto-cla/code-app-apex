@@ -42,7 +42,7 @@ weak loop drags the whole system down.
 | Environment ID | `<environment-id>` |
 | Org URL | `https://<org>.crm.dynamics.com/` |
 | Solution | `ApexSimulation` (publisher `ModernWorkplace`, prefix `mw`) |
-| Tables | `mw_apexgame`, `mw_apexteam`, `mw_apexteamround` (+ read-only `systemuser`) |
+| Tables | `mw_apexgame`, `mw_apexteam`, `mw_apexteamround` (+ read-only `systemuser`, `role`) |
 | Security roles | `ApexPlayer`, `ApexFacilitator`, `ApexObserver` |
 | Play URL | `https://apps.powerapps.com/play/e/<environment-id>/app/<app-id>` |
 | Repo | `https://github.com/andrew-ricchiuto-cla/code-app-apex` (branch `master`) |
@@ -61,9 +61,15 @@ Status: **pre-production**. Deployed only to the Dev environment.
 
 The landing page offers two doors:
 
-- **Participants** join a game, pick their team, and play.
-- **Facilitators** create and run games (only the game's creator and named co-facilitators can
-  open a game's console).
+- **Participants** see a single **Join game** button that takes them straight to the team they are
+  rostered on (`listMyAssignments` in `src/lib/dataverse-store.ts`). If they are on rosters in more
+  than one active game they pick one; if they are on none, they are told to ask their facilitator
+  (with a fallback to join a game whose teams have no roster).
+- **Facilitators** also see the facilitator door. It appears for users holding the
+  `ApexFacilitator` or `System Administrator` security role (directly or through a Dataverse team;
+  `src/lib/access.ts`), or anyone already listed as a facilitator on a game. Only role holders can
+  create games. Opening a specific game's console still requires being on that game's
+  facilitator list.
 
 Outside the Power Apps host (for example `npm run dev`), both doors use a **local sandbox**
 stored in the browser, which is useful for rehearsal and development.
@@ -76,7 +82,7 @@ stored in the browser, which is useful for rehearsal and development.
 | Decide step 1: **Initiatives** | One `Off / Focused / Accelerated` control per initiative, with costs shown as 🪙 capital and ⚡ leadership capacity. Sticky budget cards show what is left. Options that would exceed a budget are greyed and explain why when clicked. Max 4 initiatives. |
 | Decide step 2: **Enterprise choices** | Distribution posture (Protect / Balance / Moderate), targeted workforce reduction, and the Round 4 strategic option (Round 4 only). |
 | Decide step 3: **Decision record** | Eight reasoning fields with guidance (Diagnosis, Learning since the prior round, Decision hypothesis, Leading indicator, Intentionally exposed, Reconsider/stop/scale trigger, Minority view, Stakeholder message). All fields are required to submit (Learning applies from Round 2). |
-| Decide step 4: **Review & submit** | Summary plus hard checks (budget, intensity, duplicates, missing required fields). Only the team **captain** can submit. |
+| Decide step 4: **Review & submit** | Summary plus hard checks (budget, intensity, duplicates, missing required fields). Only the team **scribe** can submit. |
 | **Reveal** | System Health Index with change and band, rank, the five loops before/after, and business outcomes. Nothing is shown until the facilitator reveals. |
 | **Our company** | Company record by round (with a change column between rounds) and a decisions-by-round table. |
 | **Leaderboard** | All teams, revealed rounds only. |
@@ -91,7 +97,7 @@ stored in the browser, which is useful for rehearsal and development.
 | **Teams** | Per-team tabs: decisions, rulings, index, and the full engine trace ("Under the hood"). |
 | **Results** | Leaderboard for any round, weakest loop by team, debrief prompts, **decision records** (by question or by team), company record, decisions by round. |
 | **Model settings** | Every coefficient, band, initiative, event, and realism rule. **View-only until Edit**; Save and Cancel both confirm. Saving re-scores every team, including revealed rounds. |
-| **Game setup** | Game name, **team rosters** (Teams-style people picker over `systemuser`) with ★ captain, co-facilitators, and (sandbox only) export, import, and reset. |
+| **Game setup** | Game name, **team rosters** (Teams-style people picker over `systemuser`) with ★ scribe, co-facilitators, and (sandbox only) export, import, and reset. |
 
 ---
 
@@ -152,14 +158,14 @@ Key design decisions:
     │   ├── game.ts             Round phases, facilitator rulings, visibility rules
     │   ├── session.ts          Which game/role/team this browser is in (localStorage)
     │   ├── user.ts             Signed-in user from the Power Apps host
-    │   ├── people.ts           systemuser search, captain/membership rules
+    │   ├── people.ts           systemuser search, scribe/membership rules
     │   ├── checks.ts           Pre-submit validation messages
     │   ├── content.ts          Copy: decision-record fields and guidance, primers, prompts
     │   ├── display.ts          Loop rows, baseline snapshot, ranking helpers
     │   ├── tour.tsx, tour-link.ts   Lemonade walkthrough provider and ?tour=1 links
     │   └── sticky-header.ts    Publishes header height as --app-header-h
     ├── player/                 Participant app (folder name predates the "Participant" rename)
-    │   ├── player-app.tsx      Shell, header, tabs, phase routing, captain gate
+    │   ├── player-app.tsx      Shell, header, tabs, phase routing, scribe gate
     │   ├── decide.tsx          Initiatives, enterprise choices, decision record, review
     │   └── views.tsx           Briefing, reveal, leaderboard, company record, primer
     ├── facilitator/            Facilitator console tabs
@@ -168,7 +174,7 @@ Key design decisions:
     │   ├── teams.tsx           Team drill-in and engine trace
     │   ├── results.tsx         Leaderboard, debrief, decision records
     │   ├── model-settings.tsx  Coefficient editors with Edit/Save/Cancel
-    │   ├── setup.tsx           Rosters, captains, co-facilitators, data
+    │   ├── setup.tsx           Rosters, scribes, co-facilitators, data
     │   └── present.tsx         Projector view
     ├── components/             Shared UI (people picker, lemonade tour, under-the-hood, ui/*)
     └── generated/              Generated Dataverse models and services (do not edit)
@@ -202,7 +208,7 @@ client. Rich data is stored as JSON in memo columns.
 | `mw_teamkey` | Text | Stable key, e.g. `team-1` |
 | `mw_sortorder` | Whole number | Display order |
 | `mw_membersjson` | Memo (JSON) | `TeamMember[]`: `{ id, upn, name, email, title? }` |
-| `mw_captainupn` | Text (320) | Lower-cased UPN of the captain. Empty = open team |
+| `mw_captainupn` | Text (320) | Lower-cased UPN of the team scribe (called "captain" in code). Empty = open team |
 
 ### `mw_apexteamround` (one row per team per round, created with the game)
 
@@ -210,7 +216,7 @@ client. Rich data is stored as JSON in memo columns.
 |---|---|---|
 | `mw_gameid`, `mw_teamkey`, `mw_round` | Text, Text, Whole number | Identity |
 | `mw_decisionsjson` | Memo (JSON) | `RoundDecisions`: initiatives, distribution, workforce, strategic option, narrative (decision record) |
-| `mw_submitted` | Yes/No | Locked by the captain's Submit |
+| `mw_submitted` | Yes/No | Locked by the scribe's Submit |
 | `mw_facilitatorjson` | Memo (JSON) | `FacilitatorRuling`: Round 4 evidence trigger and custom-action pricing |
 
 ### `systemuser` (read-only)
@@ -223,7 +229,7 @@ accessmode eq 0`) whose full name, first name, last name, or email starts with t
 | Role | Privileges on the three `mw_apex*` tables |
 |---|---|
 | `ApexPlayer` | Create, Read, Write (Global) |
-| `ApexFacilitator` | Create, Read, Write (Global) |
+| `ApexFacilitator` | Create, Read, Write (Global); also Read on Security Role, User, and Team so the app can detect the role |
 | `ApexObserver` | Read (Global) |
 
 Users also need the app shared with them (`npx pa app share`). System Administrators already
@@ -279,7 +285,7 @@ Briefing (0) ─► Decisions open (1) ─► Submissions closed (2) ─► Resu
 | Phase | Participants see | Facilitator does |
 |---|---|---|
 | Briefing | Scenario and resources, no editing | Brief the room; open decisions |
-| Decisions open | The decide flow (captain edits; teammates read-only) | Watch the tracker; unlock if needed |
+| Decisions open | The decide flow (scribe edits; teammates read-only) | Watch the tracker; unlock if needed |
 | Submissions closed | Locked choices, "waiting for reveal" | Reveal. After Round 3 closes, rule on each team's Round 4 evidence trigger |
 | Results revealed | Reveal, leaderboard, company record | Debrief; start the next round |
 
@@ -295,7 +301,7 @@ round (`isRevealed()` in `src/lib/game.ts`). Unsubmitted drafts are still scored
 | Open a game's facilitator console | `facilitator/console.tsx` | Signed-in UPN is in `mw_facilitatorsjson` |
 | Create a game | Landing page | Any signed-in user; the creator becomes its first facilitator |
 | Join a team | `components/start-screen.tsx`, `lib/people.ts` | Teams with a roster accept only their members; teams with no roster are open |
-| Edit and submit a team's decisions | `player/player-app.tsx` (`canEditTeam`) | Only the captain; if no captain is set, any member |
+| Edit and submit a team's decisions | `player/player-app.tsx` (`canEditTeam`) | Only the scribe; if no scribe is set, any member |
 | See other teams' decision records and unrevealed scores | Facilitator console only | Never shown in the participant app |
 
 > **Important:** these checks are enforced **in the app UI**, not by Dataverse row-level
@@ -361,9 +367,9 @@ Useful scripts:
   4. `npm test`. Any failures show exactly which column and round now differ.
 - **UI:** no automated UI tests. Changes have been verified manually in the local sandbox.
   Recommended smoke test before a release:
-  1. Facilitator: create a game, add a roster with a captain, open Round 1.
-  2. Participant (captain): select initiatives, complete the decision record, submit.
-  3. Participant (non-captain): confirm read-only view.
+  1. Facilitator: create a game, add a roster with a scribe, open Round 1.
+  2. Participant (scribe): select initiatives, complete the decision record, submit.
+  3. Participant (non-scribe): confirm read-only view.
   4. Facilitator: close, reveal, check Results and decision records; run through Round 4 including
      the evidence ruling.
 
@@ -468,10 +474,10 @@ queue on Run session.
 | "This game was built for an earlier version of the model and has been retired" | Game's stored config is not `configVersion` 2 | Create a new game (old games cannot be migrated) |
 | "Facilitator access required" | User's UPN is not in `mw_facilitatorsjson` | Game setup, Facilitators: add their work email (UPN, lower-cased) |
 | Participant cannot select their team (greyed) | Team has a roster that does not include them | Add them in Game setup, Teams. The landing page also says "You aren't on a team roster" |
-| Participant sees "X is entering your team's decisions" | They are not the captain | Expected. Change the captain (★) in Game setup if needed |
+| Participant sees "X is entering your team's decisions" | They are not the scribe | Expected. Change the scribe (★) in Game setup if needed |
 | Sync badge shows **Sync error** or a "Save failed" toast | Dataverse write failed (permissions, throttling, network) | Check the user has `ApexPlayer` (or another role with table access); look at the browser network tab for the failing request. The change is kept locally and retried on the next edit |
 | Another device's change does not appear | Polling delay or a row protected while being edited locally | Wait about 5 s. Changes the local device made within the last 2.5 s win locally until the next poll |
-| Two people overwrote each other's decisions | Last write wins per team-round row | Use captains; only one person should edit a team's decisions |
+| Two people overwrote each other's decisions | Last write wins per team-round row | Use scribes; only one person should edit a team's decisions |
 | People picker finds nobody | User is not in the environment, is disabled, or is non-interactive | Confirm the person exists as an enabled interactive user in the Dev environment. Search needs 2+ characters |
 | People picker says "Type an email and press Enter" | Running in the sandbox (no directory) | Expected outside the Power Apps host |
 | Scores look wrong | Model changed, or rulings not set | Facilitator Teams tab, "Under the hood" trace shows every stage. Compare with the workbook Engine tab using the column references in `engine.ts` |
@@ -508,8 +514,8 @@ Clearing them returns the browser to the landing page (shared game data in Datav
 
 | Area | Limitation | Recommended action |
 |---|---|---|
-| **Security** | Facilitator access and captain-only editing are enforced in the UI. `ApexPlayer` has org-wide create/read/write on the three tables, so a technical user could modify rows directly through the API. | Acceptable for a facilitated training exercise. For production, consider team ownership with row-level security, or explicitly accept the risk |
-| **Concurrency** | Last write wins per row; no optimistic concurrency (ETag) checks | Captain-only editing mitigates. Add ETags if multiple editors are ever needed |
+| **Security** | Facilitator access and scribe-only editing are enforced in the UI. `ApexPlayer` has org-wide create/read/write on the three tables, so a technical user could modify rows directly through the API. | Acceptable for a facilitated training exercise. For production, consider team ownership with row-level security, or explicitly accept the risk |
+| **Concurrency** | Last write wins per row; no optimistic concurrency (ETag) checks | Scribe-only editing mitigates. Add ETags if multiple editors are ever needed |
 | **Scale** | Each device polls about 3 queries every 5 s. Not load-tested | Well within per-user Dataverse limits, but run a multi-device dry run before production |
 | **Testing** | Engine is fully tested; UI is manually tested only | Add Playwright smoke tests if the app grows |
 | **ALM** | Deployed directly to a Dev environment with `pa app push`; no managed solution or pipeline | Export a managed solution; deploy through Test to Production |
@@ -533,7 +539,7 @@ Clearing them returns the browser to the landing page (shared game data in Datav
 | **Response reserve** | Unused LC carried forward that softens the next round's negative events |
 | **System Health Index** | `clamp(0, 100, 50 + 1.25 × (raw − 50))`, where raw is the geometric mean of the five loops; Round 4 blends 70% current with 30% projected terminal state |
 | **Decision record** | The eight reasoning fields a team completes before submitting (formerly "Rationale") |
-| **Captain** | The one team member who can edit and submit |
+| **Scribe** | The one team member who can edit and submit (stored as `captainUpn` / `mw_captainupn`) |
 | **Ruling** | Facilitator-only input on a team-round (Round 4 evidence trigger; custom-action pricing) |
 
 ### Key constants

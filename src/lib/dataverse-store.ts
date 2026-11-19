@@ -189,6 +189,30 @@ export const writeRoundSubmitted = (roundRowId: string, submitted: boolean) =>
 export const writeRuling = (roundRowId: string, ruling: FacilitatorRuling) =>
   Mw_apexteamroundsService.update(roundRowId, { mw_facilitatorjson: JSON.stringify(ruling) });
 
+export interface TeamAssignment extends TeamSummary {
+  gameId: string;
+}
+
+/** Every team (across active games) whose roster includes this user. */
+export async function listMyAssignments(upn: string): Promise<TeamAssignment[]> {
+  if (!upn) return [];
+  const escaped = upn.toLowerCase().replace(/'/g, "''");
+  const result = await Mw_apexteamsService.getAll({
+    select: ["mw_gameid", "mw_teamkey", "mw_name", "mw_membersjson", "mw_captainupn"],
+    filter: `statecode eq 0 and contains(mw_membersjson,'${escaped}')`,
+    top: 100,
+  });
+  return (result.data ?? [])
+    .map((t) => ({
+      gameId: t.mw_gameid ?? "",
+      teamKey: t.mw_teamkey ?? "",
+      name: t.mw_name ?? t.mw_teamkey ?? "",
+      members: parseJson<TeamMember[]>(t.mw_membersjson, () => []),
+      captainUpn: (t.mw_captainupn ?? "").toLowerCase(),
+    }))
+    .filter((t) => t.members.some((m) => m.upn === upn.toLowerCase()));
+}
+
 export async function listGameTeams(gameId: string): Promise<TeamSummary[]> {
   const escaped = gameId.replace(/'/g, "''");
   const result = await Mw_apexteamsService.getAll({

@@ -56,7 +56,7 @@ export const avatarColor = (seed: string) => {
 export const isMember = (team: Pick<TeamState, "members">, upn: string | undefined) =>
   !!upn && team.members.some((m) => m.upn === upn);
 
-/** Who may change and submit a team's decisions. No captain set = open team. */
+/** Who may change and submit a team's decisions. No scribe set = open team. */
 export function canEditTeam(team: Pick<TeamState, "captainUpn">, upn: string | undefined, sandbox: boolean): boolean {
   if (sandbox || !team.captainUpn) return true;
   return !!upn && upn === team.captainUpn;

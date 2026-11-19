@@ -216,7 +216,7 @@ function SubmissionTracker({
                     {team.name}
                     {team.members.length > 0 && (
                       <div className="text-muted-foreground pl-4.5 text-xs font-normal">
-                        <span className="text-saffron">★</span> {displayName(team.members.find((m) => m.upn === team.captainUpn)?.name ?? "No captain")} ·{" "}
+                        <span className="text-saffron">★</span> {displayName(team.members.find((m) => m.upn === team.captainUpn)?.name ?? "No scribe")} ·{" "}
                         {team.members.length} member{team.members.length === 1 ? "" : "s"}
                       </div>
                     )}

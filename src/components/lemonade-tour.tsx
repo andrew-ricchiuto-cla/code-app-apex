@@ -241,7 +241,7 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
                 once.
               </p>
               <Callout>
-                On a real team, only the <strong>★ team captain</strong> clicks Submit. Everyone else watches live and argues helpfully.
+                On a real team, only the <strong>★ team scribe</strong> clicks Submit. Everyone else watches live and argues helpfully.
               </Callout>
               <div className="bg-muted text-muted-foreground flex items-center gap-2 rounded-lg px-3 py-2 text-sm">
                 <span className="bg-control size-2 animate-pulse rounded-full" />
@@ -303,7 +303,7 @@ export function LemonadeTour({ open, onOpenChange }: { open: boolean; onOpenChan
                   ["Briefing", "Read the scenario and your resources."],
                   ["Decide", "Pick up to 4 initiatives (Focused or Accelerated) and set enterprise choices, within capital and leadership capacity."],
                   ["Decision record", "Diagnosis, learning, hypothesis, leading indicator, and more. Your reasoning, written before you see the result."],
-                  ["Submit", "The captain locks it in. Then you wait."],
+                  ["Submit", "The scribe locks it in. Then you wait."],
                   ["Reveal", "See your System Health Index, your five loops, and the leaderboard."],
                 ].map(([t, d], i) => (
                   <li key={t} className="flex gap-3">

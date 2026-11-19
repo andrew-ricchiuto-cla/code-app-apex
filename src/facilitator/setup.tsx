@@ -20,7 +20,7 @@ import { normalizeEmail, useCurrentUser } from "@/lib/user";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Name, members, and captain for every team. Only the captain can edit and submit decisions. */
+/** Name, members, and captain for every team. Only the scribe can edit and submit decisions. */
 function TeamRosters({ directory }: { directory: boolean }) {
   const { state, dispatch } = useGame();
 
@@ -38,7 +38,7 @@ function TeamRosters({ directory }: { directory: boolean }) {
       <CardHeader>
         <CardTitle>Teams</CardTitle>
         <CardDescription>
-          Add people from the directory and pick a captain (★). Only the captain can change and submit their team's decisions; everyone else on the
+          Add people from the directory and pick a scribe (★). Only the scribe can change and submit their team's decisions; everyone else on the
           team follows along read-only. A team with no members is open to anyone who joins it.
         </CardDescription>
       </CardHeader>
@@ -62,7 +62,7 @@ function TeamRosters({ directory }: { directory: boolean }) {
                 <p className="text-muted-foreground pl-5 text-xs">
                   {team.members.length === 0
                     ? "Open team"
-                    : `${team.members.length} member${team.members.length === 1 ? "" : "s"} · Captain: ${captain ? displayName(captain.name) : "none"}`}
+                    : `${team.members.length} member${team.members.length === 1 ? "" : "s"} · Scribe: ${captain ? displayName(captain.name) : "none"}`}
                 </p>
               </div>
               <PeoplePicker
@@ -76,8 +76,8 @@ function TeamRosters({ directory }: { directory: boolean }) {
                   return (
                     <button
                       type="button"
-                      title={isCaptain ? "Team captain" : "Make team captain"}
-                      aria-label={isCaptain ? `${displayName(m.name)} is team captain` : `Make ${displayName(m.name)} team captain`}
+                      title={isCaptain ? "Team scribe" : "Make team scribe"}
+                      aria-label={isCaptain ? `${displayName(m.name)} is team scribe` : `Make ${displayName(m.name)} team scribe`}
                       aria-pressed={isCaptain}
                       className={cn("rounded-full px-0.5 leading-none", isCaptain ? "text-saffron" : "text-muted-foreground/50 hover:text-saffron")}
                       onClick={(e) => {
@@ -94,7 +94,7 @@ function TeamRosters({ directory }: { directory: boolean }) {
           );
         })}
         {!directory && (
-          <p className="text-muted-foreground text-xs">Sandbox: directory search needs the Power Apps host, so add people by email here. Captain rules are not enforced in the sandbox.</p>
+          <p className="text-muted-foreground text-xs">Sandbox: directory search needs the Power Apps host, so add people by email here. Scribe rules are not enforced in the sandbox.</p>
         )}
       </CardContent>
     </Card>

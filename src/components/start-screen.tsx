@@ -1,5 +1,7 @@
-// Landing: two clearly separate doors — players join their team, facilitators
-// open the console. Outside Power Apps both doors use the local sandbox.
+// Landing. Participants get a single "Join game" that routes them to the team
+// they are rostered on. Users with a facilitator security role (or who already
+// facilitate a game) also see the facilitator door. Outside Power Apps both
+// doors use the local sandbox.
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -8,12 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { SharedGameSummary } from "@/lib/dataverse-store";
+import type { SharedGameSummary, TeamAssignment } from "@/lib/dataverse-store";
+import { hasFacilitatorRole } from "@/lib/access";
 import { PHASE_LABEL } from "@/lib/game";
 import { teamColor } from "@/lib/format";
 import { LOOP_META } from "@/lib/loops";
 import type { Session } from "@/lib/session";
-import { canJoinTeam, isMember } from "@/lib/people";
+import { canJoinTeam, displayName, isMember } from "@/lib/people";
 import { useTour } from "@/lib/tour";
 import { peekLocalTeams, type TeamSummary } from "@/lib/store";
 import { useCurrentUser } from "@/lib/user";
@@ -27,6 +30,20 @@ export function StartScreen({ onStart }: Props) {
   const user = useCurrentUser();
   const shared = !!user;
   const [games, setGames] = useState<SharedGameSummary[] | null>(null);
+  const [roleFacilitator, setRoleFacilitator] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void hasFacilitatorRole(user).then((ok) => !cancelled && setRoleFacilitator(ok));
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const upn = user?.upn ?? "";
+  const facilitatesAGame = (games ?? []).some((g) => g.facilitators.map((f) => f.toLowerCase()).includes(upn));
+  const showFacilitator = !shared || roleFacilitator === true || facilitatesAGame;
 
   useEffect(() => {
     if (!shared) return;
@@ -64,9 +81,9 @@ export function StartScreen({ onStart }: Props) {
       {user === undefined ? (
         <p className="text-muted-foreground text-center text-sm">Connecting…</p>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <PlayerDoor shared={shared} games={games} upn={user?.upn} onStart={onStart} />
-          <FacilitatorDoor shared={shared} games={games} upn={user?.upn ?? ""} onStart={onStart} />
+        <div className={cn("grid gap-6", showFacilitator ? "lg:grid-cols-2" : "mx-auto max-w-xl")}>
+          {shared ? <JoinGameDoor games={games} upn={upn} onStart={onStart} /> : <PlayerDoor shared={false} games={games} onStart={onStart} />}
+          {showFacilitator && <FacilitatorDoor shared={shared} games={games} upn={upn} canCreate={!shared || roleFacilitator === true} onStart={onStart} />}
         </div>
       )}
       {user === null && (
@@ -115,7 +132,7 @@ function TeamPicker({ teams, value, onChange, upn }: { teams: TeamSummary[]; val
             <span className="size-3 shrink-0 rounded-full" style={{ background: teamColor(i) }} />
             <span className="min-w-0 flex-1 truncate">{t.name}</span>
             {isCaptain ? (
-              <span className="text-saffron" title="You're the captain">
+              <span className="text-saffron" title="You're the scribe">
                 ★
               </span>
             ) : mine ? (
@@ -128,7 +145,108 @@ function TeamPicker({ teams, value, onChange, upn }: { teams: TeamSummary[]; val
   );
 }
 
-function PlayerDoor({ shared, games, upn, onStart }: { shared: boolean; games: SharedGameSummary[] | null; upn?: string; onStart: (s: Session) => void }) {
+function JoinGameDoor({ games, upn, onStart }: { games: SharedGameSummary[] | null; upn: string; onStart: (s: Session) => void }) {
+  const [assignments, setAssignments] = useState<TeamAssignment[] | null>(null);
+  const [picked, setPicked] = useState(0);
+  const [browse, setBrowse] = useState(false);
+  const { openTour } = useTour();
+
+  useEffect(() => {
+    let cancelled = false;
+    void import("@/lib/dataverse-store")
+      .then((dv) => dv.listMyAssignments(upn))
+      .then((list) => !cancelled && setAssignments(list))
+      .catch(() => !cancelled && setAssignments([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [upn]);
+
+  if (browse) return <PlayerDoor shared games={games} upn={upn} onStart={onStart} onBack={() => setBrowse(false)} />;
+
+  const order = new Map((games ?? []).map((g, i) => [g.id, i]));
+  const mine = (assignments ?? [])
+    .filter((a) => order.has(a.gameId))
+    .sort((a, b) => order.get(a.gameId)! - order.get(b.gameId)!)
+    .map((a) => ({ ...a, game: games!.find((g) => g.id === a.gameId)! }));
+  const loading = games === null || assignments === null;
+  const choice = mine[Math.min(picked, mine.length - 1)];
+
+  return (
+    <DoorCard tone="player" title="Join your team" subtitle="Make decisions with your team and see results when your facilitator reveals each round.">
+      {loading ? (
+        <p className="text-muted-foreground text-sm">Finding your team…</p>
+      ) : mine.length === 0 ? (
+        <div className="bg-muted rounded-lg p-3 text-sm">
+          You aren&apos;t on a team roster yet. Your facilitator adds you to a team before the session starts.
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {mine.map((a, i) => {
+            const n = Number(/(\d+)$/.exec(a.teamKey)?.[1] ?? 1);
+            const scribe = a.members.find((m) => m.upn === a.captainUpn);
+            const selected = choice === a;
+            return (
+              <button
+                key={`${a.gameId}:${a.teamKey}`}
+                onClick={() => setPicked(i)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left",
+                  mine.length > 1 && selected ? "border-navy bg-riptide/15 ring-navy ring-2" : mine.length > 1 ? "hover:border-riptide" : "cursor-default",
+                )}
+              >
+                <span className="size-3.5 shrink-0 rounded-full" style={{ background: teamColor(n - 1) }} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">{a.name}</span>
+                  <span className="text-muted-foreground block text-xs">
+                    {a.game.name} · Round {a.game.currentRound} · {PHASE_LABEL[a.game.roundPhase]}
+                  </span>
+                </span>
+                {a.captainUpn === upn ? (
+                  <Badge className="bg-saffron text-navy">★ You&apos;re the scribe</Badge>
+                ) : scribe ? (
+                  <span className="text-muted-foreground text-xs">Scribe: {displayName(scribe.name)}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <Button
+        size="lg"
+        className="bg-navy hover:bg-navy/90 w-full"
+        disabled={!choice}
+        onClick={() => choice && onStart({ mode: "shared", gameId: choice.gameId, gameName: choice.game.name, role: "team", teamKey: choice.teamKey })}
+      >
+        Join game
+      </Button>
+      <div className="flex flex-wrap items-center justify-center gap-x-4">
+        <Button variant="link" className="text-navy" onClick={openTour}>
+          🍋 New here? See how a round works (2 min)
+        </Button>
+        {!loading && mine.length === 0 && (games ?? []).length > 0 && (
+          <Button variant="link" className="text-muted-foreground" onClick={() => setBrowse(true)}>
+            Join a game without a roster
+          </Button>
+        )}
+      </div>
+    </DoorCard>
+  );
+}
+
+function PlayerDoor({
+  shared,
+  games,
+  upn,
+  onStart,
+  onBack,
+}: {
+  shared: boolean;
+  games: SharedGameSummary[] | null;
+  upn?: string;
+  onStart: (s: Session) => void;
+  onBack?: () => void;
+}) {
   const [gameId, setGameId] = useState("");
   const [teams, setTeams] = useState<TeamSummary[]>(() => (shared ? [] : peekLocalTeams()));
   const [teamKey, setTeamKey] = useState("");
@@ -211,11 +329,28 @@ function PlayerDoor({ shared, games, upn, onStart }: { shared: boolean; games: S
       <Button variant="link" className="text-navy w-full" onClick={openTour}>
         🍋 New here? See how a round works (2 min)
       </Button>
+      {onBack && (
+        <Button variant="link" className="text-muted-foreground w-full" onClick={onBack}>
+          Back
+        </Button>
+      )}
     </DoorCard>
   );
 }
 
-function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; games: SharedGameSummary[] | null; upn: string; onStart: (s: Session) => void }) {
+function FacilitatorDoor({
+  shared,
+  games,
+  upn,
+  canCreate,
+  onStart,
+}: {
+  shared: boolean;
+  games: SharedGameSummary[] | null;
+  upn: string;
+  canCreate: boolean;
+  onStart: (s: Session) => void;
+}) {
   const [name, setName] = useState("Apex Simulation");
   const [teamCount, setTeamCount] = useState(6);
   const [busy, setBusy] = useState(false);
@@ -243,7 +378,7 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
           {games === null ? (
             <p className="text-muted-foreground text-sm">Loading…</p>
           ) : mine.length === 0 ? (
-            <p className="text-muted-foreground text-sm">None yet. Create one below, or ask a game's creator to add {upn || "you"} as a co-facilitator.</p>
+            <p className="text-muted-foreground text-sm">None yet. {canCreate ? "Create one below, or ask" : "Ask"} a game's creator to add {upn || "you"} as a co-facilitator.</p>
           ) : (
             <div className="space-y-1.5">
               {mine.map((g) => (
@@ -268,7 +403,7 @@ function FacilitatorDoor({ shared, games, upn, onStart }: { shared: boolean; gam
         </div>
       )}
 
-      {shared && (
+      {shared && canCreate && (
         <div className="space-y-2 rounded-lg border p-3">
           <div className="text-sm font-semibold">Create a new game</div>
           <div className="flex flex-wrap items-end gap-3">
