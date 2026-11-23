@@ -1,5 +1,5 @@
 param(
-  [string]$OrgUrl = "https://<org>.crm.dynamics.com",
+  [Parameter(Mandatory)][string]$OrgUrl,
   [string]$Solution = "ApexSimulation",
   [switch]$WhatIf
 )

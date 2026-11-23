@@ -37,14 +37,10 @@ weak loop drags the whole system down.
 | Item | Value |
 |---|---|
 | App | **Apex Simulation** (Power Apps Code App) |
-| App ID | `<app-id>` |
-| Environment | **the Dev environment** |
-| Environment ID | `<environment-id>` |
-| Org URL | `https://<org>.crm.dynamics.com/` |
+| Environment | Dev (pre-production). App, environment, and org IDs live in your local `power.config.json` |
 | Solution | `ApexSimulation` (publisher `ModernWorkplace`, prefix `mw`) |
 | Tables | `mw_apexgame`, `mw_apexteam`, `mw_apexteamround` (+ read-only `systemuser`, `role`) |
 | Security roles | `ApexPlayer`, `ApexFacilitator`, `ApexObserver` |
-| Play URL | `https://apps.powerapps.com/play/e/<environment-id>/app/<app-id>` |
 | Repo | `https://github.com/andrew-ricchiuto-cla/code-app-apex` (branch `master`) |
 | Stack | React 19, TypeScript 5.9, Vite 7, Tailwind CSS v4, shadcn/ui (Radix), Recharts, Vitest |
 | Tooling | Node 24, Power Apps CLI `@microsoft/power-apps-cli` 1.1 (`npx pa`) |
@@ -137,7 +133,7 @@ Key design decisions:
 ## 4. Repository layout
 
 ```
-├── power.config.json           Code App manifest: app ID, environment ID, data sources
+├── power.config.example.json   Code App manifest template; copy to power.config.json (gitignored)
 ├── .power/schemas/             Generated Dataverse schemas (committed; required to build)
 ├── scripts/
 │   ├── extract_golden.py       Regenerates engine test fixtures from the workbook
@@ -320,7 +316,7 @@ round (`isRevealed()` in `src/lib/game.ts`). Unsubmitted drafts are still scored
 
 ## 8. Local development
 
-Prerequisites: Node 24 (Node 20+ should work), npm, and access to the the Dev environment environment
+Prerequisites: Node 24 (Node 20+ should work), npm, and access to the Dev environment
 for anything that touches Dataverse.
 
 ```bash
@@ -377,7 +373,10 @@ Useful scripts:
 
 ## 10. Deployment
 
-Deployment pushes the built bundle to the existing app ID in `power.config.json`.
+Deployment pushes the built bundle to the app ID in `power.config.json`. That file is gitignored
+because it holds environment-specific IDs. On a fresh clone, copy `power.config.example.json` to
+`power.config.json` and fill in `appId` and `environmentId` (ask the app owner, or read them from the
+app's details page in make.powerapps.com).
 
 ```bash
 npx pa auth login            # browser sign-in (device-code sign-in is blocked in this tenant)

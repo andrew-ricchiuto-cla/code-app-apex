@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "appId": "<app-id>",
+  "appDisplayName": "Apex Simulation",
+  "region": "prod",
+  "appType": "CodeApp",
+  "environmentId": "<environment-id>",
+  "description": " ",
+  "buildPath": "./dist",
+  "buildEntryPoint": "index.html",
+  "localAppUrl": "http://localhost:3000",
+  "logoPath": "Default",
+  "connectionReferences": {},
+  "databaseReferences": {
+    "default.cds": {
+      "dataSources": {
+        "apexgames": {
+          "entitySetName": "mw_apexgames",
+          "logicalName": "mw_apexgame",
+          "isHidden": false
+        },
+        "apexteams": {
+          "entitySetName": "mw_apexteams",
+          "logicalName": "mw_apexteam",
+          "isHidden": false
+        },
+        "apexteamrounds": {
+          "entitySetName": "mw_apexteamrounds",
+          "logicalName": "mw_apexteamround",
+          "isHidden": false
+        },
+        "users": {
+          "entitySetName": "systemusers",
+          "logicalName": "systemuser",
+          "isHidden": false
+        },
+        "securityroles": {
+          "entitySetName": "roles",
+          "logicalName": "role",
+          "isHidden": false
+        }
+      },
+      "environmentVariableName": ""
+    }
+  }
+}
