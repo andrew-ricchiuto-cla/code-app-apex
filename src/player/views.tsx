@@ -193,8 +193,8 @@ export function Leaderboard({
                 <TableHead>Team</TableHead>
                 <TableHead className="text-right">Index</TableHead>
                 <TableHead className="text-right">Change</TableHead>
-                <TableHead>Band</TableHead>
                 <TableHead className="text-right">Revenue</TableHead>
+                <TableHead className="text-right">Margin</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -219,8 +219,8 @@ export function Leaderboard({
                   <TableCell className={cn("text-right font-mono", delta !== null && delta < 0 ? "text-destructive" : "text-cash")}>
                     {delta === null ? "-" : signed(delta)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{r?.healthBand}</TableCell>
                   <TableCell className="text-right font-mono">{r ? money(r.revenue) : "-"}</TableCell>
+                  <TableCell className="text-right font-mono">{r ? pct(r.margin) : "-"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

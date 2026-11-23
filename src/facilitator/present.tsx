@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { HealthChart } from "@/components/health-chart";
 import { lastRevealedRound, PHASE } from "@/lib/game";
-import { fmt1, teamColor } from "@/lib/format";
+import { fmt1, money, pct, teamColor } from "@/lib/format";
 import { LOOP_META } from "@/lib/loops";
 import { useAllResults, useGame } from "@/lib/store";
 
@@ -54,7 +54,7 @@ export function PresentMode({ onClose }: { onClose: () => void }) {
                   <span className="w-10 font-mono text-3xl font-black text-saffron">{rank + 1}</span>
                   <span className="size-4 rounded-full" style={{ background: teamColor(index) }} />
                   <span className="grow text-2xl font-bold">{team.name}</span>
-                  <span className="text-sm text-white/70">{r?.healthBand}</span>
+                  <span className="text-sm text-white/70">{r ? `${money(r.revenue)} revenue · ${pct(r.margin)} margin` : ""}</span>
                   <span className="w-28 text-right font-mono text-4xl font-black">{r ? fmt1(r.systemHealth) : "-"}</span>
                 </div>
               ))}
