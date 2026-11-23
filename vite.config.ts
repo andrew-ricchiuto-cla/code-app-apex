@@ -17,11 +17,9 @@ export default defineConfig({
       output: {
         // Keep individual assets small; large single-file uploads get reset by the corporate network.
         manualChunks(id) {
+          // Only two vendor chunks, one-directional (charts -> vendor), to avoid circular init order.
           if (!id.includes("node_modules")) return;
-          if (/[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "react";
-          if (id.includes("recharts") || id.includes("d3-")) return "charts";
-          if (id.includes("@radix-ui") || id.includes("lucide-react")) return "ui";
-          if (id.includes("@microsoft")) return "powerapps";
+          if (/[\\/](recharts|d3-[^\\/]+|victory-vendor)[\\/]/.test(id)) return "charts";
           return "vendor";
         },
       },
